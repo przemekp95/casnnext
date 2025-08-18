@@ -6,20 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "node scripts/seed.cjs"
   },
   "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "@popperjs/core": "^2.11.8",
+    "@prisma/client": "^6.14.0",
+    "bcrypt": "^6.0.0",
+    "bootstrap": "^5.3.7",
+    "next": "15.4.6",
+    "next-auth": "^4.24.11",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.4.6"
+    "zod": "^4.0.17"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
-    "@eslint/eslintrc": "^3"
+    "lighthouse": "^12.8.1",
+    "prisma": "^6.14.0",
+    "typescript": "^5"
   }
 }

@@ -1,3 +1,75 @@
+// app/layout.tsx
+import "./globals.css";
+import "./legacy.css";
+
+import { Roboto, Rubik } from "next/font/google";
+
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import CtaSection from "@/components/CtaSection";
+
+const roboto = Roboto({
+  weight: ["400", "500", "700"],
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+});
+
+const rubik = Rubik({
+  weight: ["300", "400", "500", "700"],
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+});
+
+export const metadata = {
+  metadataBase: new URL("https://casn.pl"),
+  title: "Centrum Analiz Służby Niepodległej",
+  description: "Strona Centrum Analiz Fundacji Służby Niepodległej",
+  keywords: "centrum analiz, fundacja służba niepodległej, ngo",
+  authors: [{ name: "Zoyothemes" }],
+  icons: {
+    icon: "/images/favicon.ico",
+    shortcut: "/images/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  verification: {
+    google: "m2YyW7pzg0z3nL2idpMZ2finxS8sCwvYKOe4whiY3kA",
+  },
+  openGraph: {
+    images: "/images/home2.webp",
+  },
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pl" className={`${roboto.className} ${rubik.className}`}>
+      <body className="bg-white text-black">
+        <Header />
+        <main className="w-full min-h-screen">{children}</main>
+        <CtaSection />
+        <Footer />
+
+        {/* (Opcjonalnie) prosty toggle mobilnego menu, jeśli nie masz legacy JS */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+            document.addEventListener('click', function(e){
+              var toggle = e.target.closest('.navbar-toggle');
+              if (toggle) {
+                e.preventDefault();
+                var nav = document.getElementById('navigation');
+                if (nav) nav.classList.toggle('open');
+              }
+            });
+          `,
+          }}
+        />
+      </body>
+    </html>
+  );
+}
+
+
+/*
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -30,3 +102,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+*/

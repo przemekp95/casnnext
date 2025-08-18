@@ -1,0 +1,16 @@
+import { prisma } from "@/lib/prisma";
+import { notFound } from "next/navigation";
+export const revalidate = 60;
+
+export default async function ArticlePage({ params }: { params: { slug: string } }) {
+  const post = await prisma.article.findUnique({ where: { slug: params.slug } });
+  if (!post || !post.published) return notFound();
+
+  return (
+    <div className="container py-4">
+      <h1 className="h2 mb-3">{post.title}</h1>
+      {post.excerpt && <p className="text-muted">{post.excerpt}</p>}
+      <article className="mt-3" dangerouslySetInnerHTML={{ __html: post.contentMd }} />
+    </div>
+  );
+}
