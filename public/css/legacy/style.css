@@ -33,6 +33,11 @@
     1. Basic
 *****************/
 
+.float-right {
+    float: right !important;
+}
+
+
 body {
     font-family: 'Roboto', sans-serif;
 }
@@ -172,13 +177,14 @@ p {
 *****************/
 
 .bg-home {
-    background-image: url(../images/logo.jpg);
-background-repeat: space;
-    background-position: center;
-    background-size: 50px 50px; /* Rozmiar grafiki */
-    background-position: 10px 10px; /* Odstęp między powtórzeniami */
-background-size: auto;
+  background-image: url("/images/logo.jpg"), url("/images/logo.jpg");
+  background-repeat: repeat-x, repeat-x;
+  background-size: 80px 80px, 80px 80px;       /* logo powiększone do 80px */
+  background-position: center 0, center 100px; /* odstęp pionowy między liniami */
+  background-color: #fff;                      /* tło białe pod spodem */
+  height: 180px;                               /* wysokość sekcji na 2 rzędy */
 }
+
 
 
 

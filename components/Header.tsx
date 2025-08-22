@@ -46,7 +46,7 @@ export default function Header() {
               <Link href="/autorzy">Autorzy</Link>
             </li>
 
-            <li className="has-submenu">
+            {/*<li className="has-submenu">
               <a href="#">Analizy</a>
               <span className="menu-arrow"></span>
               <ul className="submenu">
@@ -56,31 +56,33 @@ export default function Header() {
                   <ul className="submenu" style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
                     <li><Link href="/wot-balcerowski">Wojska Obrony Terytorialnej...</Link></li>
                     <li><Link href="/kochman-artykul">Rozwój otoczenia instytucjonalnego...</Link></li>
-                    {/* reszta 2022 */}
+                    
                   </ul>
-                </li>
+                </li>*/}
 
-                <li className="has-submenu">
+
+                {/*<li className="has-submenu">
                   <a href="#">2023</a>
                   <span className="menu-arrow"></span>
                   <ul className="submenu" style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
                     <li><Link href="/wos-artykul">Solidarność 2023</Link></li>
                     <li><Link href="/gursztyn-artykul">Porażki polskiej polityki wschodniej...</Link></li>
-                    {/* reszta 2023 */}
+                    
                   </ul>
-                </li>
+                </li>*/}
 
-                <li className="has-submenu">
+
+                {/*<li className="has-submenu">
                   <a href="#">2024</a>
                   <span className="menu-arrow"></span>
                   <ul className="submenu" style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
                     <li><Link href="/balcerowski-wegry">Czy Polacy potrzebują biało-czerwonego Orbana?</Link></li>
                     <li><Link href="/balcerowski-nacjonalizm">O pojęciu Nacjonalizm...</Link></li>
-                    {/* reszta 2024 */}
+                    
                   </ul>
                 </li>
               </ul>
-            </li>
+            </li> */}
 
             <li className="active">
               <Link href="/zbiory">Zbiory analiz</Link>

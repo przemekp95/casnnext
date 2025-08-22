@@ -1,6 +1,8 @@
 // app/layout.tsx
 import "./globals.css";
 import "./legacy.css";
+import "@mdi/font/css/materialdesignicons.min.css"; // <- MDI
+
 
 import { Roboto, Rubik } from "next/font/google";
 
