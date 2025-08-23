@@ -15,15 +15,15 @@ export default async function AuthorsPage() {
   });
 
   return (
-    <main>
+    <main className=" bg-gray-100 min-h-screen pb-12">
       {/* OUR TEAM HOME START */}
-      <section className="our-team-home section" id="home">
+      <section className="contact-us-home section" id="home">
         <div className="bg-overlay"></div>
         <div className="home-center">
           <div className="home-desc-center">
             <div className="container">
               <div className="row justify-content-center">
-                <div className="col-lg-8">
+                <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
                   <div className="home-page-title text-center">
                     <h1 className="text-white mb-2">Nasi autorzy</h1>
                     <nav aria-label="breadcrumb">
