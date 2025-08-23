@@ -6,7 +6,7 @@ import matter from "gray-matter";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import ArticleLayout from "@/components/ArticleLayout";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+// import Footer from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 
 function replacePlaceholders(str: string | undefined, placeholders: Record<string, string>): string {
