@@ -41,7 +41,7 @@ export default function AnnualReportsPage() {
                           <Link href="/" className="text-white">Strona główna</Link>
                         </li>
                         <li className="breadcrumb-item active" aria-current="page">
-                          <a href="/zbiory" className="text-custom">Zbiory analiz</a>
+                          <Link href="/zbiory" className="text-custom">Zbiory analiz</Link>
                         </li>
                       </ol>
                     </nav>
@@ -73,15 +73,15 @@ export default function AnnualReportsPage() {
                   </div>
                   <div className="cases-desc text-center p-3">
                     <h5 className="cases-subtitle mb-2">
-                      <a href={issue.file} className="text-dark" target="_blank" rel="noopener noreferrer">
+                      <Link href={issue.file} className="text-dark" target="_blank" rel="noopener noreferrer">
                         {issue.title}
-                      </a>
+                      </Link>
                     </h5>
                   </div>
                   <div className="learn-more text-center">
-                    <a href={issue.file} className="btn btn-custom btn-block" target="_blank" rel="noopener noreferrer">
+                    <Link href={issue.file} className="btn btn-custom btn-block" target="_blank" rel="noopener noreferrer">
                       POBIERZ
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>

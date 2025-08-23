@@ -2095,3 +2095,45 @@ CONTACT US HOME
         margin: 0 8px;
     }
 }
+
+
+
+
+
+/* HERO z <Image fill/> — rezerwuje wysokość i układa warstwy */
+.section.hero {
+  position: relative;
+  display: flex;
+  align-items: center;                   /* wertykalne centrowanie treści */
+  min-height: clamp(360px, 60vh, 720px); /* brak „sypania” wysokości */
+  padding-block: clamp(48px, 8vh, 96px); /* elastyczny odstęp góra/dół */
+  overflow: hidden;                      /* obetnij ewentualne wychodzące elementy */
+  background-attachment: initial;        /* upewnij się, że nie ma fixed z innych klas */
+  scroll-margin-top: 80px;               /* jeśli masz sticky navbar i link #home */
+}
+
+/* warstwa tła z Next/Image; osobny wrapper daje pewny stacking i fill */
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* overlay pod treścią, nad obrazem */
+.section.hero .bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;                  /* overlay nie blokuje kliknięć */
+}
+
+/* treść zawsze ponad overlayem i tłem */
+.hero__inner {
+  position: relative;
+  z-index: 2;
+}
+
+/* na mniejszych ekranach możesz lekko zwiększyć minimalną wysokość */
+@media (max-width: 576px) {
+  .section.hero { min-height: 420px; }
+}
