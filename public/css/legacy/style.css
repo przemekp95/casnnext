@@ -1843,17 +1843,58 @@ PRICING PLAN HOME
 /****************
 CONTACT US HOME
 ******************/
-.contact-us-home{
-  background-image: url(/images/home2.webp);
-  background-size: cover;
-  background-position: center 35%; /* opcjonalnie przesuń punkt zainteresowania */
+/* rodzic dla Image fill */
+.contact-us-home {
   position: relative;
-  padding: 72px 0;                /* mniejsze stałe paddingi */
-  min-height: 360px;              /* stała min-wysokość -> brak „skoków” */
-  display: grid; 
-  place-items: center;            /* ładne centrowanie treści */
+  overflow: hidden;
+
+  /* elastyczna wysokość hero */
+  min-height: clamp(360px, 60vh, 900px);
+
+  /* układ jak wcześniej */
+  padding: 72px 0;
+  display: grid;
+  place-items: center;
 }
-.contact-us-home .bg-overlay{ position:absolute; inset:0; }
+
+/* overlay dla czytelności (lekki gradient) */
+.contact-us-home .bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,.3), rgba(0,0,0,.4));
+}
+
+/* domyślnie pokazujemy wersję desktopową */
+.hero-desktop { display: block; }
+.hero-mobile  { display: none;  }
+
+/* mobile: podmieniamy obraz na logo */
+@media (max-width: 768px) {
+  .hero-desktop { display: none;  }
+  .hero-mobile  { display: block; }
+
+  /* nie rośnij za wysoko na mobile */
+  .contact-us-home {
+    min-height: 60vh;
+    padding: 56px 0; /* trochę mniejszy padding na mniejszych ekranach */
+  }
+}
+
+/* bardzo małe ekrany */
+@media (max-width: 480px) {
+  .contact-us-home {
+    min-height: 65vh; /* nieco większe, żeby logo się zmieściło */
+    padding: 48px 0;
+  }
+}
+
+/* sekcje poniżej "folda" – odłóż render do czasu scrolla */
+.section-below-fold {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 1000px; /* rezerwacja miejsca, brak CLS */
+}
+
+
 
 
 /****************

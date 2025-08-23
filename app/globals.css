@@ -2,44 +2,19 @@
 @import "@mdi/font/css/materialdesignicons.min.css";
 
 /* Legacy */
-/*@import "/css/legacy/bootstrap.min.css";*/
 @import "/css/legacy/magnific-popup.css";
-/*@import "/css/legacy/materialdesignicons.min.css";*/
 @import "/css/legacy/menu.css";
 @import "/css/legacy/owl.carousel.css";
 @import "/css/legacy/owl.theme.css";
 @import "/css/legacy/owl.transitions.css";
 @import "/css/legacy/style.css";
 @import "/css/legacy/themify-icons.css";
-/* @import "/css/legacy/header.css"; */
 
-
-
-/* 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Reset & base */
 html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -53,8 +28,28 @@ a {
   text-decoration: none;
 }
 
+/* Font fallback stack */
+:root {
+  --font-stack-sans: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+/* body = Roboto */
+body {
+  font-family: var(--font-roboto), var(--font-stack-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis-weight: none; /* mniej skoków metryk po podmianie */
+}
+
+/* nagłówki = Rubik */
+h1, h2, h3, h4, h5, h6,
+.about-title {
+  font-family: var(--font-rubik), var(--font-roboto), var(--font-stack-sans);
+}
+
+/* (opcjonalnie) Dark mode variables */
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
   }
-}*/
+}

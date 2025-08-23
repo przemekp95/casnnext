@@ -5,8 +5,31 @@ export default function HomePage() {
     <main>
       {/* HOME START */}
       <section className="contact-us-home section" id="home">
-        <div className="bg-overlay"></div>
-        <div className="home-center">
+        {/* Desktop hero */}
+        <Image
+          src="/images/home2.webp"
+          alt=""
+          fill
+          priority
+          fetchPriority="high"
+          sizes="(max-width: 768px) 0px, 100vw"   // nie ładuj na mobile
+          className="hero-bg hero-desktop"
+          style={{ objectFit: "cover", objectPosition: "center 35%" }}
+        />
+
+        {/* Mobile hero (logo) */}
+        <Image
+          src="/images/logo.jpg"
+          alt="CASN"
+          fill
+          sizes="(max-width: 768px) 100vw, 0px"   // nie ładuj na desktopie
+          className="hero-bg hero-mobile"
+          style={{ objectFit: "contain" }}
+        />
+
+        <div className="bg-overlay" />
+
+        <div className="home-center" style={{ position: "relative", zIndex: 1 }}>
           <div className="home-desc-center">
             <div className="container">
               <div className="row justify-content-center">
@@ -14,7 +37,9 @@ export default function HomePage() {
                   className="col-lg-8"
                   style={{ background: "rgba(30, 30, 30, 0.65)" }}
                 >
-                  <div className="home-page-title text-center"></div>
+                  <div className="home-page-title text-center">
+                    {/* (opcjonalnie) <h1>Centrum Analiz Służby Niepodległej</h1> */}
+                  </div>
                 </div>
               </div>
             </div>
@@ -23,8 +48,8 @@ export default function HomePage() {
       </section>
       {/* HOME END */}
 
-      {/* ABOUT START */}
-      <section className="section bg-light">
+      {/* ABOUT START — DODANE: section-below-fold */}
+      <section className="section bg-light section-below-fold">
         <div className="container">
           <div className="row align-items-center">
             <div className="col-lg-6">
@@ -32,9 +57,10 @@ export default function HomePage() {
                 <Image
                   src="/images/ikonka.webp"
                   alt="Ikonka"
-                  width={512}   // podaj faktyczną szerokość pliku
-                  height={512}  // i faktyczną wysokość pliku
+                  width={512}
+                  height={512}
                   className="img-fluid d-block mx-auto"
+                  loading="lazy" // DODANE
                   style={{ height: "auto", width: "auto", maxWidth: "100%" }}
                 />
               </div>
@@ -58,17 +84,11 @@ export default function HomePage() {
                   militarną, gospodarczą, edukacyjną i kulturową szeroko rzecz
                   ujmując.
                 </p>
-                <p className="text-muted">
-                  Poniżej znajdziecie Państwo nasze inauguracyjne analizy.
-                </p>
-                <p className="text-muted">
-                  Życzymy miłej lektury i zapraszamy do współpracy!
-                </p>
+                <p className="text-muted">Poniżej znajdziecie Państwo nasze inauguracyjne analizy.</p>
+                <p className="text-muted">Życzymy miłej lektury i zapraszamy do współpracy!</p>
 
                 <div className="pt-3">
-                  <a href="/zbiory" className="btn btn-custom">
-                    Przeczytaj analizy
-                  </a>
+                  <a href="/zbiory" className="btn btn-custom">Przeczytaj analizy</a>
                 </div>
               </div>
             </div>
@@ -77,17 +97,14 @@ export default function HomePage() {
       </section>
       {/* ABOUT END */}
 
-      {/* OUR WORK START */}
-      <section className="section bg-light">
+      {/* OUR WORK START — DODANE: section-below-fold */}
+      <section className="section bg-light section-below-fold">
         <div className="container">
           <div className="row align-items-center">
             <div className="col-lg-7">
               <div className="work-content">
-                <h3 className="text-muted">
-                  Dążymy do dostarczenia najwyższej jakości analiz i raportów.
-                </h3>
+                <h3 className="text-muted">Dążymy do dostarczenia najwyższej jakości analiz i raportów.</h3>
                 <div className="title-border mt-4" />
-
                 <br />
                 <p className="text-muted" style={{ textAlign: "justify" }}>
                   Dzięki wykwalifikowanemu i dynamicznemu zespołowi, kontaktom w
@@ -103,9 +120,10 @@ export default function HomePage() {
                 <Image
                   src="/images/images.jpeg"
                   alt="Praca CASN"
-                  width={1200}  // podaj realną szerokość
-                  height={800}  // i wysokość
+                  width={1200}
+                  height={800}
                   className="img-fluid d-block mx-auto rounded"
+                  loading="lazy" // DODANE
                   style={{ height: "auto", width: "auto", maxWidth: "100%" }}
                 />
               </div>
@@ -117,6 +135,7 @@ export default function HomePage() {
     </main>
   );
 }
+
 
 
 

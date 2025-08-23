@@ -1,6 +1,7 @@
 // components/ArticleLayout.tsx
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 type Crumb = { label: string; href?: string; active?: boolean };
 
@@ -28,64 +29,88 @@ export default function ArticleLayout({
 }: Props) {
   return (
     <>
-      {/* OUR TEAM HOME START (legacy hero) */}
-      <section className="contact-us-home section" id="home">
-        <div className="bg-overlay"></div>
-        <div className="home-center">
-          <div className="home-desc-center">
-            <div className="container">
-              <div className="row justify-content-center">
-                <div className="col-lg-8" style={{ background: innerBg }}>
-                  <div className="home-page-title text-center">
-                    <h1 className="text-white mb-2">{title}</h1>
+{/* OUR TEAM HOME START (updated hero) */}
+<section className="contact-us-home section" id="home">
+  {/* Desktop hero */}
+  <Image
+    src="/images/home2.webp"
+    alt=""
+    fill
+    priority
+    fetchPriority="high"
+    sizes="(max-width: 768px) 0px, 100vw"   // nie ładuj na mobile
+    className="hero-bg hero-desktop"
+    style={{ objectFit: "cover", objectPosition: "center 35%" }}
+  />
 
-                    {/* breadcrumbs */}
-                    {breadcrumbs?.length > 0 && (
-                      <nav aria-label="breadcrumb">
-                        <ol className="breadcrumb justify-content-center bg-transparent">
-                          {breadcrumbs.map((c, i) => (
-                            <li
-                              key={i}
-                              className={
-                                "breadcrumb-item " +
-                                (c.active ? "active" : "text-white")
-                              }
-                              aria-current={c.active ? "page" : undefined}
-                            >
-                              {c.href && !c.active ? (
-                                <Link href={c.href} className="text-white">
-                                  {c.label}
-                                </Link>
-                              ) : (
-                                <span className={c.active ? "text-custom" : ""}>{c.label}</span>
-                              )}
-                            </li>
-                          ))}
-                        </ol>
-                      </nav>
-                    )}
+  {/* Mobile hero (logo) */}
+  <Image
+    src="/images/logo.jpg"
+    alt="CASN"
+    fill
+    sizes="(max-width: 768px) 100vw, 0px"   // nie ładuj na desktopie
+    className="hero-bg hero-mobile"
+    style={{ objectFit: "contain" }}
+  />
 
-                    {/* lead + meta */}
-                    {(lead || author || date) && (
-                      <div className="mt-3">
-                        {lead && <p className="text-white mb-2">{lead}</p>}
-                        {(author || date) && (
-                          <p className="text-white-50 mb-0">
-                            {author && <span className="mr-2"><b>Autor:</b> {author}</span>}
-                            {author && date && <span className="mx-1">•</span>}
-                            {date && <span><b>Data:</b> {date}</span>}
-                          </p>
+  <div className="bg-overlay" />
+
+  <div className="home-center" style={{ position: "relative", zIndex: 1 }}>
+    <div className="home-desc-center">
+      <div className="container">
+        <div className="row justify-content-center">
+          <div className="col-lg-8" style={{ background: innerBg }}>
+            <div className="home-page-title text-center">
+              <h1 className="text-white mb-2">{title}</h1>
+
+              {/* breadcrumbs */}
+              {breadcrumbs?.length > 0 && (
+                <nav aria-label="breadcrumb">
+                  <ol className="breadcrumb justify-content-center bg-transparent">
+                    {breadcrumbs.map((c, i) => (
+                      <li
+                        key={i}
+                        className={
+                          "breadcrumb-item " +
+                          (c.active ? "active" : "text-white")
+                        }
+                        aria-current={c.active ? "page" : undefined}
+                      >
+                        {c.href && !c.active ? (
+                          <Link href={c.href} className="text-white">
+                            {c.label}
+                          </Link>
+                        ) : (
+                          <span className={c.active ? "text-custom" : ""}>{c.label}</span>
                         )}
-                      </div>
-                    )}
-                  </div>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              )}
+
+              {/* lead + meta */}
+              {(lead || author || date) && (
+                <div className="mt-3">
+                  {lead && <p className="text-white mb-2">{lead}</p>}
+                  {(author || date) && (
+                    <p className="text-white-50 mb-0">
+                      {author && <span className="mr-2"><b>Autor:</b> {author}</span>}
+                      {author && date && <span className="mx-1">•</span>}
+                      {date && <span><b>Data:</b> {date}</span>}
+                    </p>
+                  )}
                 </div>
-              </div>
-            </div>{/* container */}
+              )}
+            </div>
           </div>
         </div>
-      </section>
-      {/* OUR TEAM HOME END */}
+      </div>{/* container */}
+    </div>
+  </div>
+</section>
+{/* OUR TEAM HOME END */}
+
 
       {/* TREŚĆ ARTYKUŁU */}
       <section className="section py-4">
