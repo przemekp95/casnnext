@@ -62,7 +62,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         <MDXRemote source={replacedContent} components={{ Link, Image }} />
       </ArticleLayout>
 
-      <Footer />
     </main>
   );
 }

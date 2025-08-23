@@ -1843,13 +1843,18 @@ PRICING PLAN HOME
 /****************
 CONTACT US HOME
 ******************/
-.contact-us-home {
-    background-image: url(../images/home2.webp);
-    padding: 170px 0px 75px 0px;
-    background-size: cover;
-    position: relative;
-    background-position: center center;
+.contact-us-home{
+  background-image: url(/images/home2.webp);
+  background-size: cover;
+  background-position: center 35%; /* opcjonalnie przesuń punkt zainteresowania */
+  position: relative;
+  padding: 72px 0;                /* mniejsze stałe paddingi */
+  min-height: 360px;              /* stała min-wysokość -> brak „skoków” */
+  display: grid; 
+  place-items: center;            /* ładne centrowanie treści */
 }
+.contact-us-home .bg-overlay{ position:absolute; inset:0; }
+
 
 /****************
     20. CONTACT US

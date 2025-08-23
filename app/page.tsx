@@ -2,15 +2,15 @@ export default function HomePage() {
   return (
     <main>
       {/* HOME START */}
-      <section className="bg-home section img-fluid" id="home">
-        <div className="bg-overlay" />
+      <section className="contact-us-home section" id="home">
+        <div className="bg-overlay"></div>
         <div className="home-center">
           <div className="home-desc-center">
             <div className="container">
               <div className="row justify-content-center">
-                <div className="col-lg-8">
-                  {/* Zamiast 12x <br/> dałem blok z min-height dla odstępu */}
-                  <div className="home-title text-center" style={{ minHeight: "60vh" }} />
+                <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
+                  <div className="home-page-title text-center">
+                  </div>
                 </div>
               </div>
             </div>
@@ -18,6 +18,7 @@ export default function HomePage() {
         </div>
       </section>
       {/* HOME END */}
+  
 
       {/* ABOUT START */}
       <section className="section bg-light">
