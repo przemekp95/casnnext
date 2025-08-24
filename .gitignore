@@ -59,3 +59,23 @@ posts/.venv/
 
 # katalogi systemowe
 __pycache__/
+
+
+
+# Python virtualenvs (gdziekolwiek w repo)
+**/.venv/
+**/venv/
+**/__pycache__/
+
+# Temp/backup files
+*.tmp
+*.bak
+*.bak.*
+*~
+
+# Lokalne katalogi backupów z dzisiejszej akcji
+posts_backup_*/
+
+# Raporty Lighthouse z localhost
+127.0.0.1_*.report.html
+analizy-wegry-desktop.html
