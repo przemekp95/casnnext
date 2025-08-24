@@ -12,7 +12,7 @@ const withMDX = createMDX({
 });
 
 const nextConfig: NextConfig = {
-  eslint: { ignoreDuringBuilds: true },
+  eslint: { ignoreDuringBuilds: false },
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
   output: "standalone",
 };

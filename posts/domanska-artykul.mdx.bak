@@ -1,0 +1,224 @@
+---
+title: "{{analysisTitle}}"
+author: "{{authorName}}"
+---
+
+import Link from "next/link"
+import Image from 'next/image';
+
+# {{analysisTitle}}
+
+## {{authorName}}
+
+### WstÄ™p
+
+Kwestia promowania rodzimych produktĂłw jako narzÄ™dzie, albo teĹĽ jeden ze sposobĂłw wspierania krajowych firm jest jednym z istotniejszych aspektĂłw polityki gospodarczej kaĹĽdego paĹ„stwa. Wydaje siÄ™ jednak, ĹĽe spoĹ‚eczna odpowiedĹş na tego rodzaju dziaĹ‚ania, a wiÄ™c faktyczne przekonanie do kupowania produktĂłw krajowego pochodzenia uwarunkowane jest caĹ‚ym szeregiem jeszcze innych czynnikĂłw, zwiÄ…zanych np. z wychowaniem, wyznawanymi wartoĹ›ciami, ale teĹĽ nabytymi doĹ›wiadczeniami konsumentĂłw, tj. poziomem satysfakcji osiÄ…gniÄ™tej w przeszĹ‚oĹ›ci z zakupĂłw dĂłbr wyprodukowanych i oferowanych na rynku przez krajowe firmy.
+
+Tej oczywistej relacji od dawna Ĺ›wiadomi sÄ… paĹ„stwa i firmy, ktĂłre de facto nie odĹĽegnujÄ… siÄ™ od oczywistoĹ›ci jakÄ… jest â€śkapitaĹ‚ ma narodowoĹ›Ä‡â€ť. ZresztÄ… widaÄ‡ jÄ… teĹĽ w wynikach ankiet przeprowadzonych wĹ›rĂłd konsumentĂłw przez miÄ™dzynarodowe firmy doradcze. PrzykĹ‚adowo w 2020 roku hasĹ‚o â€žProudly Local, Going Globalâ€ť â€“ pojawiĹ‚o siÄ™ w raporcie organizacji badania rynku Euromonitor w top 10 najwaĹĽniejszych globalnych trendĂłw konsumenckich. Konsumenci coraz czÄ™Ĺ›ciej nie tylko wspierajÄ… lokalne firmy, lecz takĹĽe od miÄ™dzynarodowych korporacji wymagajÄ…, aby dostosowaĹ‚y siÄ™ do lokalnych zwyczajĂłw i korzystaĹ‚y z lokalnych dostawcĂłw.
+
+Dla lepszego zilustrowania waĹĽkoĹ›ci tej kwestii dla wynikĂłw ekonomicznych kraju warto przypomnieÄ‡, iĹĽ np. wedĹ‚ug wyliczeĹ„ firmy doradczo-audytorskiej Grant Thornton dotyczÄ…cej rynku polskiego, jeĹ›li podczas zakupĂłw wybieramy towar zagraniczny, to z kaĹĽdej wydanej naĹ„ zĹ‚otĂłwki 75 gr â€žwyciekaâ€ť za granicÄ™ (ang. leakage), a tylko 25 gr pozostaje w Polsce. W przypadku wyboru produktu polskiego z kaĹĽdej wydanej zĹ‚otĂłwki - 79 gr zostaje w naszej gospodarce. BiorÄ…c pod uwagÄ™, ĹĽe Polacy wydajÄ… rocznie 1,2 bln zĹ‚, nawet skromna zmiana nawykĂłw konsumenckich mogĹ‚aby przynieĹ›Ä‡ polskiej gospodarce dodatkowo rocznie nawet kilkadziesiÄ…t miliardĂłw zĹ‚otych.
+
+W niniejszym opracowaniu zaprezentowano wyniki przeprowadzonego przez Instytut Staszica badania dotyczÄ…cego wpĹ‚ywu toĹĽsamoĹ›ci wspĂłlnotowej i wiedzy ekonomicznej na wybory konsumenckie mĹ‚odych PolakĂłw. Badanie miaĹ‚o postaÄ‡ ankiety, a wiÄ™c opieraĹ‚o siÄ™ na metodologii powszechnie przyjÄ™tej w naukach ekonomicznych (i innych spoĹ‚ecznych) w przypadku braku dostÄ™pnoĹ›ci adekwatnych danych iloĹ›ciowych.
+
+Badanie przyniosĹ‚o szereg istotnych spostrzeĹĽeĹ„ i wnioskĂłw, zarĂłwno w obszarze aktualnego â€žstanuâ€ť etnocentryzmu konsumenckiego mĹ‚odych PolakĂłw, ich Ĺ›wiadomoĹ›ci makroekonomicznego znaczenia pro-polskich preferencji zakupowych dokonywanych na poziomie wyborĂłw indywidualnych, a takĹĽe pewnych systemowych sĹ‚aboĹ›ci jeĹ›li chodzi o promocjÄ™ polskich produktĂłw.
+
+---
+
+### 2. Wyniki ankiety "WpĹ‚yw toĹĽsamoĹ›ci wspĂłlnotowej i wiedzy ekonomicznej na wybory konsumenckie studentĂłw"
+
+PoczÄ…tkowe pytania zamieszczone w badaniu nakierowane byĹ‚y na wstÄ™pnÄ… identyfikacjÄ™ poziomu etnocentrycznoĹ›ci preferencji (home bias) i tego, na ile w ogĂłle polskie pochodzenie produktu odbierane jest w sposĂłb pozytywny przez ankietowanych. W pierwszym rzÄ™dzie respondenci zapytani zostali o to, czy majÄ…c do wyboru polski lub zagraniczny produkt w tej samej cenie, decydujÄ… siÄ™ na ten polski. Z tak postawionym stwierdzeniem jednoznacznie zgodziĹ‚o siÄ™ 43% badanych studentĂłw, a 34% â€žraczej siÄ™ zgodziĹ‚oâ€ť. Jedynie 14% nie miaĹ‚o zdania. JeĹ›li chodzi o postawÄ™ przeciwnÄ…, tj. brak preferencji w kierunku produktu krajowego, to reprezentowaĹ‚o jÄ… zaledwie kilka procent ankietowanych (6% â€žraczej nie zgodziĹ‚oâ€ť, ok. 2% wybraĹ‚o opcjÄ™ â€žzdecydowanie nie zgadzam siÄ™â€ť). Ĺšrednia w przedziale na skali Likierta 1-5: wyniosĹ‚a 3,9, co naleĹĽy uznaÄ‡ za wynik wskazujÄ…cy na wysoki poziom zdeterminowania wyboru zakupowego polskim pochodzeniem produktu. Warto zwrĂłciÄ‡ uwagÄ™, ĹĽe swego rodzaju â€žechoâ€ť tego pytania i tu uzyskanych wynikĂłw moĹĽemy rĂłwnieĹĽ usĹ‚yszeÄ‡ w pytaniu 9, gdzie ankietowani mieli wyraziÄ‡ poziom swojego poparcia dla stwierdzenia â€žZawsze lepiej jest kupowaÄ‡ polskie produktyâ€ť.
+
+Rys. 1
+
+<Image src="/images/rys 1.avif" alt="Diagram" width={600} height={400} />
+
+ĹąrĂłdĹ‚o: opracowanie wĹ‚asne
+
+OgĂłlnym wnioskiem z tego otwierajÄ…cego ankietÄ™ pytania jest fakt, iĹĽ na poziomie deklaratywnym po stronie mĹ‚odych konsumentĂłw wystÄ™puje wysoki poziom zaufania i silna preferencja w stosunku do produktĂłw rodzimego pochodzenia (ich krzywa obojÄ™tnoĹ›ci â€žkĹ‚adzieâ€ť siÄ™ w ich kierunku, ale to tylko w sytuacji porĂłwnywalnego poziomu cen dobro krajowe versus zagraniczne). MoĹĽna uznaÄ‡ to za pewien sukces i wystÄ™pujÄ…ce w tej grupie przekonanie o dobrej (a przynajmniej porĂłwnywalnej) jakoĹ›ci polskich wyrobĂłw, zwĹ‚aszcza wobec agresywnych dziaĹ‚aĹ„ marketingowych zagranicznych koncernĂłw.
+
+Warto w tym miejscu â€“ dla uzupeĹ‚nienia ustaleĹ„ ankiety zrealizowanej przez Instytut Staszica â€“ przytoczyÄ‡ wnioski, jakie prezentuje w swoim badaniu na podobny temat Centrum Badania Opinii SpoĹ‚ecznej (CBOS) z 2018 roku. Dla ok jednej piÄ…tej (19%) ĹĽadne z kryteriĂłw odnoszÄ…cych siÄ™ polskoĹ›ci produktu nie ma znaczenia przy podejmowaniu decyzji konsumenckiej. Jak czytamy w raporcie â€žSceptyczni wobec wszystkich trzech kryteriĂłw patriotyzmu relatywnie czÄ™sto sÄ… respondenci z najwiÄ™kszych aglomeracji miejskich, niezaangaĹĽowani w praktyki religijne oraz na ogĂłĹ‚ w wiÄ™kszym stopniu zwolennicy poglÄ…dĂłw lewicowych i centrowych niĹĽ prawicowych. Postrzeganie pĹ‚acenia podatkĂłw i kupowania polskich produktĂłw jako przejawĂłw patriotyzmu czÄ™Ĺ›ciej niĹĽ inni kwestionujÄ… badani majÄ…cy poniĹĽej 45 lat.â€ť
+
+<Image src="/images/rys 2.avif" alt="Diagram" width={600} height={400} />
+
+W kolejnym kroku w sposĂłb domyĹ›lny wprowadzono jako drugi czynnik warunkujÄ…cy decyzjÄ™ o wyborze pomiÄ™dzy dobrem krajowym a dobrem zagranicznym â€“ cenÄ™ produktu (patrz rys. 2). Stwierdzenie â€žprodukt zagraniczny wybieram tylko wtedy, gdy nie ma polskiego odpowiednika w podobnej cenieâ€ť sugeruje bowiem moĹĽliwoĹ›Ä‡ alternatywy pomiÄ™dzy droĹĽszym produktem krajowym a taĹ„szym zagranicznym, co relatywnie (tj. w porĂłwnaniu z sytuacjÄ… z pkt. 1) zmienia nachylenie linii ograniczenia budĹĽetowego. SiĹ‚a â€žhome biasâ€ť zostaje wiÄ™c skonfrontowana z tym nowym nachyleniem, a ostateczny wybĂłr staje siÄ™ wypadkowÄ… obydwu z czynnikĂłw.
+
+Otrzymane odpowiedzi wskazujÄ… z jednej strony na podtrzymanie pozytywnej tendencji z pytania pierwszego, z drugiej - widzimy rĂłwnieĹĽ wyraĹşne przesuniÄ™cie akcentĂłw ze â€žzdecydowanieâ€ť (16%) na â€žraczej zgadzam siÄ™â€ť (35%) oraz wymierne zwiÄ™kszenie liczby wskazaĹ„, w ktĂłrych respondenci nie zgodzili siÄ™ z takim stwierdzeniem (patrz rys. 2). Ĺšrednia w przedziale 1-5 wyniosĹ‚a: 2,8. PowyĹĽsza modyfikacja preferencji wynika oczywiĹ›cie z typowej wraĹĽliwoĹ›ci konsumenta na cenÄ™ (Ĺ›ciĹ›lej biorÄ…c ze z reguĹ‚y ujemnej wartoĹ›ci elastycznoĹ›ci cenowej popytu).
+
+Dalej pojawiĹ‚a siÄ™ kolejna modyfikacja postawionej tezy, co przyniosĹ‚o ponowne przesuniÄ™cie akcentu co do preferencji zakupowej - krajowy versus zagraniczny produkt. Mianowicie w odniesieniu do stwierdzenia â€žProdukt zagraniczny wybieram tylko wtedy, gdy nie ma polskiego odpowiednika w dowolnej cenieâ€ť (rys. 3) liczba wskazaĹ„ zarĂłwno na â€žzdecydowanie-â€ť jak i â€žraczej zgadzam siÄ™â€ť, zmniejszyĹ‚y siÄ™ o ok. poĹ‚owÄ™.  
+Natomiast odsetek odpowiedzi przeczÄ…cych zwiÄ™kszyĹ‚ siÄ™ o ok. 1/3.  
+W efekcie Ĺ›rednia w przedziale 1-5 wyniosĹ‚a: 2,6.  
+WyraĹşnie wiÄ™c widaÄ‡, iĹĽ dokonywanie wyboru polskich produktĂłw przez konsumentĂłw mĹ‚odego pokolenia dokonywany jest nie â€žza wszelkÄ… cenÄ™â€ť, a uwarunkowania dochodowe w dalszym ciÄ…gu odgrywajÄ… niestety znaczÄ…cÄ… rolÄ™ w stosunku do przyznawania pierwszoplanowej roli wartoĹ›ciom jako szerokorozumianemu wyznacznikowi codziennych decyzji zakupowych.
+
+<Image src="/images/rys 3.avif" alt="Diagram" width={600} height={400} />
+
+---
+
+Warto zwrĂłciÄ‡ uwagÄ™ na odpowiedzi zwiÄ…zane z identyfikacjÄ… polskiego pochodzenia, czy teĹĽ â€žpolskoĹ›ciâ€ť produktu.  
+Przeprowadzona przez zespĂłĹ‚ IS ankieta pokazuje znaczny stopieĹ„ rozeznania, wrÄ™cz dojrzaĹ‚oĹ›ci respondentĂłw, ktĂłrzy jednoznacznie identyfikujÄ… produkty wytworzone poza terytorium RP, a na terenie Unii Europejskiej jako zagraniczne â€“ tym samym odrĂłĹĽniajÄ…c je od polskich.  
+Bowiem ze stwierdzeniem â€žprodukt z UE powinien byÄ‡ traktowany jako produkt zagranicznyâ€ť zdecydowanie zgodziĹ‚o siÄ™ prawie 62% badanych, a â€žraczejâ€ť zgodziĹ‚o siÄ™ z nim ok. 23,5%.  
+Tylko 4% wybraĹ‚o opcjÄ™ trudno powiedzieÄ‡; 5,5% wskazaĹ‚o na odpowiedĹş â€žraczej nie zgadzam siÄ™â€ť, a niespeĹ‚na 5% mĹ‚odych respondentĂłw zdecydowanie nie zgodziĹ‚o siÄ™ z takim stwierdzeniem.  
+W tym pytaniu Ĺ›rednia w przedziale 1-5 wyniosĹ‚a 4,14 - co byĹ‚o najwyĹĽszym wynikiem w tej serii pytaĹ„.  
+Produkty wytworzone na terenie innych krajĂłw czĹ‚onkowskich UE sÄ… wiÄ™c powszechnie postrzegane jako zagraniczne.
+<Image src="/images/rys 4.avif" alt="Diagram" width={600} height={400} />
+
+---
+
+RozszerzajÄ…c kontekst moĹĽna powiedzieÄ‡, ĹĽe pytani postrzegajÄ… UniÄ™ nie jako quasi-paĹ„stwo, ale â€“ zgodnie z traktatowymi zasadami â€“ jako zwiÄ…zek suwerennych paĹ„stw o swoistych, czÄ™sto odmiennych interesach ekonomicznych czy politycznych.  
+Nie kĹ‚Ăłci siÄ™ to jednak z faktem, iĹĽ mĹ‚odzi Polacy sÄ… jednym z najbardziej pro-unijnych mĹ‚odych populacji w Europie â€“ przynaleĹĽnoĹ›Ä‡ do WspĂłlnoty Europejskiej nie zastÄ™puje u nas poczucia toĹĽsamoĹ›ci narodowej.
+
+Dalsza czÄ™Ĺ›Ä‡ ankiety zawieraĹ‚a bardziej szczegĂłĹ‚owe pytania, w tym: zmierzajÄ…ce do okreĹ›lenia, w jaki sposĂłb definiowany czy rozumiany jest przez mĹ‚odych respondentĂłw polski (krajowy, lokalny) charakter produktu.
+
+---
+
+Starania dotyczÄ…ce wiÄ™kszej wizualnej identyfikacji polskich produktĂłw w Ĺ›wietle kolejnych ustaleĹ„ ankiety wydajÄ… siÄ™ kwestiÄ… kluczowÄ….  
+Mamy tu na myĹ›li wiedzÄ™ dotyczÄ…cÄ… znaczenia kodu kreskowego 590, ktĂłra w Ĺ›wietle wynikĂłw ankiety wydaje siÄ™ niezbyt duĹĽa.  
+Wobec stwierdzenia â€žPolski produkt to taki, ktĂłrego kod kreskowy zaczyna siÄ™ na 590â€ť ponad 45% badanych wskazaĹ‚o opcjÄ™ â€žtrudno powiedzieÄ‡â€ť, zaĹ› blisko 15% orzekĹ‚o, iĹĽ raczej siÄ™ nie zgadza.  
+Zdecydowanie nie zgadza siÄ™ natomiast 8% (patrz rys. 5 ).  
+Ĺšrednia w przedziale 1-5: 3,2.  
+Na podstawie wynikĂłw badania w tej czÄ™Ĺ›ci widzimy jednak bardzo sĹ‚abÄ… rozpoznawalnoĹ›Ä‡ kodu 590 wĹ›rĂłd polskich konsumentĂłw.
+<Image src="/images/rys 5.avif" alt="Diagram" width={600} height={400} />
+
+---
+
+W tym miejscu nasuwa siÄ™ dodatkowy komentarz, iĹĽ samo nadanie kodu 590 danemu produktowi na gruncie obecnego prawa nie jest de facto jednoznacznym wskaĹşnikiem caĹ‚kowicie polskiego pochodzenia produktu[1].  
+Stosunkowo niska rozpoznawalnoĹ›Ä‡ tego kodu nie musi wiÄ™c przeczyÄ‡ etnocentrycznemu nastawieniu mĹ‚odych konsumentĂłw, a Ĺ›wiadczy jedynie o niewystarczajÄ…cym â€žrozeznaniuâ€ť w tej kwestii.  
+UzupeĹ‚nieniem tej tezy mogÄ… byÄ‡ ustalenia raportu Centrum Analiz Klubu JagielloĹ„skiego.  
+MoĹĽemy w nim przeczytaÄ‡, iĹĽ dla klientĂłw kluczowe znaczenie w identyfikacji polskoĹ›ci produktu ma â€žwyraĹşne oznaczenie produktu (nalepka/metka/ informacja nadrukowana na opakowaniu)â€ť (54%), a takĹĽe â€žInformacja na pĂłĹ‚ce sklepowejâ€ť (49%).  
+Kwestia kodu nie jest wiÄ™c kluczowa przy omawianej identyfikacji.  
+Wydaje siÄ™ zrozumiaĹ‚e, ĹĽe w toku codziennej rutyny w trakcie robienia zakupĂłw szybciej wzrokowo identyfikujemy wyraĹşnie oznaczone produkty np. godĹ‚em â€žTeraz Polskaâ€ť czy teĹĽ â€žProdukt Polskiâ€ť.  
+MoĹĽna w tym miejscu wysnuÄ‡ ogĂłlny wniosek o potrzebie jeszcze szerszej realizacji kampanii promocyjnych polskich produktĂłw oznaczonych tymi logo.
+
+---
+
+W dalszej kolejnoĹ›ci zapytano respondentĂłw, czy wedĹ‚ug nich polska firma to taka, ktĂłra pĹ‚aci podatki w Polsce, a zagraniczna to odprowadzajÄ…ca podatki poza naszym krajem (rys. 6).
+
+<Image src="/images/rys 6.avif" alt="Diagram" width={600} height={400} />
+
+RozkĹ‚ad odpowiedzi wskazuje na ogĂłlne przekonanie o takim wĹ‚aĹ›nie stanie rzeczy.  
+Niestety liczne doniesienia przeczÄ… jakoby jest tak w rzeczywistoĹ›ci.  
+Na przykĹ‚ad, przy odpowiedniej i skutecznej promocji wizerunkowej z uĹĽyciem argumentu â€žpĹ‚acenia podatkĂłw w Polsceâ€ť importer zagranicznych produktĂłw, pĹ‚acÄ…cy podatki (CIT) w Polsce bÄ™dzie z reguĹ‚y postrzegany przez znacznÄ… czÄ™Ĺ›Ä‡ tych konsumentĂłw jako polski producent.  
+ChoÄ‡ powyĹĽsze wyniki implikujÄ… zdroworozsÄ…dkowe podejĹ›cie konsumentĂłw (pĹ‚acenie podatkĂłw wiÄ…ĹĽe siÄ™ z jakÄ…Ĺ› lokalnoĹ›ciÄ… i pozytywnym wkĹ‚adem do wspĂłlnoty), dodatkowo pozostaje jeszcze kwestia skali podatku pĹ‚aconego przez takÄ… firmÄ™ tj. czy i jaki procent zysku jest transferowany zagranicÄ™ etc.  
+Jak wiemy statystycznie firmy (de iure bÄ…dĹş de facto) zagraniczne pĹ‚acÄ… znacznie mniejsze podatki w Polsce w porĂłwnaniu do rodzimych.
+
+---
+
+W kolejnym pytaniu okreĹ›lono polski produkt jako taki, ktĂłrego producent zatrudnia pracownikĂłw w naszym kraju.  
+Podobnie jak w przypadku poprzedniego twierdzenia, respondenci duĹĽego znaczenia przydali tu wykorzystaniu lokalnych pracownikĂłw dla nadania produktowi krajowego charakteru, choÄ‡ w tym przypadku siĹ‚a tej identyfikacji byĹ‚a nieco sĹ‚absza, tj. odpowiedzi â€žraczej zgadzam siÄ™â€ť udzieliĹ‚o 38% ankietowanych, a â€žzdecydowanie zgadzam siÄ™â€ť - 17%.  
+Wydaje siÄ™ to przeczyÄ‡ intuicyjnemu sÄ…dowi, ĹĽe rodzimy kapitaĹ‚ ludzki (czy wedĹ‚ug dawniejszego okreĹ›lenia â€žsiĹ‚a roboczaâ€ť) bÄ™dzie w potocznym rozumieniu bardziej oczywistym wyznacznikiem rodzimego pochodzenia niĹĽ kwestie podatkowe (do 2015 roku jako wiadomo podlegajÄ…ce z reguĹ‚y daleko posuniÄ™tej â€žkreatywnej ksiÄ™gowoĹ›ciâ€ť).  
+Fakt zatrudnienia polskich pracownikĂłw przy wytworzeniu produktu (zakĹ‚adamy, iĹĽ nie chodzi o importera zatrudniajÄ…cego handlowcĂłw etc.) jest bardzo istotny dla jego polskiej identyfikacji, ale wydaje siÄ™, iĹĽ niewystarczajÄ…cy.  
+Sam fakt wytworzenia produktu przez pracownikĂłw polskich nie oznacza jeszcze przecieĹĽ, iĹĽ mamy do czynienia z produktem polskim w najĹ›ciĹ›lejszym sensie.
+
+---
+
+Ze stwierdzeniem â€žPolski produkt to taki, ktĂłrego producent pĹ‚aci podatki w Polsceâ€ť zgodziĹ‚o siÄ™ ponad 63% (20% zdecydowanie tak i 43% raczej tak).  
+Tylko 8% nie zgodziĹ‚o siÄ™ zdecydowanie, zaĹ› 17% raczej siÄ™ nie zgodziĹ‚o.  
+Ĺšrednia w przedziale 1-5: wyniosĹ‚a wysokie 3,4 pkt.
+
+---
+
+Dalsza czÄ™Ĺ›Ä‡ badania zmierzaĹ‚a do rozpoznania rodzaju zapatrywaĹ„ na gospodarkÄ™ rynkowÄ… wĹ›rĂłd mĹ‚odych ludzi, tj. na ile dopuszczajÄ… oni ingerencjÄ™ paĹ„stwa w â€žsĹ‚usznej sprawieâ€ť w relacji do zapatrywaĹ„ stricte wolnorynkowych.  
+W zwiÄ…zku z tym padĹ‚o pytanie, na ile identyfikujÄ… siÄ™ oni z poniĹĽszym twierdzeniem  
+â€žPaĹ„stwo powinno administracyjnie ograniczaÄ‡ moĹĽliwoĹ›Ä‡ sprzedaĹĽy zagranicznych produktĂłw, by wspieraÄ‡ polskich producentĂłwâ€ť.  
+Tutaj przewaga zwolennikĂłw nieskrÄ™powanej wymiany handlowej (np. nie stosowania ceĹ‚) okazaĹ‚a siÄ™ doĹ›Ä‡ znaczna (ponad 52%), zaĹ› ponad 20% gĹ‚osĂłw poparĹ‚o odpowiedĹş â€žtrudno powiedzieÄ‡â€ť, co wzmacnia tendencje popierania rozwiÄ…zaĹ„ wolnorynkowych.  
+Ĺšrednia w przedziale 1-5 wyniosĹ‚a: 2,5.
+
+---
+
+Z pewnoĹ›ciÄ… tak powszechne przekonanie jest to efekt wieloletniego wpĹ‚ywu neoliberalnej ideologii i czĹ‚onkostwa w UE.  
+Przy tej analizie warto zwrĂłciÄ‡ uwagÄ™, iĹĽ historycznie wiÄ™kszoĹ›Ä‡ krajĂłw na podobnym etapie rozwoju, co Polska stosowaĹ‚a ochronÄ™ swojego rynku (m.in. azjatyckie tygrysy).  
+CĹ‚a sÄ… naturalnym narzÄ™dziem dziaĹ‚aĹ„ ochronnych i powinny byÄ‡ stosowane dla realizacji okreĹ›lonych celĂłw ekonomicznych, w przypadku Jednolitego Rynku Europejskiego - jeĹ›li wymaga tego interes wspĂłlnoty.  
+CĹ‚a stosowane sÄ… na caĹ‚ym Ĺ›wiecie przez wiele krajĂłw, przede wszystkim - przez najwiÄ™kszego globalnego eksportera, tj. Chiny.  
+Przy tej okazji warto rĂłwnieĹĽ zwrĂłciÄ‡ uwagÄ™, na ograniczone moĹĽliwoĹ›ci stosowania tego narzÄ™dzia w zwiÄ…zku z czĹ‚onkostwem Polski w UE i strategicznych rozbieĹĽnoĹ›ci paĹ„stw czĹ‚onkowskich (np. Niemcy, przeciwnicy ceĹ‚ majÄ… nadwyĹĽkÄ™ w bilansie z Chinami, Polska zaĹ› wynik ujemny -1000%).
+
+---
+
+Podobne wyniki uzyskano w przypadku pytania o akceptacjÄ™ stwierdzenia  
+â€žPolacy nie powinni kupowaÄ‡ zagranicznych produktĂłw, poniewaĹĽ szkodzi to polskiemu biznesowi i powoduje bezrobocieâ€ť.  
+Wyniki zaprezentowano na rys. 11.
+
+---
+
+PorĂłwnujÄ…c tutaj wyraĹĽone przekonania z deklaracjami z poczÄ…tkowej fazy kwestionariusza, w ktĂłrych mĹ‚odzi ankietowani wyraĹĽali znacznÄ… skĹ‚onnoĹ›Ä‡ do zakupu polskich produktĂłw, tutaj widaÄ‡ swego rodzaju zaĹ‚agodzenie tych preferencji.  
+â€žKonsumencka wolnoĹ›Ä‡ wyboruâ€ť za ktĂłrÄ… opowiada siÄ™ ponad 41% respondentĂłw w powszechnym odbiorze jest jednak konfrontowana z takimi wartoĹ›ciami, jak wspomaganie rodzimego biznesu i rodzimych przedsiÄ™biorcĂłw (oraz generowanego dziÄ™ki nim zatrudnienia).  
+Te ostatnie pozostajÄ… jednak wartoĹ›ciami nadrzÄ™dnymi dla prawie 53% ankietowanych.  
+Trudno osÄ…dziÄ‡, czy takie przesuniÄ™cie akcentĂłw jest wynikiem braku znajomoĹ›ci pewnych mechanizmĂłw ekonomicznych (jako konsument â€žgĹ‚osujÄ™â€ť za poĹ›rednictwem moich pieniÄ™dzy i moich wydatkĂłw na okreĹ›lone dobra per se â€“ na okreĹ›lone firmy i producentĂłw, ktĂłrzy dostarczajÄ… je na rynek).  
+Praktycznie bowiem taki negatywny dla polskich wytwĂłrcĂłw (i krajowego rynku pracy) jest skutek zakupu produktĂłw zagranicznych, z zyskiem pozostajÄ…cym w rÄ™kach zagranicznego wytwĂłrcy.
+
+---
+
+Podobne zaleĹĽnoĹ›ci wystÄ™pujÄ… przy wynikach badania stwierdzenia:  
+â€žPowinniĹ›my sprowadzaÄ‡ z zagranicy tylko te produkty, ktĂłrych nie moĹĽemy wytworzyÄ‡ w Polsceâ€ť ze Ĺ›redniÄ… w przedziale 1-5 na poziomie 2,2.  
+Wydaje siÄ™, iĹĽ w stanowisku wyraĹĽonym w odpowiedziach (patrz rys. 12) istotne miejsce zajmuje â€žwolnoĹ›ciowaâ€ť perspektywa tj. chÄ™Ä‡ posiadania wyboru, nawet jeĹ›li oznacza to potencjalnie osĹ‚abienie pozycji konkurencyjnej polskich wytwĂłrcĂłw.  
+ChoÄ‡ ujÄ™cie pytania jest doĹ›Ä‡ radykalne, odczytanie go nieco Ĺ‚agodniej pozwalaĹ‚oby zastanowiÄ‡ siÄ™ nad koniecznoĹ›ciÄ… zbudowania preferencji dla rodzimej przedsiÄ™biorczoĹ›ci i produkcji oraz wspierania rozwiÄ…zaĹ„ â€žedukacyjnychâ€ť wspierajÄ…cych etnocentrycznÄ… optykÄ™ konsumentĂłw.
+
+---
+
+Kolejny zestaw pytaĹ„ odnosiĹ‚ siÄ™ do skutecznoĹ›ci istniejÄ…cej promocji polskich produktĂłw w odbiorze mĹ‚odych konsumentĂłw.  
+OtwieraĹ‚o go stwierdzenie: â€žPolskie produkty sÄ… dobrze promowane wĹ›rĂłd PolakĂłwâ€ť.  
+Ĺšrednia w przedziale 1-5 wyniosĹ‚a: 2,5.  
+Przewaga gĹ‚osĂłw negatywnych, spora liczba gĹ‚osĂłw trudno powiedzieÄ‡ (oraz brak choÄ‡by jednego gĹ‚osu zdecydowanie zgadzam siÄ™!) jednak zaskakuje, ale i pokazuje potrzebÄ™ poprawienia promocji polskich produktĂłw.  
+Natomiast, w kontekĹ›cie deklarowanych preferencji dotyczÄ…cych zakupu polskich produktĂłw warto zwrĂłciÄ‡ uwagÄ™, iĹĽ podkreĹ›lajÄ… one potencjaĹ‚ patriotyczny polskich konsumentĂłw poniewaĹĽ te deklaracje majÄ… miejsce niejako przy sĹ‚abej promocji tych produktĂłw.  
+Z caĹ‚Ä… pewnoĹ›ciÄ… to zjawisko wymaga gĹ‚Ä™bszego przebadania, wyjaĹ›nienia przyczyn takich wskazaĹ„ oraz opracowania planu dziaĹ‚aĹ„ zaradczych mogÄ…cych poprawiÄ‡ zarĂłwno promowanie polskich produktĂłw, jak i ich pozytywnÄ… konsumenckÄ… percepcjÄ™.
+
+<Image src="/images/c51810_9d1f0770e05c4e4cbcb02ac5f909d492~mv2.avif" alt="Diagram" width={600} height={400} />
+
+---
+
+Wartym odnotowania wnioskiem byĹ‚a stosunkowo niewysoka ocena skutecznoĹ›ci polskich firm w przekonywaniu konsumentĂłw do wspierania swoich marek.  
+Tylko niespeĹ‚na 5% ankietowanych zdecydowanie nie zgodziĹ‚o siÄ™ z tym, natomiast aĹĽ 41% â€žraczejâ€ť nie zgodziĹ‚o siÄ™. (Ĺ›rednia w przedziale 1-5: 2,7).  
+Znaczna przewaga gĹ‚osĂłw negatywnych oraz bardzo niewielki odsetek osĂłb, ktĂłre identyfikujÄ… siÄ™ z takim twierdzeniem wskazuje, iĹĽ mĹ‚odzi polscy konsumenci wykazujÄ… daleko posuniÄ™tÄ… rezerwÄ™ wzglÄ™dem umiejÄ™tnoĹ›ci promocyjnych krajowych firm.  
+Ustalenie faktycznych przyczyn takiego stanu rzeczy wymaga pogĹ‚Ä™bionych badaĹ„, niemniej obecnie moĹĽemy pokusiÄ‡ siÄ™ o pewne przypuszczenia.  
+Jednym z gĹ‚Ăłwnych powodĂłw moĹĽe byÄ‡ w dalszym ciÄ…gu â€žgarb PRLâ€ť powodujÄ…cy, iĹĽ produkty polskie, marka â€žmade in Polandâ€ť postrzeganie sÄ… jako mniej atrakcyjne a zatem trudniejsze do wypromowania.
+<Image src="/images/c51810_037090877c8c4bee993f79c7c6d39f21~mv2.avif" alt="Diagram" width={600} height={400} />
+
+---
+
+W kontekĹ›cie deklarowanych wysokich preferencji w kierunku zakupu polskich produktĂłw warto zwrĂłciÄ‡ uwagÄ™, iĹĽ dokonujÄ… one siÄ™ przy sĹ‚abej promocji rodzimych wyrobĂłw.  
+PodkreĹ›la to tylko wielkoĹ›Ä‡ pozytywnego potencjaĹ‚u wĹ›rĂłd polskich konsumentĂłw.
+
+---
+
+NastÄ™pne pytanie ogniskowaĹ‚o siÄ™ wokĂłĹ‚ efektywnoĹ›ci dziaĹ‚aĹ„ paĹ„stwa jeĹ›li chodzi o przekonywanie do nabywania dĂłbr polskiego pochodzenia (rys. 15).
+<Image src="/images/c51810_827d18cb94ed42f69437ad7019a328da~mv2.avif" alt="Diagram" width={600} height={400} />
+
+---
+
+W pytaniu o ustosunkowanie siÄ™ do twierdzenia  
+â€žpolskie paĹ„stwo skutecznie przekonuje konsumentĂłw do wspierania polskich marekâ€ť  
+widoczna byĹ‚a doĹ›Ä‡ znaczna przewaga gĹ‚osĂłw negatywnych, tj. prawie 56% pytanych wskazaĹ‚o na opcjÄ™ raczej- lub â€žzdecydowanie nie zgadzam siÄ™â€ť.  
+Blisko jedna czwarta respondentĂłw okazaĹ‚a siÄ™ nie mieÄ‡ na ten temat zdania.  
+Taki rozkĹ‚ad odpowiedzi (Ĺ›rednia w przedziale 1-5 wyniosĹ‚a: 2,4) przynosi bardzo krytyczny obraz ogĂłlnej oceny dziaĹ‚aĹ„ administracji publicznej na omawianym polu.  
+Dodatkowo wyniki te wskazujÄ… na istnienie wyraĹşnych oczekiwaĹ„ mĹ‚odych konsumentĂłw wobec aktywnoĹ›ci paĹ„stwa w promowaniu krajowych produktĂłw, a per se polskich przedsiÄ™biorcĂłw.  
+WziÄ…wszy pod uwagÄ™ m.in. pewne ograniczenia, ktĂłre nakĹ‚adajÄ… tu przepisy Unii Europejskiej, wiÄ™ksza aktywnoĹ›ci paĹ„stwa w poĹ›rednim wspieraniu polskich firm wiÄ…ĹĽe siÄ™ z koniecznoĹ›ciÄ… wspierania inicjatyw edukacyjnych m.in. NGO popularyzujÄ…cych wiedzÄ™ o korzyĹ›ciach mikro i makroekonomicznych a w konsekwencji spoĹ‚ecznych zwiÄ…zanych z silnym rozwojem polskich firm (odprowadzajÄ…cych podatki w Polsce).
+
+---
+
+## 3. Wnioski i rekomendacje dla dalszych badaĹ„
+
+Badanie przeprowadzone w ramach projektu przyniosĹ‚o szereg istotnych spostrzeĹĽeĹ„ i wnioskĂłw, zarĂłwno w obszarze aktualnego â€žstanuâ€ť etnocentryzmu konsumenckiego mĹ‚odych PolakĂłw, ich Ĺ›wiadomoĹ›ci makroekonomicznego znaczenia pro-polskich preferencji zakupowych dokonywanych na poziomie wyborĂłw indywidualnych, a takĹĽe pewnych systemowych sĹ‚aboĹ›ci jeĹ›li chodzi o promocjÄ™ polskich produktĂłw.  
+Niemniej jednak, aby wnioski te mogĹ‚y w sposĂłb skuteczny zostaÄ‡ przetransformowane w takie dziaĹ‚ania, ktĂłre faktycznie doprowadzÄ… do szerokiego nakĹ‚onienia mĹ‚odych konsumentĂłw do kupowania produktĂłw i usĹ‚ug rodzimego pochodzenia, poĹĽÄ…dane wydaje siÄ™ rozwiniÄ™cie i pogĹ‚Ä™bienie rozpoczÄ™tych badaniem studiĂłw.  
+Projekt jest wiÄ™c niezbÄ™dnÄ… bazÄ…, a jego kontynuacja pozwoliĹ‚aby na wypracowanie skutecznych narzÄ™dzi marketingowych â€žtrafiajÄ…cych w punktâ€ť do przekonania mĹ‚odych ludzi - najlepiej w ramach jednolitej, spĂłjnej, ogĂłlnopolskiej strategii budowania marki narodowej (byÄ‡ moĹĽe z wykorzystaniem/wzorowaniem siÄ™ na sprawdzonych â€žchwytachâ€ť brandingowych stosowanych przez wielkie korporacje; umiejÄ™tnie dostosowanych do narracji patriotyzmu konsumenckiego).  
+NarzÄ™dzia te winny docelowo doprowadziÄ‡ do wytworzenia swoistej mody na kupowanie produktĂłw/usĹ‚ug â€žmade in Polandâ€ť, a wydaje siÄ™ efektywnym zaangaĹĽowanie tu tzw. celebrytĂłw, liderĂłw opinii (twĂłrcy popularnych wĹ›rĂłd mĹ‚odzieĹĽy kanaĹ‚Ăłw na YouTube itp., â€žvlogerzyâ€ť itp.).
+
+W tym celu naleĹĽaĹ‚oby niniejsze badanie rozszerzyÄ‡ miÄ™dzy innymi w niĹĽej wymienionych aspektach.
+
+1. Bardziej szczegĂłĹ‚owe wyodrÄ™bnienie poszczegĂłlnych podgrup w ramach badanej â€“ ujmowanej szeroko jako â€žmĹ‚odzi Polacyâ€ť prĂłby badawczej.  
+ChodziĹ‚oby o zbadanie, jak ksztaĹ‚tujÄ… siÄ™ preferencje w kierunku kupowania produktĂłw rodzimego pochodzenia ze wzglÄ™du przykĹ‚adowo na:  
+- wielkoĹ›Ä‡ oĹ›rodka z ktĂłrego pochodzÄ… badani (duĹĽy oĹ›rodek miejski, miasto Ĺ›redniej wielkoĹ›ci, wieĹ› itp.).  
+- kierunek studiĂłw (w podziale np. na techniczne, ekonomiczne, humanistyczne etc.)  
+- preferencje polityczne i przekonania Ĺ›wiatopoglÄ…dowe.
+
+PogĹ‚Ä™bienie badania w tym kierunku pozwoliĹ‚oby przede wszystkim na zbadanie elastycznoĹ›ci poziomu etnocentryzmu konsumenckiego wzglÄ™dem tego rodzaju czynnikĂłw (podano powyĹĽej przykĹ‚adowe kryteria podziaĹ‚u na grupy w ramach analizowanej spoĹ‚ecznoĹ›ci).  
+DziÄ™ki temu moĹĽna wyciÄ…gnÄ…Ä‡ bardziej szczegĂłĹ‚owe wnioski co do ewentualnego â€žwyprofilowaniaâ€ť pro-polskiej edukacji konsumenckiej, wyodrÄ™bnienia grup docelowych kampanii nakĹ‚aniajÄ…cej do nabywania â€žmade in Polandâ€ť â€“ reprezentowanych przez osoby o byÄ‡ moĹĽe odmiennych: Ĺ›wiadomoĹ›ci, potencjale, potrzebach, oczekiwaniach itp. w omawianym zakresie).
+
+2. Rozszerzenie badania na inne kraje, tj. zbadanie poziomu etnocentryzmu konsumenckiego np. w innych paĹ„stwach Unii Europejskiej.  
+PozwoliĹ‚oby to na wyciÄ…gniÄ™cie bardzo ciekawych wnioskĂłw porĂłwnawczych na temat zarĂłwno â€žzastanychâ€ť preferencji mĹ‚odych ludzi w przedmiotowym zakresie (czy mĹ‚odzi Niemcy preferujÄ… niemieckie produkty i dlaczego, czy wĹ‚oskie pochodzenie jest istotnym argumentem â€žzaâ€ť przy dokonywaniu zakupĂłw przez mĹ‚odych WĹ‚ochĂłw, czy mĹ‚odzi Szwedzi skĹ‚onni sÄ… nabywaÄ‡ szwedzkie produkty i usĹ‚ugi itd..), jak i siĹ‚y oraz skutecznoĹ›ci promocji marek narodowych.  
+Przy takim ujÄ™ciu merytorycznym konieczny byĹ‚by oczywiĹ›cie szeroki przeglÄ…d zagranicznej literatury naukowej, badaĹ„ (metodologia, wnioski) nad zagadnieniem zrealizowanych w innych krajach.
+
+3. SzczegĂłĹ‚owa analiza realnych moĹĽliwoĹ›ci promowania produktĂłw polskiego pochodzenia przez instytucje paĹ„stwowe bez naraĹĽania siÄ™ na zarzuty o Ĺ‚amanie zasad wolnej konkurencji na terenie Jednolitego Rynku UE.  
+W tym zakresie warto byĹ‚oby wykorzystaÄ‡ wiedzÄ™ na temat modeli/kampanii stosowanych w innych krajach oraz form poĹ›redniego wspierania przez paĹ„stwo rodzimych producentĂłw (np. poprzez organizacje pozarzÄ…dowe promujÄ…ce i reklamujÄ…ce patriotyzm konsumencki); ewentualnie drĂłg â€žobejĹ›ciaâ€ť obostrzeĹ„ wynikajÄ…cych z unijnych przepisĂłw.
+
+Do pogĹ‚Ä™bienia studium w tym aspekcie skĹ‚aniajÄ… zwĹ‚aszcza wnioski z niniejszego projektu dotyczÄ…ce oceniania przez mĹ‚odych konsumentĂłw aktywnoĹ›ci w zakresie promowania produktĂłw polskiego pochodzenia zarĂłwno ze strony paĹ„stwa, jak i samych polskich producentĂłw (niska ocena!).
+
+4. Zbadanie, jakie skojarzenia towarzyszÄ…ce dla hasĹ‚a â€žmade in Polandâ€ť powinny znaleĹşÄ‡ siÄ™ w ogĂłlnopolskiej strategii/kampanii tak, by jej przekaz najlepiej trafiĹ‚ do przekonania mĹ‚odego konsumenta (co jest dla niego istotne).  
+Podobnie istotny jest dobĂłr form/narzÄ™dzi przekazu w dostosowaniu do percepcji i systemu wartoĹ›ci mĹ‚odych ludzi (ewentualnie â€“ jak powiedziano â€“ w dostosowaniu do poszczegĂłlnych wyodrÄ™bnionych grup reprezentujÄ…cych zrĂłĹĽnicowane poglÄ…dy/Ĺ›wiadomoĹ›Ä‡ itp.).

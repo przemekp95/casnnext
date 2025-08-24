@@ -43,3 +43,19 @@ next-env.d.ts
 /app/generated/prisma
 prisma/*.swp
 prisma/.~lock.*
+
+
+# raporty Lighthouse
+*.report.html
+analizy-wegry-desktop.html
+
+# backupy i pliki tymczasowe MDX
+*.bak
+*.tmp
+posts_backup_*/
+
+# lokalne środowisko
+posts/.venv/
+
+# katalogi systemowe
+__pycache__/

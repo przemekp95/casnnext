@@ -1,0 +1,98 @@
+---
+title: "{{analysisTitle}}"
+author: "{{authorName}}"
+---
+
+import Link from "next/link"
+
+# {{analysisTitle}}
+
+## {{authorName}}
+
+> â€žW obecnej sytuacji geopolitycznej Wojska Obrony Terytorialnej sÄ… jedynym, relatywnie szybkim, tanim i skutecznym sposobem odbudowy naszego bezpieczeĹ„stwa militarnego.â€ť[^i]
+
+> â€žWarunki wspĂłĹ‚czesnej wojny wymagajÄ…, aby wszyscy ludzie zdolni do noszenia broni brali w niej udziaĹ‚, a poniewaĹĽ przygotowanie do tej sĹ‚uĹĽby wymaga dĹ‚ugiego okresu edukacji, etyka wojskowa jest waĹĽna nie tylko dla ĹĽoĹ‚nierza staĹ‚ej sĹ‚uĹĽby, ale dla wszystkich ludzi w ogĂłle. Innymi sĹ‚owy, zawĂłd ĹĽoĹ‚nierza powinien byÄ‡ drugim zajÄ™ciem kaĹĽdego czĹ‚owiekaâ€ť  
+> â€” JĂłzef I.M. BocheĹ„ski OP (â€žPatriotyzm, MÄ™stwo, PrawoĹ›Ä‡ ĹĽoĹ‚nierskaâ€ť)
+
+ZbliĹĽa siÄ™ 6 rocznica powoĹ‚ania Wojsk Obrony Terytorialnej dlatego warto pokusiÄ‡ siÄ™ o pierwsze oceny dorobku formacji, ktĂłrej trzon stanowiÄ… mĹ‚odzi ĹĽoĹ‚nierze. ZwĹ‚aszcza w sytuacji, w ktĂłrej formacja ta zyskaĹ‚a, miÄ™dzy innymi dziÄ™ki poĹ›wiÄ™ceniu tysiÄ™cy mĹ‚odych i starszych TerytorialsĂłw, uznanie nie tylko w oczach polskich i zagranicznych specjalistĂłw, ale rĂłwnieĹĽ w oczach zwykĹ‚ych PolakĂłw, co jednoznacznie pokazujÄ… badania.[^ii] StaĹ‚o siÄ™ to pomimo bardzo negatywnego i nieobiektywnego nastawienia mediĂłw gĹ‚Ăłwnego nurtu do tworzÄ…cej siÄ™ formacji Wojska Polskiego, zjawiska w historii Polski bez precedensu (za wyjÄ…tkiem moĹĽe aktywnoĹ›ci â€žSztandaru Socjalizmuâ€ť Komunistycznej Partii Polski â€žw przededniuâ€ť napaĹ›ci bolszewikĂłw w 1920 r.). Dlatego przedmiotem tej pracy bÄ™dzie rĂłwnieĹĽ analiza contentu najbardziej emblematycznych negatywnych artykuĹ‚Ăłw oraz prĂłba systematyki gĹ‚Ăłwnych mechanizmĂłw dyskredytacyjnych zastosowanych w nich. Dodatkowo, podejmÄ™ prĂłbÄ™ znalezienia w nich punktĂłw stycznych z propagandowÄ… narracjÄ… rosyjskÄ…, ktĂłra rĂłwnieĹĽ nie sprzyjaĹ‚a rozbudowie Wojska Polskiego o piÄ…ty rodzaj siĹ‚ zbrojnych. Te rozwaĹĽania bÄ™dÄ… osadzone w szerszej perspektywie historii i myĹ›lenia o bezpieczeĹ„stwie Polski. BÄ™dÄ™ chciaĹ‚ zachÄ™ciÄ‡ Czytelnika m.in. do zastanowienia siÄ™ nad przyczynami braku rozpoczÄ™cia budowy tej potrzebnej formacji w latach 2008 â€“ 2015, ktĂłrych klamrami sÄ… dwie napaĹ›ci Rosji na swoich sÄ…siadĂłw, GruzjÄ™ i UkrainÄ™.
+
+---
+
+## 1. Geneza i powstanie WOT w Polsce w 2016 roku
+
+Polska posiada bogate tradycje zinstytucjonalizowanej Obrony Terytorialnej. PomijajÄ…c tradycje pospolitego ruszenia I Rzeczpospolitej, kiedy to kaĹĽdy obywatel byĹ‚ zobowiÄ…zany broniÄ‡ swego terytorium, wspĂłĹ‚czeĹ›nie najlepszymi przykĹ‚adami sÄ… Obrona Narodowa stworzona w 1937 r. oraz podziemna ZWZ/AK oraz NSZ stworzone pomimo okupacyjnych warunkĂłw w bardzo krĂłtkim okresie lat 1940-42.
+
+W PRL-u, min. ze wzglÄ™du na duĹĽÄ…, blisko 0,5 mln armiÄ™, w Ĺ›cisĹ‚ym rozumieniu OT nie funkcjonowaĹ‚a, choÄ‡ wystÄ™powaĹ‚y w LWP jednostki o zbliĹĽonym profilu. III Rzeczpospolita nie byĹ‚a dla idei odbudowy WOT Ĺ‚askawa, choÄ‡ np. juĹĽ w 2000r. Minister ON zatwierdziĹ‚ dokument powstaĹ‚y w skutek pracy zespoĹ‚u pod kierownictwem prof. Romualda Szeremietiewa. Do rozwoju formacji we wczesnych latach dwutysiÄ™cznych jednakĹĽe ostatecznie nie doszĹ‚o, na co mogĹ‚o mieÄ‡ wpĹ‚yw przejÄ™cie wĹ‚adzy przez Lewice w 2001 roku.
+
+JuĹĽ napaĹ›Ä‡ Rosji na GruzjÄ™ w 2008 roku a w szczegĂłlnoĹ›ci wydarzenia na Ukrainie w 2013/2014 zwiÄ…zane z inwazjÄ… de facto wojsk rosyjskich na ten kraj, w sposĂłb krytyczny uzmysĹ‚owiĹ‚y koniecznoĹ›Ä‡ przeformuĹ‚owania polskiej doktryny wojskowej, co wiÄ…zaĹ‚o siÄ™ min. z koniecznoĹ›ciÄ… zwiÄ™kszenia liczebnoĹ›ci PSZ oraz wiÄ™kszego zaangaĹĽowania spoĹ‚eczeĹ„stwa w obronnoĹ›Ä‡ paĹ„stwa. ByĹ‚o to tym Ĺ‚atwiejsze, iĹĽ inicjatywa taka mogĹ‚a siÄ™ spotkaÄ‡ z duĹĽym spoĹ‚ecznym odzewem i zainteresowaniem samoorganizujÄ…cej siÄ™ od koĹ„ca lat 90 w licznych organizacjach pro obronnych polskiej mĹ‚odzieĹĽy. Niejako w odpowiedzi na te wydarzenia i trendy, w 2014 roku, MON podjÄ™Ĺ‚o pewne dziaĹ‚ania min. powoĹ‚aĹ‚o peĹ‚nomocnika ds. spoĹ‚ecznych inicjatyw pro obronnych. Niestety do szybkiego powoĹ‚ania formacji w typie WOT ostatecznie w latach 2014-2015 nie doszĹ‚o, zaĹ› inicjatywy MON miaĹ‚y charakter raczej pozorowany, co byĹ‚o caĹ‚kowicie niezrozumiaĹ‚e. Do powoĹ‚ania WOT z prawdziwego zdarzenia doszĹ‚o ostatecznie w 2016 r., w wyniku zmiany politycznej w Polsce pod koniec 2015 roku.
+
+---
+
+## 2. Istota wspĂłĹ‚czesnego WOT. Stan obecny i perspektywy rozwoju w najbliĹĽszych latach
+
+Zanim przejdÄ™ do gĹ‚Ăłwnej treĹ›ci analizy w skrĂłcie przedstawiÄ™ gĹ‚Ăłwne funkcje WOT definiujÄ…ce ich istotÄ™.
+
+- W najwiÄ™kszym skrĂłcie WOT to lekka piechota. Ĺ»oĹ‚nierzami WOT sÄ… ochotnicy, szkoleni przede wszystkim w systemie weekendowym.
+- KadrÄ™ dowĂłdczÄ… stanowiÄ… natomiast ĹĽoĹ‚nierze zawodowi.
+- WOT w wiÄ™kszoĹ›ci krajĂłw ma najczÄ™Ĺ›ciej strukturÄ™ odpowiadajÄ…cÄ… podziaĹ‚owi administracyjnemu kraju, co zwiÄ…zane jest z terytorialnym profilem tych wojsk. Podobnie jest w Polsce, gdzie funkcjonuje brygada na poziomie kaĹĽdego wojewĂłdztwa (wyjÄ…tki to woj. mazowieckie â€“ 3 brygady, woj. podkarpackie i lubelskie â€“ 2 brygady, woj. opolskie i lubuskie dysponujÄ… na razie batalionami).
+- Do podstawowych zadaĹ„ WOT naleĹĽy: prowadzenie dziaĹ‚aĹ„ obronnych we wspĂłĹ‚dziaĹ‚aniu z wojskami operacyjnymi i wsparcia oraz elementami ukĹ‚adu pozamilitarnego (UPM); prowadzenie samodzielnych dziaĹ‚aĹ„ niekonwencjonalnych, przeciwdywersyjnych i przeciwdesantowych; udziaĹ‚ w zabezpieczeniu przyjÄ™cia i rozwiniÄ™cia sojuszniczych siĹ‚ wzmocnienia w nakazanych rejonach; realizacja przedsiÄ™wziÄ™Ä‡ z zakresu zarzÄ…dzania kryzysowego; prowadzenie dziaĹ‚aĹ„ informacyjnych.
+- Kto sĹ‚uĹĽy w WOT? 22% to kobiety, reszta to mÄ™ĹĽczyĹşni. Ok. 33 proc. z nich ma wyĹĽsze wyksztaĹ‚cenie, a co piÄ…ta osoba jeszcze studiuje.
+
+> â€žGdy zsumujemy te dwie ostatnie liczby to moĹĽna powiedzieÄ‡, ĹĽe ponad 50 proc. naszych ĹĽoĹ‚nierzy ma wyĹĽsze wyksztaĹ‚cenie lub wkrĂłtce je bÄ™dzie miaĹ‚o. To jeden z najwyĹĽszych wskaĹşnikĂłw na Ĺ›wiecie...â€ť[^iii]
+
+Po blisko 6 latach od utworzenia WOT moĹĽemy mĂłwiÄ‡ o sukcesie w tworzeniu nowej formacji. Po pierwsze, udaĹ‚o siÄ™ sformowaÄ‡ 20 brygad w ktĂłrych trwajÄ… szkolenia ĹĽoĹ‚nierzy. Ich liczba zbliĹĽa siÄ™ do 35 tysiÄ™cy, z czego ok. 10% stanowiÄ… ĹĽoĹ‚nierze zawodowi a reszta to nowi ĹĽoĹ‚nierze Terytorialnej SĹ‚uĹĽby Wojskowej. PostÄ™puje nie tylko proces szkoleniowy i rozbudowa infrastruktury szkoleniowej (min. centrum szkoleniowe WOT w Toruniu i Zegrzu, utworzenie szkoĹ‚y/kursu podoficerskiego/ oficerskiego o nazwie SONDA/AGRYKOLA, czy teĹĽ ZespoĹ‚u DziaĹ‚aĹ„ Cyberprzestrzennych), ale i systematyczne uzbrajanie ĹĽoĹ‚nierzy w najnowoczeĹ›niejszy polski sprzÄ™t dla lekkiej piechoty min. nowoczesny karabin â€žGrotâ€ť czy drony Flyeye. Cieszy rĂłwnieĹĽ perspektywa dostarczenia granatnikĂłw przeciwpancernych (m.in. Javelin czy M72 EC Mk1), ktĂłre wkrĂłtce powinny znaleĹşÄ‡ siÄ™ na wyposaĹĽeniu prawie kaĹĽdej druĹĽyny WOT. Dozbrajanie WOT skorelowane jest rĂłwnieĹĽ z updatowaniem zadaĹ„ na polu walki z wykorzystaniem wiedzy i doĹ›wiadczenia ukraiĹ„skich jednostek WOT, o czym wspominaĹ‚ ostatnio dowĂłdca WOT, gen. WiesĹ‚aw KukuĹ‚a.[^iv]
+
+Przy okazji Ukrainy warto teĹĽ wspomnieÄ‡ o szczegĂłlnej roli jakÄ… w pomocy uchodĹşcom odegrali ĹĽoĹ‚nierze WOT w ramach swoich obowiÄ…zkĂłw zwiÄ…zanych z zarzÄ…dzaniem kryzysowym. W akcji â€žNiezawodna pomocâ€ť[^v] uczestniczyĹ‚o blisko 6 tysiÄ™cy TerytorialsĂłw, ktĂłrzy wspierali obsĹ‚ugÄ™ osĂłb w punktach informacyjnych, dystrybucjÄ™ pomocy humanitarnej, transport czy budowÄ™ miejsc tymczasowego zakwaterowania.
+
+To byĹ‚a zresztÄ… kolejna aktywnoĹ›Ä‡ jednostek WOT w ramach tego obszaru. WczeĹ›niej bowiem, przez blisko 2 lata, ĹĽoĹ‚nierze WOT pomagali przy organizacji szczepieĹ„ na Covid-19, czy wspierali weteranĂłw/osoby starsze, hospitalizowane etc. W szczytowych momentach akcji â€žOdporna wiosnaâ€ť a nastÄ™pnie â€žTrwaĹ‚a odpornoĹ›Ä‡â€ť braĹ‚o udziaĹ‚ kaĹĽdego dnia blisko 6 tysiÄ™cy TerytorialsĂłw.[^vi]
+
+Ale, jak podkreĹ›liĹ‚ gen. KukuĹ‚a we wspomnianym wywiadzie, â€žWiele osĂłb sÄ…dziĹ‚o, ĹĽe jesteĹ›my tacy bardziej cywilnocentryczni, tak stoimy trochÄ™ obok wojska, skoncentrowani na zarzÄ…dzaniu antykryzysowym. Kompletnie umyka ludziom jednak to prawdziwe oblicze WOT-u, ktĂłre jest obliczem zbrojnym, wojskowym. Nasze szkolenie ĹĽoĹ‚nierza w 90 proc. jest skoncentrowane na szkoleniu bojowym. Ale cieszmy siÄ™, ĹĽe taki +cywilny+ obraz WOT siÄ™ wyĹ‚ania, bo to oznacza, ĹĽe nie testowano nas bojowo, czyli Polska byĹ‚a bezpieczna, nie byĹ‚o wojnyâ€ť.[^vii]
+
+Ale jak wiemy, choÄ‡by ze znanego powiedzenia, aby mieÄ‡ pokĂłj, trzeba siÄ™ szykowaÄ‡ do wojny, dlatego rĂłwnieĹĽ w Ĺ›wietle wydarzeĹ„ za naszÄ… wschodnia granicÄ…, wojskowa rola WOT bÄ™dzie sukcesywnie rosĹ‚a. Aby osiÄ…gnÄ™Ĺ‚a ona swĂłj wĹ‚aĹ›ciwy status potrzebne sÄ… przynajmniej 2-3 rzeczy.
+
+Po pierwsze, kadry. MoĹĽna prognozowaÄ‡, biorÄ…c pod uwagÄ™ Ĺ›redniÄ… liczbÄ™ aplikacji i â€žprzepustowoĹ›Ä‡â€ť szkoleniowÄ… WOT na poziomie ok 10 tys. ĹĽoĹ‚nierzy, iĹĽ proces terminowej budowy formacji do swego stanu docelowego tj. 53 tys. ĹĽoĹ‚nierzy w peĹ‚nej gotowoĹ›ci bojowej w roku 2026 jest niezagroĹĽony.
+
+Po drugie, uzbrojenie. Wydaje siÄ™, iĹĽ naleĹĽyte uzbrojenie wiÄ™kszoĹ›ci jednostek w broĹ„ rozpoznawczÄ…, przeciwpancernÄ… i byÄ‡ moĹĽe przeciwlotniczÄ… krĂłtkiego zasiÄ™gu w zarysowanej perspektywie jest realne. PilnÄ… potrzebÄ… chwili wydaje siÄ™ rĂłwnieĹĽ broĹ„ wyborowa. Jak podkreĹ›liĹ‚ w wywiadzie gen. KukuĹ‚a â€žTen rodzaj broni okazaĹ‚ siÄ™ najlepszy, jeĹ›li chodzi o dziaĹ‚ania w Ukrainie i teĹĽ w dziaĹ‚aniach przeciwokupacyjnych. To jeden z podstawowych wnioskĂłw wojsk ukraiĹ„skich, ĹĽe ten obszar strzelcĂłw wyborowych i snajperĂłw byĹ‚ niedoinwestowany u nich. My o tym pomyĹ›leliĹ›my, projektujÄ…c WOT, wszystko czego nam brakuje, aby rozwinÄ…Ä‡ skrzydĹ‚a w tym obszarze, to wĹ‚aĹ›nie dostÄ™p do dobrej jakoĹ›ci broni wyborowej. Mamy coraz lepszÄ… broĹ„ polskÄ… wiÄ™c mam nadziejÄ™, ĹĽe wkrĂłtce to siÄ™ ziĹ›ciâ€ť.[^viii]
+
+Tym samym naleĹĽy mieÄ‡ nadziejÄ™, iĹĽ komponent WOT do 2026 r. juĹĽ w peĹ‚ni, w wymiarze kadrowym i â€žwyposaĹĽeniowymâ€ť bÄ™dzie, zgodnie z zaĹ‚oĹĽeniami Strategicznego PrzeglÄ…du Obronnego, uzupeĹ‚nieniem zdolnoĹ›ci antydostÄ™powych Polskich SiĹ‚ Zbrojnych na terytorium Rzeczpospolitej Polskiej.
+
+Ale nie bÄ™dzie to moĹĽliwe, bez trzeciego, kluczowego elementu jakim jest zrozumienie i wsparcie spoĹ‚eczne dla WOT. SkalÄ™ i siĹ‚Ä™ tego zjawiska dobrze oddajÄ… sĹ‚owa MarszaĹ‚ka PiĹ‚sudskiego â€žDo obrony granic paĹ„stwa spoĹ‚eczeĹ„stwo winno daÄ‡ (ĹĽoĹ‚nierzom -PB) przede wszystkim to, co w jÄ™zyku wojennym nazywa siÄ™ moraleâ€ť. I choÄ‡ w Polakach drzemie naturalny, historycznie i charakterologicznie uwarunkowany potencjaĹ‚ â€žmoraleâ€ť dla polskiego ĹĽoĹ‚nierza, w ostatnich latach Ĺ›rodowiska polskie, ktĂłre go najwyraĹşniej nie posiadajÄ…, byĹ‚y, obok oĹ›rodkĂłw rosyjskich, niezmiernie aktywne. Co gorsza, rĂłwnieĹĽ w sferze wpĹ‚ywu na opiniÄ™ publicznÄ…, czyli mass mediĂłw. Ich swoistemu modus operandi bÄ™dÄ™ chciaĹ‚ siÄ™ przyjrzeÄ‡ w trzeciej czÄ™Ĺ›ci pracy.
+
+---
+
+## 3. Kampania dyskredytacyjna wobec WOT w latach 2016-2022
+
+Bezsilna wĹ›ciekĹ‚oĹ›Ä‡ dusiĹ‚a mnie nieraz, ĹĽe w niczym zaszkodziÄ‡ wrogom nie mogÄ™, ĹĽe muszÄ™ w milczeniu znosiÄ‡ deptanie mej godnoĹ›ci i sĹ‚uchaÄ‡ kĹ‚amliwych i pogardliwych sĹ‚Ăłw o Polsce, Polakach i naszej historii  
+â€” JĂłzef PiĹ‚sudski
+
+### Rosyjskie historyczne tĹ‚o. Dyskredytacja poznawcza jako element rosyjskiej strategii informacyjnej
+
+Zanim przejdÄ™ do analizy contentu prasy polskojÄ™zycznej w kontekĹ›cie WOT, warto przypomnieÄ‡, iĹĽ wĹ‚aĹ›ciwie od poczÄ…tku rozpoczÄ™cia polskich staraĹ„ o akcesjÄ™ do NATO, rosyjskie agencje i wojska dezinformacyjne rozpoczÄ™Ĺ‚y systematycznÄ… pracÄ™ zmierzajÄ…cÄ… do osĹ‚abienia moĹĽliwoĹ›ci obronnych RP. Z jednej strony byĹ‚y to dziaĹ‚ania dyplomatyczne (czego efektem byĹ‚o m.in. â€žnieformalneâ€ť uzgodnienie nierozlokowywania wojsk NATO na terytoriach byĹ‚ych paĹ„stw UkĹ‚adu Warszawskiego), z drugiej strony podejmowano operacje wpĹ‚ywu na opinie publiczne paĹ„stw zachodnich, w tym Polski, korzystajÄ…c ze starej metody â€žmarchewki i kijaâ€ť.
+
+MarchewkÄ… byĹ‚o inspirowanie opinii, ĹĽe nie bÄ™dzie konfliktu z RosjÄ…, bo Rosja go nie chce, jest juĹĽ pokojowym krajem chcÄ…cym jedynie uszanowania jej wielkoĹ›ci i stref wpĹ‚ywĂłw. CaĹ‚kowicie bezpodstawne straszenie niÄ… to jedynie nakrÄ™canie koniunktury zbrojeniowej. Wariantem tej pacyfistycznej narracji byĹ‚o wykluczenie wojny jako narzÄ™dzia uprawiania polityki. Agenci wpĹ‚ywu argumentowali, ĹĽe nie bÄ™dzie juĹĽ wojny w Europie, bo paĹ„stwa europejskie sÄ… Ĺ›wiadome, z czym siÄ™ to wiÄ…ĹĽe. Poza tym jest bomba atomowa, ktĂłra powstrzymuje od konfliktĂłw i zbrojenia konwencjonalne sÄ… pozbawione sensu.
+
+Kijem zaĹ› byĹ‚ przekaz: â€žlepiej nie draĹĽniÄ‡ niedĹşwiedziaâ€ť. Argumentowano, ĹĽe choÄ‡ RosjÄ… rzÄ…dzÄ… osoby miĹ‚ujÄ…ce pokĂłj, to wciÄ…ĹĽ jest tam grupa â€žsiĹ‚ownikĂłwâ€ť, ktĂłra moĹĽe przejÄ…Ä‡ wĹ‚adzÄ™, jeĹ›li ZachĂłd bÄ™dzie siÄ™ zbroiĹ‚ i rozszerzaĹ‚ swojÄ… sferÄ™ wpĹ‚ywĂłw.
+
+OczywiĹ›cie przeĹ‚amywanie smuty po rozpadzie ZSRR, sukcesywna reforma siĹ‚ zbrojnych, dziaĹ‚ania wywiadu rosyjskiego i coraz bardziej agresywna polityka wobec â€žbliskiej zagranicyâ€ť (czego najdobitniejszym przykĹ‚adem byĹ‚a wojna gruziĹ„ska w 2008 roku), byĹ‚a coraz trudniejsza do ukrycia przed Ĺ›wiatem i utrudniaĹ‚a spĂłjnoĹ›Ä‡ oraz efektywnoĹ›Ä‡ tej narracji. Prawdziwym game changerem byĹ‚y wydarzenia na Ukrainie w 2014 roku, tzn. okupacja Krymu i wojna w Donbasie.
+
+Dla wiÄ™kszoĹ›ci analitykĂłw staĹ‚o siÄ™ aktualne znane powiedzenie Enocha Powella o tym, iĹĽ "Historia peĹ‚na jest wojen, o ktĂłrych kaĹĽdy wiedziaĹ‚, ĹĽe nie wybuchnÄ…", zaĹ› dotychczasowe pokojowe deklaracje Rosji byĹ‚y de facto wizerunkowÄ… maskirowkÄ…, czyli ofensywnÄ… dyskredytacjÄ… poznawczÄ… majÄ…cÄ… zakĹ‚ĂłciÄ‡ wĹ‚aĹ›ciwÄ… ocenÄ™ rzeczywistoĹ›ci rosyjskiej wĹ›rĂłd decydentĂłw i spoĹ‚eczeĹ„stw zachodnich. Oficjalna napaĹ›Ä‡ Rosji na UkrainÄ™ w 2022 roku tylko to ostatecznie potwierdziĹ‚a.
+
+#### Dyskredytacja kompetencyjna WOT jako element kontynuacji strategii osĹ‚abiania odbudowy PSZ
+
+Wobec ewidentnych trudnoĹ›ci z budowaniem narracji postrzegajÄ…cej â€žRosjÄ™ jako paĹ„stwo miĹ‚ujÄ…ce pokĂłjâ€ť, Ĺ›rodowiska niechÄ™tne WOT uznaĹ‚y, iĹĽ faktycznie nie warto otwarcie krytykowaÄ‡ wzmacniania obronnoĹ›ci PSZ, ale jednoczeĹ›nie naleĹĽy przekonywaÄ‡, iĹĽ tworzenie WOT jest caĹ‚kowicie nieefektywne z punktu widzenia obronnoĹ›ci paĹ„stwa, gdyĹĽ â€žweekendowi ĹĽoĹ‚nierzeâ€ť nie bÄ™dÄ… w stanie naleĹĽycie wykonywaÄ‡ swoich obowiÄ…zkĂłw. Bardzo symptomatyczne byĹ‚o tu inspirowanie dziennikarzy do zadawania decydentom i przywĂłdcy formacji pytaĹ„ w stylu â€žCzy Terytorials bÄ™dzie umiaĹ‚ strzelaÄ‡?â€ť[^ix] Dodatkowo, wytwarzano wraĹĽenie m.in. poprzez sugestywne tytuĹ‚y/leady, iĹĽ Terytorialsi to typowe â€žmiÄ™so armatnieâ€ť[^x].
+
+Narracja ta caĹ‚kowicie ignorowaĹ‚a rozumienie zadaĹ„ ĹĽoĹ‚nierza formacji typu WOT. Do jego zadaĹ„ przecieĹĽ nie naleĹĽy realizowanie skomplikowanych dziaĹ‚aĹ„ ofensywnych z uĹĽyciem zaawansowanego sprzÄ™tu (w tym elektronicznego), co jest domenÄ… wojsk operacyjnych i co faktycznie wiÄ…ĹĽe siÄ™ z koniecznoĹ›ciÄ… prowadzenia wrÄ™cz permanentnych Ä‡wiczeĹ„ koordynujÄ…coâ€“usprawniajÄ…cych. Zadaniami kaĹĽdej lekkiej piechoty jest zabezpieczenie, w tym przypadku 2 lub 3 linii ewentualnego frontu, do ktĂłrego nie potrzeba aĹĽ tak intensywnych szkoleĹ„. Doprawdy, strzelanie, minowanie, odpalanie RPG etc. nie jest aĹĽ tak wymagajÄ…cÄ… sztukÄ…, aby naleĹĽaĹ‚o jÄ… robiÄ‡ codziennie.
+
+CaĹ‚kowicie pomijano fakt, iĹĽ wraz ze zwijaniem stosunkowo duĹĽej liczbowo armii polskiej i zawieszeniem poboru, silnie rozwijaĹ‚ siÄ™ oddolny ruch proobronny, ktĂłry tworzyĹ‚ doĹ›Ä‡ silne zaplecze osĂłb zainteresowanych wojskiem, sztukami walki etc. Cokolwiek by nie powiedzieÄ‡ o mankamentach szkolenia w tego typu organizacjach (wynikajÄ…cych m.in. z braku naleĹĽytego finansowania, specjalistĂłw), integrujÄ…c pasjonatĂłw przyczyniaĹ‚y siÄ™ one do stworzenia naturalnego zaplecza WOT, grupujÄ…c niemaĹ‚e liczby czĹ‚onkĂłw majÄ…cych przyswojone elementarne podstawy dziaĹ‚ania lekkiej piechoty. Sukcesy ĹĽoĹ‚nierzy WOT wywodzÄ…cych siÄ™ z tego Ĺ›rodowiska (m.in. w rĂłĹĽnorakich konkursach w strzelaniu) sÄ… tego dobitnym potwierdzeniem[^xi].
+
+Dodatkowo, narracja ta caĹ‚kowicie ignorowaĹ‚a dwa bardzo istotne elementy dla rzemiosĹ‚a ĹĽoĹ‚nierskiego, ktĂłrego czÄ™Ĺ›ciÄ… jest szkolenie nowego ĹĽoĹ‚nierza. Po pierwsze wysokie morale, ktĂłre z reguĹ‚y charakteryzuje wszystkich ochotnikĂłw, po drugie ich naturalne predyspozycje psycho-fizyczne do â€žwojaczkiâ€ť czyniÄ…ce z nich â€žnatural born warriorsâ€ť (w literaturze przedmiotu nazywanymi na podstawie analizy zachowaĹ„ na polu walki m.in. przez dr Wigrama â€žjastrzÄ™biamiâ€ť (walczÄ…cymi) w przeciwieĹ„stwie do â€žgoĹ‚Ä™biâ€ť (padajÄ…cymi) i â€žkurczakĂłwâ€ť (uciekajÄ…cymi).
+
+Aby zdyskredytowaÄ‡ przede wszystkim morale nowych ĹĽoĹ‚nierzy WOT w oczach publiki, skoncentrowano siÄ™ na ich (rzekomych) finansowych motywacjach (sĹ‚uĹĽba jest pĹ‚atna w kwocie 500 zĹ‚/mc). Elementem tej dyskredytacji byĹ‚o podawanie caĹ‚kowicie faĹ‚szywych informacji dotyczÄ…cych wyksztaĹ‚cenia i braku zatrudnienia nowych rekrutĂłw.[^xii]
+
+Kolejnym aspektem budowania krytycznej narracji wobec WOT, byĹ‚o caĹ‚kowite ignorowanie hybrydowego aspektu wspĂłĹ‚czesnych wojen i jej wymiaru dezinformacyjnego w spoĹ‚eczeĹ„stwie. W tym sensie fakt, iĹĽ ĹĽoĹ‚nierze sÄ… na co dzieĹ„ osadzeni w spoĹ‚eczeĹ„stwie jest ogromnym atutem. I nie chodzi tu jedynie o moĹĽliwoĹ›Ä‡ bezpoĹ›redniego wykorzystania ĹĽoĹ‚nierzy WOT do zatrzymywania np. prowokatorĂłw na ulicach miast etc., ale ich â€žpotencjalnoĹ›Ä‡ prewencyjnÄ…â€ť objawiajÄ…cÄ… siÄ™ m.in. obecnoĹ›ciÄ…, czujnoĹ›ciÄ… i aktywnoĹ›ciÄ… w social mediach.
+
+W aspekcie szkoleniowym, ktĂłry oczywiĹ›cie jest bardzo istotny, nie dostrzegano rĂłwnieĹĽ faktu, iĹĽ proces peĹ‚nego szkolenia ĹĽoĹ‚nierzy WOT bÄ™dzie trwaĹ‚ 3 lata, zaĹ› kadrÄ™ dowĂłdczÄ… bÄ™dÄ… stanowili ĹĽoĹ‚nierze zawodowi, czÄ™sto najwyĹĽszej klasy, pochodzÄ…cy rĂłwnieĹĽ z elitarnych jednostek specjalnych. ZresztÄ… ten ostatni atut rĂłwnieĹĽ starano siÄ™ przekuÄ‡ na sĹ‚aboĹ›Ä‡, zarzucajÄ…c drenaĹĽ kadry wojsk specjalnych i operacyjnych. ChoÄ‡ w przypadku tych pierwszych dotyczyĹ‚o to ok. 40 osĂłb, co stanowiĹ‚o ok. 1% caĹ‚ego stanu. Tego typu zarzuty byĹ‚y kolejnym etapem dyskredytacji kompetencyjnej idÄ…cej w kierunku wzniecenia podziaĹ‚Ăłw i dezintegracji w samym Ĺ›rodowisku wojskowym, przeciwstawiajÄ…c sobie ĹĽoĹ‚nierzy wojsk operacyjnych i ĹĽoĹ‚nierzy nowo powstajÄ…cej formacji.
+
+Tym samym np. caĹ‚kowicie ignorowano fakt, iĹĽ utrzymanie ĹĽoĹ‚nierza WOT jest 6 razy taĹ„sze od ĹĽoĹ‚nierza wojsk operacyjnych i nie wpĹ‚ynie na systematycznie powiÄ™kszany budĹĽet wojsk operacyjnych (ktĂłry, mĂłwiÄ…c nawiasowo, w przeszĹ‚oĹ›ci nigdy nie byĹ‚ wykorzystywany w 100% i czÄ™Ĺ›Ä‡ pieniÄ™dzy musiaĹ‚a z reguĹ‚y wracaÄ‡ do budĹĽetu etc.)
+
+W narracji tej rĂłwnieĹĽ ignorowano oczywisty fakt, iĹĽ budowa WOT przyczyni siÄ™ do rozwoju polskiego przemysĹ‚u obronnego, bo to bowiem wĹ‚aĹ›nie w produkcji na wyposaĹĽenie lekkiej piechoty (m.in. karabiny, noktowizory, RPG, radiostacje, kamizelki kuloodporne etc.) ma siÄ™ czym chwaliÄ‡. Nawet powstanie nowoczesnego karabinu MBDS â€žGrotâ€ť i duĹĽe zlecenie dla radomskiej fabryki â€žĹ

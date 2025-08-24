@@ -1,13 +1,38 @@
 // src/app/kontakt/page.tsx
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function KontaktPage() {
   return (
     <main className="bg-[#222f3e] min-h-screen pb-12">
       {/* CONTACT US HOME START */}
       <section className="contact-us-home section" id="home">
+
+        {/* Desktop hero */}
+        <Image
+          src="/images/home2.webp"
+          alt=""
+          fill
+          priority
+          fetchPriority="high"
+          sizes="(max-width: 768px) 0px, 100vw"   // nie ładuj na mobile
+          className="hero-bg hero-desktop"
+          style={{ objectFit: "cover", objectPosition: "center 35%" }}
+        />
+
+        {/* Mobile hero (logo) */}
+        <Image
+          src="/images/logo.jpg"
+          alt="CASN"
+          fill
+          sizes="(max-width: 768px) 100vw, 0px"   // nie ładuj na desktopie
+          className="hero-bg hero-mobile"
+          style={{ objectFit: "contain" }}
+        />
+
         <div className="bg-overlay"></div>
+
         <div className="home-center">
           <div className="home-desc-center">
             <div className="container">
