@@ -39,3 +39,17 @@ Projekt rozwijany z myślą o wydajności, SEO i prostym zarządzaniu treścią.
 - Budowanie: `npm run build`
 - Uruchamianie: `npm run start` (z automatycznym `prisma migrate deploy`)
 - Hosting: self-hosted (np. Cyber_Folks, własny serwer)
+
+## Setup
+
+Wymagania:
+- Node.js 20+
+- Baza danych MySQL/MariaDB
+
+Konfiguracja:
+1. Zainstaluj zależności: `npm install`
+2. Skopiuj plik środowiskowy: `cp .env.example .env.local` i uzupełnij `DATABASE_URL`
+3. Uruchom migracje: `npx prisma migrate deploy`
+4. Start dev: `npm run dev`
+
+> **EN summary**: This project is a Next.js 15 web app for an NGO, featuring articles in MDX and a Prisma ORM backend.
