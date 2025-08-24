@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Centrum Analiz Służby Niepodległej (CASN)
 
-## Getting Started
+Strona internetowa [Centrum Analiz Służby Niepodległej](https://casn.pl) oparta na **Next.js 15 (App Router)**.  
+Projekt rozwijany z myślą o wydajności, SEO i prostym zarządzaniu treścią.
 
-First, run the development server:
+## Tech stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Core
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Next.js 15 (App Router) + React + TypeScript
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Dane
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Prisma ORM
+- MySQL/MariaDB (silnik bazy danych)
 
-## Learn More
+### Treści
 
-To learn more about Next.js, take a look at the following resources:
+- MDX (artykuły i analizy w `posts/`)
+- Obsługa obrazów w MDX przez `next/image`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Styling & UI
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Bootstrap 5 + `legacy.css`
+- Material Design Icons (mdi)
 
-## Deploy on Vercel
+### Media & typografia
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `next/image` – optymalizacja i responsywne obrazy
+- `next/font` – optymalizacja fontów Google (Roboto, Rubik)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Jakość
+
+- ESLint + type-checking (`tsc`) w trakcie builda
+- Lighthouse – ręczne testy wydajności i SEO
+
+### Deployment
+
+- Budowanie: `npm run build`
+- Uruchamianie: `npm run start` (z automatycznym `prisma migrate deploy`)
+- Hosting: self-hosted (np. Cyber_Folks, własny serwer)
