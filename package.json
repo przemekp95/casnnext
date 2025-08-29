@@ -10,7 +10,7 @@
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit -p tsconfig.ci.json",
     "test": "jest",
     "test:ci": "jest --runInBand",
     "test:unit": "jest",

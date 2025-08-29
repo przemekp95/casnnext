@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["jest", "node"]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "test/global.d.ts"],
+  "exclude": ["node_modules", ".next", "cypress", "**/*.cy.ts", "**/*.cy.tsx"]
+}
