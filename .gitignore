@@ -82,3 +82,6 @@ analizy-wegry-desktop.html
 # Prisma temp data
 prisma/*.csv
 prisma/*.txt
+
+/deploy
+casn.sql
