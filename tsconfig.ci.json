@@ -1,8 +1,20 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "skipLibCheck": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "test/global.d.ts"],
-  "exclude": ["node_modules", ".next", "cypress", "**/*.cy.ts", "**/*.cy.tsx"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "cypress",
+    "**/*.cy.ts",
+    "**/*.cy.tsx",
+    "test/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
 }
