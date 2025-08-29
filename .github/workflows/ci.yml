@@ -49,3 +49,6 @@ jobs:
 
       - name: E2E (Cypress)
         run: npx cypress run --headless
+
+env:
+  DATABASE_URL: mysql://root:root@127.0.0.1:3306/casn_test
