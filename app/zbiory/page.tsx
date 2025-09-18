@@ -3,52 +3,46 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 
+// 🔧 SSR / no-cache
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 const issues = [
-  {
-    year: 2022,
-    file: "/CASN_gotowa_wersja_do_druku_24.01.2023.pdf",
-    title: "Zeszyt Analiz 2022",
-  },
-  {
-    year: 2023,
-    file: "/Analizy_2023.pdf",
-    title: "Zeszyt Analiz 2023",
-  },
-  {
-    year: 2024,
-    file: "/Katalog CASN_online_08_12_24.pdf",
-    title: "Zeszyt Analiz 2024",
-  },
+  { year: 2022, file: "/CASN_gotowa_wersja_do_druku_24.01.2023.pdf", title: "Zeszyt Analiz 2022" },
+  { year: 2023, file: "/Analizy_2023.pdf",                           title: "Zeszyt Analiz 2023" },
+  { year: 2024, file: "/Katalog CASN_online_08_12_24.pdf",            title: "Zeszyt Analiz 2024" },
 ];
 
-export default function AnnualReportsPage() {
+export default async function AnnualReportsPage() {
   return (
-    <main className=" bg-gray-100 min-h-screen pb-12">
+    <main className="bg-gray-100 min-h-screen pb-12">
       {/* CASES HOME START */}
       <section className="contact-us-home section" id="home">
-
-        {/* Desktop hero */}
-        <Image
-          src="/images/home2.webp"
-          alt=""
-          fill
-          priority
-          fetchPriority="high"
-          sizes="(max-width: 768px) 0px, 100vw"   // nie ładuj na mobile
-          className="hero-bg hero-desktop"
-          style={{ objectFit: "cover", objectPosition: "center 35%" }}
-        />
-
-        {/* Mobile hero (logo) */}
-        <Image
-          src="/images/logo.jpg"
-          alt="CASN"
-          fill
-          sizes="(max-width: 768px) 100vw, 0px"   // nie ładuj na desktopie
-          className="hero-bg hero-mobile"
-          style={{ objectFit: "contain" }}
-        />
+        {/* wrapper dla <Image fill /> */}
+        <div className="relative">
+          {/* Desktop hero */}
+          <Image
+            src="/images/home2.webp"
+            alt=""
+            fill
+            priority
+            fetchPriority="high"
+            sizes="(max-width: 768px) 0px, 100vw"   // nie ładuj na mobile
+            className="hero-bg hero-desktop"
+            style={{ objectFit: "cover", objectPosition: "center 35%" }}
+          />
+          {/* Mobile hero (logo) */}
+          <Image
+            src="/images/logo.jpg"
+            alt="CASN"
+            fill
+            sizes="(max-width: 768px) 100vw, 0px"   // nie ładuj na desktopie
+            className="hero-bg hero-mobile"
+            style={{ objectFit: "contain" }}
+          />
+        </div>
 
         <div className="bg-overlay"></div>
         <div className="home-center">
@@ -64,7 +58,7 @@ export default function AnnualReportsPage() {
                           <Link href="/" className="text-white">Strona główna</Link>
                         </li>
                         <li className="breadcrumb-item active" aria-current="page">
-                          <a href="/zbiory" className="text-custom">Zbiory analiz</a>
+                          <Link href="/zbiory" className="text-custom">Zbiory analiz</Link>
                         </li>
                       </ol>
                     </nav>
@@ -86,11 +80,11 @@ export default function AnnualReportsPage() {
                 <div className="blog-list-item bg-white rounded mt-4">
                   <div className="blog-list-img">
                     <Image
-                    src="/images/logo.jpg"
-                    width={300} // szerokość w px (podaj realną szerokość)
-                    height={300} // wysokość w px (podaj realną wysokość)
-                    className="img-fluid d-block mx-auto rounded"
-                    alt={`Logo ${issue.title}`}
+                      src="/images/logo.jpg"
+                      width={300}
+                      height={300}
+                      className="img-fluid d-block mx-auto rounded"
+                      alt={`Logo ${issue.title}`}
                     />
                     <div className="blog-list-overlay"></div>
                   </div>

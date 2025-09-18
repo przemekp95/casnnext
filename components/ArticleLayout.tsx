@@ -1,7 +1,5 @@
 // components/ArticleLayout.tsx
-import React from "react";
-import Link from "next/link";
-import Image from "next/image";
+import Link from "next/link";  // tylko to zostawiamy, jeśli jest używane
 
 type Crumb = { label: string; href?: string; active?: boolean };
 
@@ -11,8 +9,8 @@ type Props = {
   author?: string;
   lead?: string;
   children: React.ReactNode;
-  breadcrumbs?: Crumb[];                 // okruszki pod tytułem
-  innerBg?: string;                      // np. "rgba(30,30,30,.65)" (domyślnie jak w przykładzie)
+  breadcrumbs?: Crumb[];
+  innerBg?: string;
 };
 
 export default function ArticleLayout({
@@ -29,97 +27,106 @@ export default function ArticleLayout({
 }: Props) {
   return (
     <>
-{/* OUR TEAM HOME START (updated hero) */}
-<section className="contact-us-home section" id="home">
-  {/* Desktop hero */}
-  <Image
-    src="/images/home2.webp"
-    alt=""
-    fill
-    priority
-    fetchPriority="high"
-    sizes="(max-width: 768px) 0px, 100vw"   // nie ładuj na mobile
-    className="hero-bg hero-desktop"
-    style={{ objectFit: "cover", objectPosition: "center 35%" }}
-  />
+      {/* HERO */}
+      <section className="contact-us-home section" id="home">
+        <div className="relative" style={{ minHeight: 380 }}>
+          {/* Desktop bg */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/home2.webp"
+            alt="Tło"
+            className="hero-bg hero-desktop"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center 35%",
+            }}
+          />
+          {/* Mobile logo */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/logo.jpg"
+            alt="CASN"
+            className="hero-bg hero-mobile"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
+          />
 
-  {/* Mobile hero (logo) */}
-  <Image
-    src="/images/logo.jpg"
-    alt="CASN"
-    fill
-    sizes="(max-width: 768px) 100vw, 0px"   // nie ładuj na desktopie
-    className="hero-bg hero-mobile"
-    style={{ objectFit: "contain" }}
-  />
+          <div className="bg-overlay" />
+          <div className="home-center" style={{ position: "relative", zIndex: 1 }}>
+            <div className="home-desc-center">
+              <div className="container">
+                <div className="row justify-content-center">
+                  <div className="col-lg-8" style={{ background: innerBg }}>
+                    <div className="home-page-title text-center">
+                      <h1 className="text-white mb-2">{title}</h1>
 
-  <div className="bg-overlay" />
+                      {breadcrumbs?.length > 0 && (
+                        <nav aria-label="breadcrumb">
+                          <ol className="breadcrumb justify-content-center bg-transparent">
+                            {breadcrumbs.map((c, i) => (
+                              <li
+                                key={i}
+                                className={"breadcrumb-item " + (c.active ? "active" : "text-white")}
+                                aria-current={c.active ? "page" : undefined}
+                              >
+                                {c.href && !c.active ? (
+                                  <a href={c.href} className="text-white">
+                                    {c.label}
+                                  </a>
+                                ) : (
+                                  <span className={c.active ? "text-custom" : ""}>{c.label}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ol>
+                        </nav>
+                      )}
 
-  <div className="home-center" style={{ position: "relative", zIndex: 1 }}>
-    <div className="home-desc-center">
-      <div className="container">
-        <div className="row justify-content-center">
-          <div className="col-lg-8" style={{ background: innerBg }}>
-            <div className="home-page-title text-center">
-              <h1 className="text-white mb-2">{title}</h1>
-
-              {/* breadcrumbs */}
-              {breadcrumbs?.length > 0 && (
-                <nav aria-label="breadcrumb">
-                  <ol className="breadcrumb justify-content-center bg-transparent">
-                    {breadcrumbs.map((c, i) => (
-                      <li
-                        key={i}
-                        className={
-                          "breadcrumb-item " +
-                          (c.active ? "active" : "text-white")
-                        }
-                        aria-current={c.active ? "page" : undefined}
-                      >
-                        {c.href && !c.active ? (
-                          <Link href={c.href} className="text-white">
-                            {c.label}
-                          </Link>
-                        ) : (
-                          <span className={c.active ? "text-custom" : ""}>{c.label}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </nav>
-              )}
-
-              {/* lead + meta */}
-              {(lead || author || date) && (
-                <div className="mt-3">
-                  {lead && <p className="text-white mb-2">{lead}</p>}
-                  {(author || date) && (
-                    <p className="text-white-50 mb-0">
-                      {author && <span className="mr-2"><b>Autor:</b> {author}</span>}
-                      {author && date && <span className="mx-1">•</span>}
-                      {date && <span><b>Data:</b> {date}</span>}
-                    </p>
-                  )}
+                      {(lead || author || date) && (
+                        <div className="mt-3">
+                          {lead && <p className="text-white mb-2">{lead}</p>}
+                          {(author || date) && (
+                            <p className="text-white-50 mb-0">
+                              {author && (
+                                <span className="mr-2">
+                                  <b>Autor:</b> {author}
+                                </span>
+                              )}
+                              {author && date && <span className="mx-1">•</span>}
+                              {date && (
+                                <span>
+                                  <b>Data:</b> {date}
+                                </span>
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
+              </div>
+              {/* container */}
             </div>
           </div>
         </div>
-      </div>{/* container */}
-    </div>
-  </div>
-</section>
-{/* OUR TEAM HOME END */}
-
+      </section>
 
       {/* TREŚĆ ARTYKUŁU */}
       <section className="section py-4">
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-xl-9 col-lg-10 col-md-11">
-              <article className="prose prose-lg max-w-none">
-                {children}
-              </article>
+              <article className="prose prose-lg max-w-none">{children}</article>
             </div>
           </div>
         </div>

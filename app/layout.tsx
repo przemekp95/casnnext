@@ -1,6 +1,8 @@
 // app/layout.tsx
 import "./globals.css";
 import "./legacy.css";
+import Script from "next/script";
+
 import "@mdi/font/css/materialdesignicons.min.css";
 
 
@@ -45,7 +47,6 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // ⬇️ Podpinamy ZMIENNE, nie className (żeby nic się nie nadpisywało)
     <html lang="pl" className={`${roboto.variable} ${rubik.variable}`}>
       <body className="bg-white text-black">
         <Header />
@@ -53,20 +54,55 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CtaSection />
         <Footer />
 
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-            document.addEventListener('click', function(e){
-              var toggle = e.target.closest('.navbar-toggle');
-              if (toggle) {
-                e.preventDefault();
-                var nav = document.getElementById('navigation');
-                if (nav) nav.classList.toggle('open');
+        {/* istniejący inline script na navbar zostaje */}
+
+        {/* 🔻 client error logger */}
+        <Script id="client-logger" strategy="afterInteractive">
+          {`
+            (function () {
+              function send(payload){
+                try {
+                  navigator.sendBeacon && navigator.sendBeacon('/api/client-log', JSON.stringify(payload))
+                  || fetch('/api/client-log', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify(payload),
+                      keepalive: true
+                    });
+                } catch(_) {}
               }
-            });
-          `,
-          }}
-        />
+
+              window.addEventListener('error', function(ev){
+                try {
+                  const e = ev.error || {};
+                  send({
+                    type: 'error',
+                    message: e && e.message || String(ev.message || 'Unknown error'),
+                    stack: e && e.stack || null,
+                    source: ev.filename || null,
+                    lineno: ev.lineno || null,
+                    colno: ev.colno || null,
+                    href: location.href,
+                    ua: navigator.userAgent
+                  });
+                } catch(_) {}
+              });
+
+              window.addEventListener('unhandledrejection', function(ev){
+                try {
+                  const r = ev.reason || {};
+                  send({
+                    type: 'unhandledrejection',
+                    message: (r && r.message) || (typeof r==='string'? r : JSON.stringify(r)),
+                    stack: r && r.stack || null,
+                    href: location.href,
+                    ua: navigator.userAgent
+                  });
+                } catch(_) {}
+              });
+            })();
+          `}
+        </Script>
       </body>
     </html>
   );

@@ -1,7 +1,0 @@
--- AlterTable
-ALTER TABLE `Analysis` MODIFY `title` VARCHAR(255) NOT NULL;
-
--- AlterTable
-ALTER TABLE `Author` MODIFY `name` VARCHAR(255) NOT NULL,
-    MODIFY `img` VARCHAR(255) NOT NULL,
-    MODIFY `bio` TEXT NOT NULL;

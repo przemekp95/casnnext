@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CASN</string>
+    <string name="title_activity_main">CASN</string>
+    <string name="package_name">pl.casn.app</string>
+    <string name="custom_url_scheme">pl.casn.app</string>
+</resources>

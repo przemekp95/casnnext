@@ -1,122 +1,92 @@
-// app/autor/[slug]/page.tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { query } from "@/lib/db";
 
-export const runtime = "nodejs";      // Prisma → Node runtime
-export const revalidate = 3600;       // opcjonalnie: ISR 1h
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
-type PageParams = { slug: string };
+type AuthorRow = { id: number; slug: string; name: string; bio?: string | null; img?: string | null };
+type AnalysisRow = { id: number; title: string; slug: string };
 
-export default async function AuthorPage({
-  params,
-}: {
-  params: Promise<PageParams>;
-}) {
-  const { slug } = await params;
+// celowo: props:any – omijamy wadliwy constraint z .next/types
+export default async function AuthorPage(props: any) {
+  const slug: string | undefined = props?.params?.slug;
+  if (!slug) return notFound();
 
-  const author = await prisma.author.findUnique({
-    where: { slug },
-    include: {
-      analyses: { select: { id: true, title: true, slug: true } },
-    },
-  });
-
+  const authors = await query<AuthorRow>(
+    "SELECT id, slug, name, bio, img FROM Author WHERE slug = ? LIMIT 1",
+    [slug]
+  );
+  const author = authors[0];
   if (!author) return notFound();
+
+  const analyses = await query<AnalysisRow>(
+    "SELECT id, title, slug FROM Analysis WHERE authorId = ? ORDER BY id DESC",
+    [author.id]
+  );
+
+  const imgSrc =
+    author.img && (author.img.startsWith("/") || author.img.startsWith("http"))
+      ? author.img
+      : "/images/placeholder.png";
 
   return (
     <main>
-      {/* HERO */}
       <section className="contact-us-home section" id="home">
-        {/* Desktop hero */}
-        <Image
-          src="/images/home2.webp"
-          alt=""
-          fill
-          priority
-          fetchPriority="high"
-          sizes="(max-width: 768px) 0px, 100vw"
-          className="hero-bg hero-desktop"
-          style={{ objectFit: "cover", objectPosition: "center 35%" }}
-        />
-
-        {/* Mobile hero (logo) */}
-        <Image
-          src="/images/logo.jpg"
-          alt="CASN"
-          fill
-          sizes="(max-width: 768px) 100vw, 0px"
-          className="hero-bg hero-mobile"
-          style={{ objectFit: "contain" }}
-        />
-
-        <div className="bg-overlay"></div>
-        <div className="home-center">
-          <div className="home-desc-center">
-            <div className="container">
-              <div className="row justify-content-center">
-                <div
-                  className="col-lg-8"
-                  style={{ background: "rgba(30, 30, 30, 0.65)" }}
-                >
-                  <div className="home-page-title text-center">
-                    <h1 className="text-white mb-2">{author.name}</h1>
-                    <nav aria-label="breadcrumb">
-                      <ol className="breadcrumb justify-content-center bg-transparent">
-                        <li className="breadcrumb-item text-white">
-                          <Link href="/" className="text-white">
-                            Strona główna
-                          </Link>
-                        </li>
-                        <li className="breadcrumb-item">
-                          <Link href="/autorzy" className="text-custom">
-                            Nasi autorzy
-                          </Link>
-                        </li>
-                        <li className="breadcrumb-item active" aria-current="page">
-                          {author.name}
-                        </li>
-                      </ol>
-                    </nav>
+        <div className="relative" style={{ minHeight: 380 }}>
+          <Image src="/images/home2.webp" alt="Tło" fill priority sizes="100vw"
+                 className="hero-bg hero-desktop" style={{ objectFit: "cover", objectPosition: "center 35%" }} unoptimized />
+          <Image src="/images/logo.jpg" alt="CASN" fill sizes="100vw"
+                 className="hero-bg hero-mobile" style={{ objectFit: "contain" }} unoptimized />
+          <div className="bg-overlay"></div>
+          <div className="home-center">
+            <div className="home-desc-center">
+              <div className="container">
+                <div className="row justify-content-center">
+                  <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
+                    <div className="home-page-title text-center">
+                      <h1 className="text-white mb-2">{author.name}</h1>
+                      <nav aria-label="breadcrumb">
+                        <ol className="breadcrumb justify-content-center bg-transparent">
+                          <li className="breadcrumb-item text-white"><Link href="/" className="text-white">Strona główna</Link></li>
+                          <li className="breadcrumb-item"><Link href="/autorzy" className="text-custom">Nasi autorzy</Link></li>
+                          <li className="breadcrumb-item active" aria-current="page">{author.name}</li>
+                        </ol>
+                      </nav>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </div>{/* home-desc-center */}
+          </div>{/* home-center */}
         </div>
       </section>
 
-      {/* SZCZEGÓŁY AUTORA */}
       <section className="section">
         <div className="container">
           <div className="row align-items-center">
             <div className="col-lg-4">
               <div className="team-details-img mo-mb-20">
-                <Image
-                  src={author.img || "/images/placeholder.png"}
-                  alt={`Zdjęcie ${author.name}`}
-                  className="img-fluid d-block mx-auto rounded"
-                  width={600}
-                  height={600}
-                />
+                <Image src={imgSrc} alt={`Zdjęcie ${author.name}`}
+                       className="img-fluid d-block mx-auto rounded" width={600} height={600} unoptimized />
               </div>
             </div>
             <div className="col-lg-8">
               <div className="team-details rounded p-4">
                 <h4 className="text-dark mb-2">{author.name}</h4>
                 <div className="team-details-border mt-3 mb-3"></div>
-                <p className="team-details-desc text-muted mb-4">
-                  {author.bio}
-                </p>
+                <p className="team-details-desc text-muted mb-4">{author.bio ?? ""}</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ARTYKUŁY (jeśli są) */}
-      {author.analyses?.length > 0 && (
+      {!!analyses.length && (
         <section className="section bg-light">
           <div className="container">
             <div className="row">
@@ -124,7 +94,7 @@ export default async function AuthorPage({
                 <h3 className="text-dark">Artykuły</h3>
                 <div className="team-details-border mt-3 mb-4"></div>
                 <div className="activities-item mb-4">
-                  {author.analyses.map((a) => (
+                  {analyses.map((a) => (
                     <p className="mb-3" key={a.id}>
                       <i className="mdi mdi-checkbox-marked-circle-outline text-custom mr-2"></i>
                       <Link href={`/analizy/${a.slug}`}>{a.title}</Link>
@@ -138,11 +108,4 @@ export default async function AuthorPage({
       )}
     </main>
   );
-}
-
-export async function generateStaticParams(): Promise<PageParams[]> {
-  const rows = await prisma.author.findMany({ select: { slug: true } });
-  return rows
-    .filter((r) => !!r.slug)
-    .map(({ slug }) => ({ slug: slug as string }));
 }

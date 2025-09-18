@@ -84,4 +84,7 @@ prisma/*.csv
 prisma/*.txt
 
 /deploy
-casn.sql
+casn.sql.env.local
+.env.production
+tmp/
+.env.local
