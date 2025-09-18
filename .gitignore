@@ -88,3 +88,6 @@ casn.sql.env.local
 .env.production
 tmp/
 .env.local
+
+# build artifacts
+build-casn.tgz
