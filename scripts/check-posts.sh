@@ -3,13 +3,7 @@ set -euo pipefail
 shopt -s nullglob
 ERR=0
 for f in posts/*.mdx; do
-  # Skip corrupted files that are causing build issues
-  case "$f" in
-    *kochman-artykul.mdx|*kochman-epbd.mdx|*rak-artykul.mdx|*rak.mdx|*swietlik-artykul.mdx|*wot-balcerowski.mdx)
-      echo "Pominięto uszkodzony plik: $f"
-      continue
-      ;;
-  esac
+
   c=$(awk 'NR<=80 && /^---[[:space:]]*$/{c++} END{print c+0}' "$f")
   if [ $((c % 2)) -eq 1 ]; then echo "Niedomknięty front-matter -> $f"; ERR=1; continue; fi
   fm=$(awk 'BEGIN{hit=0} {if($0~/^---[[:space:]]*$/){hit++} if(hit==1 && $0!~/^---[[:space:]]*$/) print} hit==2{exit}' "$f")
