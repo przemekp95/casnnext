@@ -173,7 +173,17 @@ export default function Footer() {
               </div>
               <div className="mt-2 text-end">
                 <p className="mb-0">2019 © Kevix. Design By Zoyothemes.</p>
-                <p className="mb-0">Maintenance By PP IT Solutions Przemysław Pietrzak.</p>
+                <p className="mb-0">
+                  Maintenance By{' '}
+                  <a
+                    href="https://ppsolutions.com.pl/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'inherit', textDecoration: 'none' }}
+                  >
+                    PP Solutions P.S.A.
+                  </a>
+                </p>
               </div>
             </div>
           </div>

@@ -92,7 +92,15 @@ export default function KontaktPage() {
                 <div className="contact-icon mx-auto mb-3">
                   <i className="mdi mdi-email-outline"></i>
                 </div>
-                <p className="text-muted mb-0">p.balcerowski@sluzbaniepodleglej.pl</p>
+                <p className="text-muted mb-0">
+                  <a
+                    href="mailto:p.balcerowski@sluzbaniepodleglej.pl"
+                    className="text-muted"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    p.balcerowski@sluzbaniepodleglej.pl
+                  </a>
+                </p>
               </div>
             </div>
 
@@ -101,7 +109,17 @@ export default function KontaktPage() {
                 <div className="contact-icon mx-auto mb-3">
                   <i className="mdi mdi-web"></i>
                 </div>
-                <p className="text-muted mb-0">sluzbaniepodleglej.pl</p>
+                <p className="text-muted mb-0">
+                  <a
+                    href="https://sluzbaniepodleglej.pl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    sluzbaniepodleglej.pl
+                  </a>
+                </p>
               </div>
             </div>
           </div>

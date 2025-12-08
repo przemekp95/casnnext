@@ -36,12 +36,23 @@ function isBodyWithSlug(x: unknown): x is BodyWithSlug {
 // GET: pobiera wszystkie artykuły
 export async function GET() {
   try {
+    // Skip Prisma during build time - return empty array for build
+    if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
+      return NextResponse.json([], {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'CDN-Cache-Control': 'max-age=300',
+        },
+      });
+    }
+
     // Use caching only in production Next.js runtime, not in tests
     let articles: ArticleRow[];
     if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
       const getArticlesCached = unstable_cache(
         async () => {
-          const data = await prisma.analysis.findMany({
+          const data = await prisma!.analysis.findMany({
             include: {
               author: {
                 select: {
@@ -89,8 +100,9 @@ export async function GET() {
         },
       });
 
-      // Transform to match existing API format
-      articles = data.map((item: any) => ({
+          // Transform to match existing API format
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          articles = data.map((item: any) => ({
         id: item.id,
         title: item.title,
         slug: item.slug,
@@ -115,6 +127,11 @@ export async function GET() {
 
 // POST: dodaje nowy artykuł
 export async function POST(req: Request) {
+  // Skip Prisma during build time - return error for build
+  if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
+    return NextResponse.json({ error: "Build time - API unavailable" }, { status: 503 });
+  }
+
   let body: unknown = null;
   try {
     body = await req.json();

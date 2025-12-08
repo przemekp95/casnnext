@@ -13,6 +13,7 @@ const issues = [
   { year: 2022, file: "/CASN_gotowa_wersja_do_druku_24.01.2023.pdf", title: "Zeszyt Analiz 2022" },
   { year: 2023, file: "/Analizy_2023.pdf",                           title: "Zeszyt Analiz 2023" },
   { year: 2024, file: "/Katalog CASN_online_08_12_24.pdf",            title: "Zeszyt Analiz 2024" },
+  { year: 2025, file: "/wszystkie_teksty_druk_3mm_spad_04_12.pdf", title: "Zeszyt Analiz 2025" },
 ];
 
 export default async function AnnualReportsPage() {
