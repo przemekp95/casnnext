@@ -30,9 +30,14 @@ export default function LegacyScripts() {
                 e.preventDefault();
                 console.log('Hamburger menu clicked!');
 
+                const isExpanded = navbarToggle.getAttribute('aria-expanded') === 'true';
+
                 // Toggle hamburger animation
                 lines.classList.toggle('open');
                 console.log('Lines class toggled:', lines.classList.contains('open'));
+
+                // Update ARIA expanded state
+                navbarToggle.setAttribute('aria-expanded', (!isExpanded).toString());
 
                 // Toggle navigation visibility
                 if (navigation.style.display === 'block') {
@@ -46,6 +51,13 @@ export default function LegacyScripts() {
                 }
               });
 
+              function closeMenu() {
+                lines.classList.remove('open');
+                navigation.style.display = 'none';
+                navigation.classList.remove('open');
+                navbarToggle.setAttribute('aria-expanded', 'false');
+              }
+
               // Close menu when clicking on a link (mobile)
               const navLinks = navigation.querySelectorAll('a');
               console.log('Found navigation links:', navLinks.length);
@@ -54,9 +66,7 @@ export default function LegacyScripts() {
                 link.addEventListener('click', function() {
                   console.log('Link clicked:', index);
                   if (window.innerWidth <= 991) {
-                    lines.classList.remove('open');
-                    navigation.style.display = 'none';
-                    navigation.classList.remove('open');
+                    closeMenu();
                     console.log('Menu closed after link click');
                   }
                 });
@@ -67,9 +77,7 @@ export default function LegacyScripts() {
                 if (window.innerWidth <= 991 &&
                     !navbarToggle.contains(event.target) &&
                     !navigation.contains(event.target)) {
-                  lines.classList.remove('open');
-                  navigation.style.display = 'none';
-                  navigation.classList.remove('open');
+                  closeMenu();
                   console.log('Menu closed after clicking outside');
                 }
               });
@@ -77,9 +85,7 @@ export default function LegacyScripts() {
               // Handle window resize
               window.addEventListener('resize', function() {
                 if (window.innerWidth > 991) {
-                  lines.classList.remove('open');
-                  navigation.style.display = '';
-                  navigation.classList.remove('open');
+                  closeMenu();
                   console.log('Window resized to desktop, menu reset');
                 }
               });

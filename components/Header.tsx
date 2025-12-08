@@ -2,14 +2,17 @@ import Link from "next/link";
 
 export default function Header() {
   return (
-    <header id="topnav" className="defaultscroll scroll-active">
+    <header id="topnav" className="defaultscroll scroll-active" role="banner">
       <div className="tagline">
         <div className="container">
           <div className="float-right">
-            <ul className="topbar-list list-unstyled d-flex" style={{ margin: "11px 0px" }}>
-              <li className="list-inline-item">
-                <a href="mailto:p.balcerowski@sluzbaniepodleglej.pl">
-                  <i className="mdi mdi-email mr-1 text-custom"></i>
+            <ul className="topbar-list list-unstyled d-flex" style={{ margin: "11px 0px" }} role="list">
+              <li className="list-inline-item" role="listitem">
+                <a
+                  href="mailto:p.balcerowski@sluzbaniepodleglej.pl"
+                  aria-label="Wyślij email do Piotra Balcerowskiego"
+                >
+                  <i className="mdi mdi-email mr-1 text-custom" aria-hidden="true"></i>
                   Email : p.balcerowski@sluzbaniepodleglej.pl
                 </a>
               </li>
@@ -27,22 +30,28 @@ export default function Header() {
 
         <div className="menu-extras">
           <div className="menu-item">
-            <a className="navbar-toggle">
-              <div className="lines">
+            <button
+              className="navbar-toggle"
+              aria-expanded="false"
+              aria-controls="navigation"
+              aria-label="Przełącz menu nawigacyjne"
+              type="button"
+            >
+              <div className="lines" aria-hidden="true">
                 <span></span>
                 <span></span>
                 <span></span>
               </div>
-            </a>
+            </button>
           </div>
         </div>
 
-        <div id="navigation">
-          <ul className="navigation-menu">
-            <li className="active">
-              <Link href="/">Strona główna</Link>
+        <nav id="navigation" aria-label="Menu główne" role="navigation">
+          <ul className="navigation-menu" role="list">
+            <li className="active" role="listitem">
+              <Link href="/" aria-current="page">Strona główna</Link>
             </li>
-            <li className="active">
+            <li className="active" role="listitem">
               <Link href="/autorzy">Autorzy</Link>
             </li>
 
@@ -84,14 +93,14 @@ export default function Header() {
               </ul>
             </li> */}
 
-            <li className="active">
+            <li className="active" role="listitem">
               <Link href="/zbiory">Zbiory analiz</Link>
             </li>
-            <li>
+            <li role="listitem">
               <Link href="/kontakt">Kontakt</Link>
             </li>
           </ul>
-        </div>
+        </nav>
       </div>
     </header>
   );

@@ -1,41 +1,42 @@
 /** @jest-environment node */
-import { PrismaClient } from '@prisma/client';
+import { query } from '@/lib/db';
 
-let route: any;
-let hasHandlers = false;
+interface RouteModule {
+  GET: () => Promise<Response>;
+  POST: (req: Request) => Promise<Response>;
+}
+
+let route: RouteModule | null = null;
+
 try {
-  route = require('@/app/api/articles/route');
-  hasHandlers = !!(route.GET || route.POST);
-} catch (_) {}
+  route = require('@/app/api/articles/route') as RouteModule;
+} catch (_) {
+  route = null;
+}
 
-const prisma = new PrismaClient();
+const createdAuthorSlug = `autor-test-${Date.now()}`;
 
-(hasHandlers ? describe : describe.skip)('API /api/articles', () => {
+(route ? describe : describe.skip)('API /api/articles', () => {
   let createdAuthorId: number | null = null;
-  let createdAuthorSlug = `autor-test-${Date.now()}`;
 
   beforeAll(async () => {
-    await prisma.$connect();
-    await prisma.analysis.deleteMany().catch(() => {});
-    await prisma.author.deleteMany().catch(() => {});
-    const a = await prisma.author.create({
-      data: {
-        name: 'Autor Test',
-        slug: createdAuthorSlug,
-        img: '/images/authors/test.png', // wymagane przez schemat
-        bio: 'Autor do testów API'
-      }
-    });
-    createdAuthorId = a.id;
-  });
+    // Clean up
+    await query('DELETE FROM Analysis WHERE 1=1').catch(() => {});
+    await query('DELETE FROM Author WHERE 1=1').catch(() => {});
 
-  afterAll(async () => {
-    await prisma.$disconnect();
+    // Create test author
+    await query(
+      'INSERT INTO Author (name, slug, img, bio) VALUES (?, ?, ?, ?)',
+      ['Autor Test', createdAuthorSlug, '/images/authors/test.png', 'Autor do testów API']
+    );
+    const result = await query<{ id: number }>('SELECT LAST_INSERT_ID() AS id');
+    if (result.length > 0) {
+      createdAuthorId = result[0].id;
+    }
   });
 
   it('GET zwraca listę (może być pusta)', async () => {
-    const req = new Request('http://localhost/api/articles');
-    const res = await route.GET(req as any);
+    const res = await route!.GET();
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);
@@ -52,11 +53,11 @@ const prisma = new PrismaClient();
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const res = await route.POST(req as any);
+    const res = await route!.POST(req);
     expect([200,201]).toContain(res.status);
     const json = await res.json();
     expect(json?.slug).toBe(payload.slug);
-    expect(json?.author?.id).toBe(createdAuthorId);
+    expect(json?.authorId).toBe(createdAuthorId);
   });
 
   it('POST tworzy rekord z authorSlug', async () => {
@@ -70,11 +71,11 @@ const prisma = new PrismaClient();
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const res = await route.POST(req as any);
+    const res = await route!.POST(req);
     expect([200,201]).toContain(res.status);
     const json = await res.json();
     expect(json?.slug).toBe(payload.slug);
-    expect(json?.author?.slug).toBe(createdAuthorSlug);
+    expect(json?.author_slug).toBe(createdAuthorSlug);
   });
 
   it('POST odrzuca bez autora', async () => {
@@ -84,7 +85,7 @@ const prisma = new PrismaClient();
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const res = await route.POST(req as any);
+    const res = await route!.POST(req);
     expect(res.status).toBe(400);
   });
 });

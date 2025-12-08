@@ -14,7 +14,7 @@ type AuthorRow = { slug: string; name: string; img?: string | null };
 
 export default async function AuthorsPage() {
   const authors = await query<AuthorRow>(
-    "SELECT slug, name, img FROM authors ORDER BY name ASC"
+    "SELECT slug, name, img FROM Author ORDER BY name ASC"
   );
 
   const normalizeSrc = (src?: string | null) =>
@@ -77,7 +77,7 @@ export default async function AuthorsPage() {
       <section className="section">
         <div className="container">
           <div className="row">
-            {authors.map((a) => (
+            {authors.map((a: AuthorRow) => (
               <div className="col-lg-3 col-md-6" key={a.slug}>
                 <div className="our-team-box mt-2 mb-4">
                   <div className="team-img">

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { unstable_cache, revalidateTag } from "next/cache";
+import { prisma } from "@/lib/prisma";
 
 // Typy danych
 type ArticleRow = {
@@ -34,14 +35,82 @@ function isBodyWithSlug(x: unknown): x is BodyWithSlug {
 
 // GET: pobiera wszystkie artykuły
 export async function GET() {
-  const articles = await query<ArticleRow>(
-    `SELECT a.id, a.title, a.slug, a.authorId,
-            au.name AS author_name, au.slug AS author_slug
-     FROM analysis a
-     LEFT JOIN author au ON a.authorId = au.id
-     ORDER BY a.id DESC`
-  );
-  return NextResponse.json(articles, { status: 200 });
+  try {
+    // Use caching only in production Next.js runtime, not in tests
+    let articles: ArticleRow[];
+    if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
+      const getArticlesCached = unstable_cache(
+        async () => {
+          const data = await prisma.analysis.findMany({
+            include: {
+              author: {
+                select: {
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+            orderBy: {
+              id: 'desc',
+            },
+          });
+
+          // Transform to match existing API format
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            slug: item.slug,
+            authorId: item.authorId,
+            author_name: item.author.name,
+            author_slug: item.author.slug,
+          }));
+        },
+        ['articles'],
+        {
+          revalidate: 300, // Cache for 5 minutes
+          tags: ['articles']
+        }
+      );
+      articles = await getArticlesCached();
+    } else {
+      // Direct query for tests or when caching unavailable
+      const data = await prisma.analysis.findMany({
+        include: {
+          author: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
+        },
+        orderBy: {
+          id: 'desc',
+        },
+      });
+
+      // Transform to match existing API format
+      articles = data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        slug: item.slug,
+        authorId: item.authorId,
+        author_name: item.author.name,
+        author_slug: item.author.slug,
+      }));
+    }
+
+    return NextResponse.json(articles, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'CDN-Cache-Control': 'max-age=300',
+      },
+    });
+  } catch (error) {
+    console.error('Articles API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 // POST: dodaje nowy artykuł
@@ -63,11 +132,11 @@ export async function POST(req: Request) {
   if (isBodyWithId(body)) {
     authorId = body.authorId;
   } else if (isBodyWithSlug(body)) {
-    const author = await query<{ id: number }>(
-      `SELECT id FROM author WHERE slug = ? LIMIT 1`,
-      [body.authorSlug]
-    );
-    if (author.length > 0) authorId = author[0].id;
+    const author = await prisma.author.findUnique({
+      where: { slug: body.authorSlug },
+      select: { id: true },
+    });
+    if (author) authorId = author.id;
   }
 
   if (!authorId) {
@@ -77,19 +146,36 @@ export async function POST(req: Request) {
     );
   }
 
-  await query(
-    `INSERT INTO analysis (title, slug, authorId) VALUES (?, ?, ?)`,
-    [title, slug, authorId]
-  );
+  const newArticle = await prisma.analysis.create({
+    data: {
+      title,
+      slug,
+      authorId,
+    },
+    include: {
+      author: {
+        select: {
+          name: true,
+          slug: true,
+        },
+      },
+    },
+  });
 
-  const article = await query<ArticleRow>(
-    `SELECT a.id, a.title, a.slug, a.authorId,
-            au.name AS author_name, au.slug AS author_slug
-     FROM analysis a
-     LEFT JOIN author au ON a.authorId = au.id
-     WHERE a.slug = ? LIMIT 1`,
-    [slug]
-  );
+  // Invalidate cache when new article is added (only in production)
+  if (typeof revalidateTag !== 'undefined' && process.env.NODE_ENV !== 'test') {
+    revalidateTag('articles');
+  }
 
-  return NextResponse.json(article[0], { status: 201 });
+  // Transform to match existing API format
+  const article = {
+    id: newArticle.id,
+    title: newArticle.title,
+    slug: newArticle.slug,
+    authorId: newArticle.authorId,
+    author_name: newArticle.author.name,
+    author_slug: newArticle.author.slug,
+  };
+
+  return NextResponse.json(article, { status: 201 });
 }

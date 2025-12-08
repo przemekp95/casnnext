@@ -31,7 +31,7 @@ export const metadata = {
   metadataBase: new URL("https://casn.pl"),
   title: "Centrum Analiz Służby Niepodległej",
   description: "Strona Centrum Analiz Fundacji Służby Niepodległej",
-  keywords: "centrum analiz, fundacja służba niepodległej, ngo",
+  keywords: "centrum analiz, fundacja służba niepodległej, ngo, analizy polityczne",
   authors: [{ name: "Zoyothemes" }],
   icons: {
     icon: "/images/favicon.ico",
@@ -43,6 +43,24 @@ export const metadata = {
   },
   openGraph: {
     images: "/images/home2.webp",
+    title: "Centrum Analiz Służby Niepodległej",
+    description: "Analizy polityki i społeczeństwa",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Centrum Analiz Służby Niepodległej",
+    description: "Analizy polityki i społeczeństwa",
+  },
+  alternates: {
+    canonical: "https://casn.pl",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
   },
 };
 
@@ -54,86 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="w-full min-h-screen">{children}</main>
         <CtaSection />
         <Footer />
-        {/* Mobile menu JavaScript - inline script */}
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            document.addEventListener('DOMContentLoaded', function() {
-              console.log('DOM loaded, initializing mobile menu...');
-
-              const navbarToggle = document.querySelector('.navbar-toggle');
-              const lines = document.querySelector('.navbar-toggle .lines');
-              const navigation = document.querySelector('#navigation');
-
-              console.log('Elements found:', { navbarToggle: !!navbarToggle, lines: !!lines, navigation: !!navigation });
-
-              if (navbarToggle && lines && navigation) {
-                console.log('Setting up event listeners...');
-
-                navbarToggle.addEventListener('click', function(e) {
-                  e.preventDefault();
-                  console.log('Hamburger menu clicked!');
-
-                  // Toggle hamburger animation
-                  lines.classList.toggle('open');
-                  console.log('Lines class toggled:', lines.classList.contains('open'));
-
-                  // Toggle navigation visibility
-                  if (navigation.style.display === 'block') {
-                    navigation.style.display = 'none';
-                    navigation.classList.remove('open');
-                    console.log('Menu hidden');
-                  } else {
-                    navigation.style.display = 'block';
-                    navigation.classList.add('open');
-                    console.log('Menu shown');
-                  }
-                });
-
-                // Close menu when clicking on a link (mobile)
-                const navLinks = navigation.querySelectorAll('a');
-                console.log('Found navigation links:', navLinks.length);
-
-                navLinks.forEach((link, index) => {
-                  link.addEventListener('click', function() {
-                    console.log('Link clicked:', index);
-                    if (window.innerWidth <= 991) {
-                      lines.classList.remove('open');
-                      navigation.style.display = 'none';
-                      navigation.classList.remove('open');
-                      console.log('Menu closed after link click');
-                    }
-                  });
-                });
-
-                // Close menu when clicking outside (mobile)
-                document.addEventListener('click', function(event) {
-                  if (window.innerWidth <= 991 &&
-                      !navbarToggle.contains(event.target) &&
-                      !navigation.contains(event.target)) {
-                    lines.classList.remove('open');
-                    navigation.style.display = 'none';
-                    navigation.classList.remove('open');
-                    console.log('Menu closed after clicking outside');
-                  }
-                });
-
-                // Handle window resize
-                window.addEventListener('resize', function() {
-                  if (window.innerWidth > 991) {
-                    lines.classList.remove('open');
-                    navigation.style.display = '';
-                    navigation.classList.remove('open');
-                    console.log('Window resized to desktop, menu reset');
-                  }
-                });
-
-                console.log('Mobile menu initialized successfully');
-              } else {
-                console.error('Could not find required elements for mobile menu');
-              }
-            });
-          `
-        }} />
+        <LegacyScripts />
 
         {/* istniejący inline script na navbar zostaje */}
 

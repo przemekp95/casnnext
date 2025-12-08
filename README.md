@@ -99,4 +99,131 @@ Inspiration, code snippets, etc.
 * [Prisma](https://www.prisma.io/)
 * [MDX](https://mdxjs.com/)
 
+## Version History
+
+- 1.0
+  - Pierwsza wersja produkcyjna z Next.js 15 i Prisma
+- 0.1
+  - Initial Release
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE.md file for details
+
+## API Documentation
+
+### Endpoints
+
+#### POST /api/articles
+Tworzenie nowego artykułu.
+
+**Request Body:**
+```json
+{
+  "title": "Tytuł artykułu",
+  "slug": "slug-artykulu",
+  "authorId": 1
+}
+// lub
+{
+  "title": "Tytuł artykułu",
+  "slug": "slug-artykulu",
+  "authorSlug": "autor-slug"
+}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "title": "Tytuł artykułu",
+  "slug": "slug-artykulu",
+  "authorId": 1
+}
+```
+
+#### GET /api/articles
+Pobieranie listy artykułów.
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "title": "Tytuł artykułu",
+    "slug": "slug-artykulu",
+    "authorId": 1,
+    "author_name": "Nazwa autora",
+    "author_slug": "autor-slug"
+  }
+]
+```
+
+#### POST /api/client-log
+Logowanie błędów klienta.
+
+**Request Body:**
+```json
+{
+  "type": "error",
+  "message": "Error message"
+}
+```
+
+#### POST /api/revalidate
+Invalidacja cache dla taga.
+
+**Request Body:**
+```json
+{
+  "tag": "articles"
+}
+```
+
+## Database Schema
+
+### Tabele
+
+- **Author**: Autorzy artykułów
+  - `id` (PRIMARY KEY)
+  - `slug` (UNIQUE)
+  - `name` (VARCHAR(255))
+  - `img` (VARCHAR(255))
+  - `bio` (TEXT)
+
+- **Analysis**: Analizy/artykóły
+  - `id` (PRIMARY KEY)
+  - `title` (VARCHAR(255))
+  - `slug` (UNIQUE, VARCHAR(191))
+  - `authorId` (FOREIGN KEY -> Author.id)
+
+## Architecture Diagram
+
+```
+[Browser]
+    ↓
+[Next.js App Router] → API Routes (/api) → MySQL Database
+    →
+[MDX Files (posts/)] ← Processed by MDXContent Component
+    →
+[Prisma ORM (optional)] → Migration + Query Builder
+```
+
+## Data Flow Diagram
+
+1. User requests page (e.g., /analiza/slug)
+2. Next.js fetches article metadata from MySQL DB
+3. Next.js reads MDX file from filesystem
+4. MDX processed by MDXContent with components (SafeImage, Chart, Map)
+5. HTML rendered and served to user
+6. Client-side JS handles mobile menu interactions (LegacyScripts)
+
+## Changelog
+
+Follows Conventional Commits.
+
+- feat: add API endpoint for articles
+- fix: correct table names case sensitivity
+- refactor: move mobile menu to separate component
+
 > **EN summary**: This project is a Next.js 15 web app for an NGO, featuring articles in MDX and a Prisma ORM backend.

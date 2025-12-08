@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Author {
+  id    Int     @id @default(autoincrement())
+  slug  String  @unique @db.VarChar(191)
+  name  String  @db.VarChar(255)
+  img   String? @db.VarChar(255)
+  bio   String? @db.Text
+  Analysis Analysis[]
+
+  @@map("Author")
+}
+
+model Analysis {
+  id       Int     @id @default(autoincrement())
+  title    String  @db.VarChar(255)
+  slug     String  @unique @db.VarChar(191)
+  authorId Int
+  author   Author  @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("Analysis")
+}

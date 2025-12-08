@@ -91,3 +91,6 @@ tmp/
 
 # build artifacts
 build-casn.tgz
+
+.early.coverage
+/generated/prisma

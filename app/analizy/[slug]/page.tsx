@@ -87,7 +87,11 @@ export default async function Page(props: any) {
     logDbg("STEP", "db_ok", analysis.id, analysis.title);
 
     // 2) MDX — wczytaj z dysku (async I/O, bez blokowania)
-    const ROOT = process.env.APP_ROOT || "/home/iapig16/domains/casn.pl/public_html";
+    // W lokalnym środowisku: /home/przemek..../Dokumenty/casn/posts
+    // Na produkcji: /home/iapig16/domains/casn.pl/public_html/posts
+    const ROOT = process.env.APP_ROOT ||
+      (typeof window === 'undefined' && process.cwd().includes('Dokumenty')
+        ? process.cwd() : "/home/iapig16/domains/casn.pl/public_html");
     const POSTS_DIR = path.join(ROOT, "posts");
     const filePath = path.join(POSTS_DIR, `${slug}.mdx`);
 
