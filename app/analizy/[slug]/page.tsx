@@ -53,9 +53,9 @@ function logDbg(...args: any[]) {
 }
 
 // ——— Główna strona ————————————————————————————————————————————————
-export default async function Page(props: any) {
+export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   try {
-    const slug: string | undefined = props?.params?.slug;
+    const { slug } = await params;
     if (!slug) return notFound();
 
     logDbg("STEP", "slug", slug);

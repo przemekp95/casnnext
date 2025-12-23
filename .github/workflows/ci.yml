@@ -1,54 +1,182 @@
-name: CI
+name: Deploy
 on:
-  pull_request: { branches: [ main ] }
   push: { branches: [ main ] }
+  workflow_dispatch:
 
-jobs:
-  test-and-build:
-    runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_DATABASE: casn_test
-          MYSQL_ROOT_PASSWORD: root
-        ports: [ "3306:3306" ]
-        options: >-
-          --health-cmd "mysqladmin ping -uroot -proot"
-          --health-interval 5s --health-timeout 5s --health-retries 10
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'npm' }
-
-      - name: Install deps
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type-check
-        run: npm run type-check
-
-      - name: Unit & Integration tests (with DB)
-        env:
-          DATABASE_URL: mysql://root:root@127.0.0.1:3306/casn_test
-        run: |
-          npx prisma migrate deploy
-          npm run test:ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Start app (prod)
-        run: npm run start &
-
-      - name: Wait for http://localhost:3000
-        run: npx wait-on http://localhost:3000
-
-      - name: E2E (Cypress)
-        run: npx cypress run --headless
+permissions:
+  contents: read
+  deployments: write
 
 env:
-  DATABASE_URL: mysql://root:root@127.0.0.1:3306/casn_test
+  APP_DIR: $HOME/apps/dev-hr-symfony
+  WEBROOT: $HOME/domains/pietrzakprzemyslaw.pl/public_html/hr-symfony
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # dla poprawnego odczytu taga/sha do wersjonowania
+
+      - name: Compute APP_VERSION (tag || short sha)
+        id: ver
+        run: |
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          if [ -n "$TAG" ]; then
+            echo "APP_VERSION=$TAG" >> $GITHUB_ENV
+          else
+            echo "APP_VERSION=1.0.0+${GITHUB_SHA::7}" >> $GITHUB_ENV
+          fi
+
+      - name: Setup PHP (CI)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo_mysql
+          coverage: none
+
+      - name: Prepare SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          if [ -n "${{ secrets.SSH_PORT }}" ]; then
+            ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          fi
+
+      # --- BEZ HEREDOCÓW ---
+      - name: Build DATABASE_URL (URL-encoded)
+        env:
+          DB_USER: ${{ secrets.PROD_DB_USER }}
+          DB_PASS: ${{ secrets.PROD_DB_PASS }}
+          DB_HOST: ${{ secrets.PROD_DB_HOST }}
+          DB_NAME: ${{ secrets.PROD_DB_NAME }}
+        run: |
+          python3 -c 'import os,urllib.parse as u;print(f"DATABASE_URL=mysql://{u.quote(os.environ["DB_USER"])}:{u.quote(os.environ["DB_PASS"])}@{os.environ["DB_HOST"]}/{os.environ["DB_NAME"]}?charset=utf8mb4")' >> $GITHUB_ENV
+
+      - name: Create .env (printf-only; includes Sentry)
+        run: |
+          : > .env
+          printf '%s\n' 'APP_ENV=prod'                              >> .env
+          printf '%s\n' 'APP_DEBUG=0'                               >> .env
+          printf '%s\n' "APP_SECRET=${{ secrets.PROD_APP_SECRET }}" >> .env
+          printf '%s\n' "PROD_DB_HOST=${{ secrets.PROD_DB_HOST }}"  >> .env
+          printf '%s\n' "PROD_DB_NAME=${{ secrets.PROD_DB_NAME }}"  >> .env
+          printf '%s\n' "PROD_DB_USER=${{ secrets.PROD_DB_USER }}"  >> .env
+          printf '%s\n' "PROD_DB_PASS=${{ secrets.PROD_DB_PASS }}"  >> .env
+          printf '%s\n' "DATABASE_URL=${{ env.DATABASE_URL }}"      >> .env
+          printf '%s\n' "APP_VERSION=${{ env.APP_VERSION }}"        >> .env
+          if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
+            printf '%s\n' "SENTRY_DSN=${{ secrets.SENTRY_DSN }}"    >> .env
+            printf '%s\n' "SENTRY_ENV=production"                   >> .env
+            printf '%s\n' "SENTRY_RELEASE=%env(APP_VERSION)%"       >> .env
+          fi
+
+      - name: Composer (no-dev) + cache warmup (CI)
+        env:
+          APP_ENV: prod
+          APP_DEBUG: 0
+        run: |
+          composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+          php bin/console cache:clear --env=prod --no-debug || true
+          php bin/console cache:warmup --env=prod --no-debug || true
+          php bin/console assets:install --env=prod --no-debug || true
+
+      - name: Pack artifact (exclude .env*)
+        run: |
+          tar czf build.tar.gz \
+            --ignore-failed-read \
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude=".env*" \
+            .
+
+
+      - name: Generate remote deploy script
+        run: |
+          cat > deploy-remote.sh <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          APP_DIR=$HOME/apps/dev-hr-symfony
+          WEBROOT=$HOME/domains/pietrzakprzemyslaw.pl/public_html/hr-symfony
+          RELEASES=$APP_DIR/releases
+          CURRENT=$APP_DIR/current
+          STAMP=$(date +%Y%m%d%H%M%S)
+
+          install -d -m 755 "$APP_DIR" "$RELEASES" "$APP_DIR/shared" "$APP_DIR/shared/var" "$APP_DIR/shared/var/log"
+          cd "$RELEASES" && mkdir "$STAMP" && cd "$STAMP"
+
+          tar xzf /tmp/dev-hr-symfony/build.tar.gz
+          rm -f /tmp/dev-hr-symfony/build.tar.gz
+
+          # .env -> przenieś i zlinkuj w release; usuń inne .env* z paczki
+          mv -f /tmp/dev-hr-symfony/.env "$APP_DIR/.env"
+          chmod 600 "$APP_DIR/.env"
+          ln -sfn "$APP_DIR/.env" .env
+          rm -f .env.prod .env.dev .env.test .env.*.local || true
+
+          # var -> shared
+          rm -rf var
+          ln -sfn "$APP_DIR/shared/var" var
+          touch "$APP_DIR/shared/var/log/prod.log" || true
+
+          # sanity
+          [ -f public/index.php ] || { echo "Brak public/index.php"; exit 1; }
+          [ -f public/.htaccess ] || { echo "Brak public/.htaccess (dodaj symfony/apache-pack)"; exit 1; }
+
+          # autodetekcja PHP z pdo_mysql
+          PHP_BIN=""
+          for bin in /opt/alt/php83/usr/bin/php /opt/alt/php82/usr/bin/php /usr/bin/php83 /usr/bin/php8.3 /usr/local/bin/php /usr/bin/php php; do
+            if command -v "$bin" >/dev/null 2>&1; then
+              if "$bin" -m 2>/dev/null | grep -qi pdo_mysql; then PHP_BIN=$(command -v "$bin"); break; fi
+            fi
+          done
+          [ -n "$PHP_BIN" ] || { echo "Brak PHP z pdo_mysql (CLI)"; exit 1; }
+          echo "Using PHP: $PHP_BIN"
+
+          APP_ENV=prod APP_DEBUG=0 "$PHP_BIN" bin/console cache:clear --no-debug || true
+          APP_ENV=prod APP_DEBUG=0 "$PHP_BIN" bin/console cache:warmup --no-debug || true
+
+          # aktywuj release
+          ln -sfn "$RELEASES/$STAMP" "$CURRENT"
+
+          # podmień webroot na bieżący public/
+          WEBROOT_DIR=${WEBROOT%/*}
+          mkdir -p "$WEBROOT_DIR"
+          rm -rf "$WEBROOT"
+          ln -sfn "$CURRENT/public" "$WEBROOT"
+
+          echo '=== prod.log (ostatnie 200 linii) ==='
+          tail -n 200 "$APP_DIR/shared/var/log/prod.log" || true
+
+          echo '=== DEBUG ==='
+          readlink -f "$WEBROOT" || true
+          ls -la "$WEBROOT"
+          SCRIPT
+          chmod +x deploy-remote.sh
+
+      - name: Upload build, .env & script
+        run: |
+          RSYNC_SSH="ssh -i ~/.ssh/id_ed25519"
+          [ -n "${{ secrets.SSH_PORT }}" ] && RSYNC_SSH="$RSYNC_SSH -p ${{ secrets.SSH_PORT }}"
+          rsync -avz -e "$RSYNC_SSH" \
+            --rsync-path="mkdir -p /tmp/dev-hr-symfony && rsync" \
+            build.tar.gz .env deploy-remote.sh \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/dev-hr-symfony/"
+
+      - name: Run remote deploy script
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/id_ed25519"
+          [ -n "${{ secrets.SSH_PORT }}" ] && SSH_CMD="$SSH_CMD -p ${{ secrets.SSH_PORT }}"
+          $SSH_CMD "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "bash /tmp/dev-hr-symfony/deploy-remote.sh"

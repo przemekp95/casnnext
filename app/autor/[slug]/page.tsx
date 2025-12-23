@@ -14,7 +14,7 @@ type AnalysisRow = { id: number; title: string; slug: string };
 
 // celowo: props:any – omijamy wadliwy constraint z .next/types
 export default async function AuthorPage(props: any) {
-  const slug: string | undefined = props?.params?.slug;
+  const { slug }: { slug: string } = await props.params;
   if (!slug) return notFound();
 
   const authors = await query<AuthorRow>(

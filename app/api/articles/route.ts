@@ -181,7 +181,7 @@ export async function POST(req: Request) {
 
   // Invalidate cache when new article is added (only in production)
   if (typeof revalidateTag !== 'undefined' && process.env.NODE_ENV !== 'test') {
-    revalidateTag('articles');
+    revalidateTag('articles', 'next');
   }
 
   // Transform to match existing API format

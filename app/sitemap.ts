@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next'
+import mysql from 'mysql2/promise'
 
 // Typy danych dla artykułów i autorów
 type ArticleRow = {
@@ -16,8 +17,42 @@ type AuthorRow = {
   slug: string;
 };
 
-// Funkcja do pobierania artykułów z API
+// Funkcja do pobierania artykułów z bazy danych podczas builda lub z API w runtime
 async function getArticles(): Promise<ArticleRow[]> {
+  // Podczas builda użyj bezpośredniego dostępu do bazy danych
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    try {
+      const connection = await mysql.createConnection({
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'casn_user',
+        password: process.env.DB_PASS || 'casn_pass',
+        database: process.env.DB_NAME || 'casn',
+        port: parseInt(process.env.DB_PORT || '3306'),
+      });
+
+      const [rows] = await connection.execute(`
+        SELECT
+          a.id,
+          a.title,
+          a.slug,
+          a.authorId,
+          au.name as author_name,
+          au.slug as author_slug
+        FROM Analysis a
+        LEFT JOIN Author au ON a.authorId = au.id
+        ORDER BY a.id DESC
+      `);
+
+      await connection.end();
+
+      return rows as ArticleRow[];
+    } catch (error) {
+      console.warn('Błąd podczas pobierania artykułów z bazy dla sitemapy podczas builda:', error);
+      return [];
+    }
+  }
+
+  // W runtime użyj API
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const response = await fetch(`${baseUrl}/api/articles`, {
