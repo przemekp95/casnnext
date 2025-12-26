@@ -78,6 +78,89 @@ Konfiguracja:
 * Otwórz http://localhost:3000 w przeglądarce
 * Zbuduj aplikację produkcyjną: `npm run build`
 
+## Docker Deployment
+
+### Quick Start with Docker Compose
+
+1. **Clone and setup:**
+   ```bash
+   git clone <repository>
+   cd casn
+   ```
+
+2. **Configure environment:**
+   ```bash
+   cp docker-compose.env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. **Start all services:**
+   ```bash
+   ./docker-start.sh
+   ```
+
+   Or manually:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+4. **Access the application:**
+   - Main app: http://localhost:3000
+   - With Nginx proxy: http://localhost:80 (if enabled)
+
+### Docker Services
+
+The Docker setup includes:
+
+- **MySQL 8.0** - Database server
+- **Next.js App** - Main application  
+- **Nginx** - Reverse proxy (optional)
+
+### Docker Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Rebuild specific service
+docker-compose build app
+docker-compose up -d app
+
+# Run database migrations
+docker-compose exec app npx prisma migrate deploy
+
+# Access database
+docker-compose exec mysql mysql -u casn_user -pcasn_password123 casn
+```
+
+### Environment Configuration
+
+Copy `docker-compose.env.example` to `.env` and configure:
+
+- Database credentials
+- NextAuth configuration
+- Application URLs
+
+### Production Deployment
+
+1. Update environment variables for production
+2. Configure SSL certificates for Nginx
+3. Set up persistent volumes for data
+4. Configure backup strategies
+
+### Troubleshooting
+
+- Check service health: `docker-compose ps`
+- View specific service logs: `docker-compose logs mysql`
+- Restart problematic service: `docker-compose restart app`
+
+
 ## Help
 
 W przypadku problemów sprawdź:
@@ -227,3 +310,85 @@ Follows Conventional Commits.
 - refactor: move mobile menu to separate component
 
 > **EN summary**: This project is a Next.js 15 web app for an NGO, featuring articles in MDX and a Prisma ORM backend.
+
+## Docker Deployment
+
+### Quick Start with Docker Compose
+
+1. **Clone and setup:**
+   ```bash
+   git clone <repository>
+   cd casn
+   ```
+
+2. **Configure environment:**
+   ```bash
+   cp docker-compose.env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. **Start all services:**
+   ```bash
+   ./docker-start.sh
+   ```
+
+   Or manually:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+4. **Access the application:**
+   - Main app: http://localhost:3000
+   - With Nginx proxy: http://localhost:80 (if enabled)
+
+### Docker Services
+
+The Docker setup includes:
+
+- **MySQL 8.0** - Database server
+- **Next.js App** - Main application  
+- **Nginx** - Reverse proxy (optional)
+
+### Docker Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Rebuild specific service
+docker-compose build app
+docker-compose up -d app
+
+# Run database migrations
+docker-compose exec app npx prisma migrate deploy
+
+# Access database
+docker-compose exec mysql mysql -u casn_user -pcasn_password123 casn
+```
+
+### Environment Configuration
+
+Copy `docker-compose.env.example` to `.env` and configure:
+
+- Database credentials
+- NextAuth configuration
+- Application URLs
+
+### Production Deployment
+
+1. Update environment variables for production
+2. Configure SSL certificates for Nginx
+3. Set up persistent volumes for data
+4. Configure backup strategies
+
+### Troubleshooting
+
+- Check service health: `docker-compose ps`
+- View specific service logs: `docker-compose logs mysql`
+- Restart problematic service: `docker-compose restart app`
