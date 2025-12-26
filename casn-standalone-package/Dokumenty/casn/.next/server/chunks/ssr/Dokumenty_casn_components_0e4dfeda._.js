@@ -1,0 +1,3 @@
+module.exports=[95615,a=>{"use strict";var b=a.i(83629),c=a.i(44915);function d({src:a="",alt:d="",timeoutMs:e=7e3,...f}){let[g,h]=(0,c.useState)(!0);return((0,c.useEffect)(()=>{let b=!0,c=new Image,d=setTimeout(()=>b&&h(!1),e);return c.onload=()=>{b&&(clearTimeout(d),h(!0))},c.onerror=()=>{b&&(clearTimeout(d),h(!1))},c.src=String(a),()=>{b=!1,clearTimeout(d)}},[a,e]),g)?(0,b.jsx)("img",{src:String(a),alt:d,...f}):(0,b.jsx)("div",{className:"bg-gray-100 text-gray-500 text-sm p-3 rounded",children:"Obraz niedostępny"})}a.s(["default",()=>d])},51048,a=>{"use strict";function b(a){return null}a.s(["default",()=>b])},33947,a=>{"use strict";function b(a){return null}a.s(["default",()=>b])}];
+
+//# sourceMappingURL=Dokumenty_casn_components_0e4dfeda._.js.map

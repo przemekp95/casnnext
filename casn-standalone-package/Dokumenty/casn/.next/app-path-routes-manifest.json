@@ -1,0 +1,15 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/analizy/[slug]/page": "/analizy/[slug]",
+  "/api/articles/route": "/api/articles",
+  "/api/client-log/route": "/api/client-log",
+  "/api/revalidate/route": "/api/revalidate",
+  "/autor/[slug]/page": "/autor/[slug]",
+  "/autorzy/page": "/autorzy",
+  "/favicon.ico/route": "/favicon.ico",
+  "/kontakt/page": "/kontakt",
+  "/page": "/",
+  "/sitemap.xml/route": "/sitemap.xml",
+  "/zbiory/page": "/zbiory"
+}
