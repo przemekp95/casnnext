@@ -50,19 +50,22 @@ services:
       retries: 3
       interval: 30s
 
-  # Nginx Reverse Proxy (optional but recommended)
-  nginx:
-    image: nginx:alpine
-    container_name: casn-nginx
+  # Database GUI - phpMyAdmin (for Prisma/MySQL management)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: casn-phpmyadmin
     restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: casn_user
+      PMA_PASSWORD: casn_password123
+      UPLOAD_LIMIT: 50M
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
+      - "8080:80"
     depends_on:
-      - app
+      mysql:
+        condition: service_healthy
     networks:
       - casn-network
 
