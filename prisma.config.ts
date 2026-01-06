@@ -9,8 +9,8 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
-  // Add datasource URL for Prisma operations
-  datasourceUrl: DATABASE_URL,
+  // Add datasource URL for Prisma operations using correct property name
+  datasource: DATABASE_URL,
   // Prisma v7 with MariaDB adapter - using PrismaMariaDb adapter only
   // Database connection is managed by PrismaMariaDb adapter in lib/prisma.ts
 });
