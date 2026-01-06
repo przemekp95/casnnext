@@ -9,7 +9,7 @@ echo "🔍 === PRISMA V7 CONFIGURATION VALIDATION ==="
 
 # Test 1: Check schema.prisma
 echo "1. Validating schema.prisma (should have NO url in datasource)..."
-if grep -q "url.*=.*env" prisma/schema.prisma; then
+if grep -q "url.*=" prisma/schema.prisma; then
     echo "❌ FAIL: schema.prisma still contains url = env(), should be removed for v7"
     exit 1
 else

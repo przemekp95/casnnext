@@ -5,6 +5,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Prisma v7 with MariaDB adapter - no url needed in schema
+// Database connection is managed by PrismaMariaDb adapter
 datasource db {
   provider = "mysql"
 }
@@ -28,4 +30,5 @@ model Analysis {
   author   Author  @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@map("Analysis")
+
 }
