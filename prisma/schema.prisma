@@ -15,8 +15,8 @@ model Author {
   id    Int     @id @default(autoincrement())
   slug  String  @unique @db.VarChar(191)
   name  String  @db.VarChar(255)
-  img   String? @db.VarChar(255)
-  bio   String? @db.Text
+  img   String  @db.VarChar(255)
+  bio   String  @db.Text
   Analysis Analysis[]
 
   @@map("Author")
