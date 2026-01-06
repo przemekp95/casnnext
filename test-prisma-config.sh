@@ -57,6 +57,15 @@ echo "6. Validating database schema (casn.sql)..."
 if [ -f "casn.sql" ]; then
     if grep -q "CREATE TABLE.*Author" casn.sql && grep -q "CREATE TABLE.*Analysis" casn.sql; then
         echo "✅ PASS: casn.sql contains Author and Analysis tables"
+
+# Test 7: Check Dockerfile copies casn.sql
+echo "7. Validating Dockerfile copies casn.sql for data loading..."
+if grep -q "casn.sql" Dockerfile; then
+    echo "✅ PASS: Dockerfile copies casn.sql"
+else
+    echo "❌ FAIL: Dockerfile missing casn.sql copy"
+    exit 1
+fi
     else
         echo "❌ FAIL: casn.sql missing required tables"
         exit 1
