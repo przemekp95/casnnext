@@ -23,15 +23,19 @@ else
     exit 1
 fi
 
-# Test 2: Check prisma.config.ts has correct PrismaClient setup
-echo "2. Validating prisma.config.ts PrismaClient configuration..."
-if grep -q "import { PrismaClient } from" prisma.config.ts && \
-   grep -q "PrismaClient({" prisma.config.ts && \
-   grep -q "datasources:" prisma.config.ts; then
-    echo "✅ PASS: prisma.config.ts has correct PrismaClient setup"
+# Test 2: Check prisma.config.ts (optional - may not exist with MariaDB adapter)
+echo "2. Validating prisma.config.ts (optional for MariaDB adapter)..."
+if [ -f "prisma.config.ts" ]; then
+    if grep -q "import { PrismaClient } from" prisma.config.ts && \
+       grep -q "PrismaClient({" prisma.config.ts && \
+       grep -q "datasources:" prisma.config.ts; then
+        echo "✅ PASS: prisma.config.ts has correct PrismaClient setup"
+    else
+        echo "❌ FAIL: prisma.config.ts missing proper PrismaClient configuration"
+        exit 1
+    fi
 else
-    echo "❌ FAIL: prisma.config.ts missing proper PrismaClient configuration"
-    exit 1
+    echo "✅ PASS: prisma.config.ts not found (using MariaDB adapter approach)"
 fi
 
 # Test 3: Check lib/prisma.ts uses PrismaMariaDb adapter
