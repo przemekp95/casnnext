@@ -5,10 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Prisma v7 with MariaDB adapter - no url needed in schema
+// Prisma v7 with MariaDB adapter
 // Database connection is managed by PrismaMariaDb adapter
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model Author {
