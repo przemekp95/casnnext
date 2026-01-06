@@ -12,7 +12,8 @@ RUN npm cache clean --force && npm install --force
 
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client (dummy URL for build time only)
+ENV DATABASE_URL="mysql://user:pass@localhost:3306/db"
 RUN npx prisma generate
 
 # Next.js collects completely anonymous telemetry data about general usage.
