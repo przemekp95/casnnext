@@ -1,6 +1,3 @@
--- CreateEnum
-CREATE TYPE `AuthorImageDefault` AS ENUM('NEW', 'OLD');
-
 -- CreateTable
 CREATE TABLE `Author` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
