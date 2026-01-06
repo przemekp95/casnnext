@@ -17,15 +17,13 @@ else
 fi
 
 # Test 2: Check prisma.config.ts
-echo "2. Validating prisma.config.ts (should have DATABASE_URL or DB_* parameters)..."
-if grep -q "url:" prisma.config.ts; then
-    echo "✅ PASS: prisma.config.ts has DATABASE_URL"
+echo "2. Validating prisma.config.ts (should have NO url field for Prisma v7 adapter)..."
+if ! grep -q "url" prisma.config.ts; then
+    echo "✅ PASS: prisma.config.ts has no url field"
 else
-    echo "❌ FAIL: prisma.config.ts missing DATABASE_URL"
+    echo "❌ FAIL: prisma.config.ts contains url field"
     exit 1
 fi
-
-# Test 3: Check lib/prisma.ts
 echo "3. Validating lib/prisma.ts (should import MariaDB adapter)..."
 if grep -q "PrismaMariaDb.*from.*@prisma/adapter-mariadb" lib/prisma.ts; then
     echo "✅ PASS: lib/prisma.ts imports PrismaMariaDb adapter"
