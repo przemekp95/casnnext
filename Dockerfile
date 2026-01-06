@@ -7,11 +7,14 @@ FROM base AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 
-# Install ALL dependencies (including devDependencies for building)
-# Use npm install instead of npm ci to handle corrupted packages
+# Install dependencies with additional flags to handle environment issues
 RUN \
-  if [ -f package-lock.json ]; then npm install --legacy-peer-deps; \
-  else echo "Lockfile not found." && exit 1; \
+  if [ -f package-lock.json ]; then \
+    npm cache clean --force && \
+    npm config set registry https://registry.npmjs.org/ && \
+    npm install --no-optional --legacy-peer-deps --force; \
+  else \
+    echo "Lockfile not found." && exit 1; \
   fi
 
 COPY . .
