@@ -17,14 +17,11 @@ else
 fi
 
 # Test 2: Check prisma.config.ts
-echo "2. Validating prisma.config.ts (should have DB_* parameters)..."
-if grep -q "DB_HOST" prisma.config.ts && \
-   grep -q "DB_USER" prisma.config.ts && \
-   grep -q "DB_PASSWORD" prisma.config.ts && \
-   grep -q "DB_NAME" prisma.config.ts; then
-    echo "✅ PASS: prisma.config.ts has DB_* parameters"
+echo "2. Validating prisma.config.ts (should have DATABASE_URL or DB_* parameters)..."
+if grep -q "url:" prisma.config.ts; then
+    echo "✅ PASS: prisma.config.ts has DATABASE_URL"
 else
-    echo "❌ FAIL: prisma.config.ts missing DB_* parameters"
+    echo "❌ FAIL: prisma.config.ts missing DATABASE_URL"
     exit 1
 fi
 

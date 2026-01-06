@@ -12,11 +12,8 @@ RUN npm cache clean --force && npm install --force
 
 COPY . .
 
-# Generate Prisma client using v7 configuration (dummy values for build-time only)
-ENV DB_HOST="localhost"
-ENV DB_USER="user"
-ENV DB_PASSWORD="pass"
-ENV DB_NAME="db"
+# Generate Prisma client (dummy URL for build-time only)
+ENV DATABASE_URL="mysql://user:pass@localhost:3306/db"
 
 # Try to generate Prisma client, but don't fail if it doesn't work
 RUN npx prisma generate || echo "Prisma generate failed, continuing without client generation"
