@@ -42,23 +42,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Copy built files from builder
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
-
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Copy Prisma schema for runtime migrations
-
-# Copy Prisma config for v7 migrations
-COPY --from=builder --chown=nextjs:nodejs /app/casn.sql ./
-COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+# Copy Prisma config and schema for runtime migrations
+COPY --from=builder /app/casn.sql ./
+COPY --from=builder /app/prisma.config.ts ./
+COPY --from=builder /app/prisma ./prisma
 
 # Install prisma CLI for migrations (minimal install)
 RUN npm install -g prisma@latest
@@ -77,4 +69,4 @@ ENV HOSTNAME="0.0.0.0"
 
 # Use entrypoint script to run migrations before starting server
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["node", ".next/standalone/server.js"]
+CMD ["npm", "start"]
