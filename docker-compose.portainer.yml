@@ -1,0 +1,96 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: casn-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword123
+      MYSQL_DATABASE: casn
+      MYSQL_USER: casn_user
+      MYSQL_PASSWORD: casn_password123
+      TZ: Europe/Warsaw
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - casn-network
+
+  migrate:
+    image: ghcr.io/przemekp95/casnnext:main
+    container_name: casn-migrate
+    restart: "no"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      # Prisma v7 MariaDB adapter requires individual DB params
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: casn_user
+      DB_PASSWORD: casn_password123
+      DB_NAME: casn
+      # Keep DATABASE_URL for backward compatibility
+      DATABASE_URL: "mysql://casn_user:casn_password123@mysql:3306/casn"
+      TZ: Europe/Warsaw
+    command: >
+      sh -lc '
+        set -e;
+        echo "== migrate: Using DB_* params for Prisma v7";
+        echo "== migrate: DB_HOST=${DB_HOST}";
+        cd /app;
+        # Prisma v7: migracje muszą przejść, inaczej STOP
+        prisma migrate deploy
+      '
+    networks:
+      - casn-network
+
+  app:
+    image: ghcr.io/przemekp95/casnnext:main
+    container_name: casn-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: "80"
+      # Prisma v7 MariaDB adapter requires individual DB params
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: casn_user
+      DB_PASSWORD: casn_password123
+      DB_NAME: casn
+      # Keep DATABASE_URL for backward compatibility
+      DATABASE_URL: "mysql://casn_user:casn_password123@mysql:3306/casn"
+      NEXTAUTH_SECRET: "your-secret-key-here"
+      NEXTAUTH_URL: "https://casn.tojest.dev"
+      NEXT_TELEMETRY_DISABLED: "1"
+      TZ: Europe/Warsaw
+    ports:
+      - "18080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - casn-network
+
+volumes:
+  mysql_data:
+
+networks:
+  casn-network:
+    driver: bridge
