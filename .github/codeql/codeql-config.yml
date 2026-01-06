@@ -1,0 +1,23 @@
+name: "CodeQL Config"
+
+# Paths to ignore during analysis
+paths-ignore:
+  # Next.js build output
+  - '.next'
+  - 'casn-standalone-package/static'
+  - 'casn-standalone-package/**/*.js'
+  
+  # Node modules
+  - 'node_modules'
+  - '**/node_modules'
+  
+  # Generated files
+  - '**/*.min.js'
+  - '**/chunks/*.js'
+  
+  # Test files and mocks
+  - 'test/__mocks__'
+  - 'cypress'
+  
+  # Public assets
+  - 'public/js'
