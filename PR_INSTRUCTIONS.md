@@ -11,9 +11,8 @@ Gałąź `feature/docker-compose-setup` została pomyślnie wypchnięta do GitHu
 
 #### 🐳 Docker Setup:
 - **Dockerfile** - Multi-stage build dla Next.js 15 z standalone output
-- **docker-compose.yml** - Pełny stack z MySQL, Redis, Nginx
+- **docker-compose.yml** - MySQL + Next.js + phpMyAdmin (bez nginx i redis)
 - **.dockerignore** - Wykluczenie zbędnych plików z build
-- **nginx.conf** - Konfiguracja reverse proxy
 - **docker-compose.env.example** - Template zmiennych środowiskowych
 - **docker-start.sh** - Zautomatyzowany skrypt startowy
 
@@ -38,9 +37,11 @@ cp docker-compose.env.example .env
 
 ### 🌐 Serwisy:
 - **Aplikacja**: http://localhost:3000
-- **Nginx proxy**: http://localhost:80 (opcjonalnie)
+- **phpMyAdmin (GUI dla bazy)**: http://localhost:8080
 - **MySQL**: localhost:3306
-- **Redis**: localhost:6379
+  - **Database**: casn
+  - **User**: casn_user
+  - **Password**: casn_password123
 
 ### 🔄 Workflow:
 1. Utwórz Pull Request przez link powyżej
@@ -50,7 +51,14 @@ cp docker-compose.env.example .env
 
 ### 📊 Zmiany w liczbach:
 - **7 plików** dodanych
-- **354 linie** kodu
+- **354+ linie** kodu
 - **Commity**: 
   - `feat: add Docker Compose setup for standalone deployment`
-  - `docs: update README with Docker deployment instructions`
+  - `fix: remove Redis from docker-compose (over-engineering for CASN)`
+  - `feat: replace nginx with phpMyAdmin for database GUI management`
+
+### 💡 Kluczowe decyzje:
+- **Redis usunięty** - over-engineering dla statycznego CMS MDX
+- **Nginx usunięty** - konflikt z VPS nginx
+- **phpMyAdmin dodany** - GUI do zarządzania Prisma/MySQL
+- **Prisma w kontenerze app** - działa wewnątrz Next.js, łączy się z MySQL
