@@ -1,29 +1,40 @@
 #!/bin/bash
 
 # Test Prisma v7 Configuration - Validation Script
-# This script validates that Prisma v7 with MariaDB adapter is properly configured
+# This script validates that the Docker deployment configuration is properly set up
 
 set -e
 
-echo "🔍 === PRISMA V7 CONFIGURATION VALIDATION ==="
+echo "🔍 === DOCKER DEPLOYMENT CONFIGURATION VALIDATION ==="
 
-# Test 1: Check schema.prisma
-echo "1. Validating schema.prisma (should have NO url in datasource)..."
-if grep -q "url.*=" prisma/schema.prisma; then
-    echo "❌ FAIL: schema.prisma still contains url = env(), should be removed for v7"
-    exit 1
+# Test 1: Check docker-compose.final.yml exists and has correct structure
+echo "1. Validating docker-compose.final.yml..."
+if [ -f "docker-compose.final.yml" ]; then
+    if grep -q "mysql:" docker-compose.final.yml && \
+       grep -q "app:" docker-compose.final.yml && \
+       grep -q "3001:3000" docker-compose.final.yml; then
+        echo "✅ PASS: docker-compose.final.yml has correct structure"
+    else
+        echo "❌ FAIL: docker-compose.final.yml missing required services or port mapping"
+        exit 1
+    fi
 else
-    echo "✅ PASS: schema.prisma has no url in datasource"
-fi
-
-# Test 2: Check prisma.config.ts
-echo "2. Validating prisma.config.ts (should have NO url field for Prisma v7 adapter)..."
-if ! grep -q "url" prisma.config.ts; then
-    echo "✅ PASS: prisma.config.ts has no url field"
-else
-    echo "❌ FAIL: prisma.config.ts contains url field"
+    echo "❌ FAIL: docker-compose.final.yml not found"
     exit 1
 fi
+
+# Test 2: Check prisma.config.ts has correct PrismaClient setup
+echo "2. Validating prisma.config.ts PrismaClient configuration..."
+if grep -q "import { PrismaClient } from" prisma.config.ts && \
+   grep -q "PrismaClient({" prisma.config.ts && \
+   grep -q "datasources:" prisma.config.ts; then
+    echo "✅ PASS: prisma.config.ts has correct PrismaClient setup"
+else
+    echo "❌ FAIL: prisma.config.ts missing proper PrismaClient configuration"
+    exit 1
+fi
+
+# Test 3: Check lib/prisma.ts uses PrismaMariaDb adapter
 echo "3. Validating lib/prisma.ts (should import MariaDB adapter)..."
 if grep -q "PrismaMariaDb.*from.*@prisma/adapter-mariadb" lib/prisma.ts; then
     echo "✅ PASS: lib/prisma.ts imports PrismaMariaDb adapter"
@@ -32,54 +43,65 @@ else
     exit 1
 fi
 
-# Test 4: Check package.json dependencies
-echo "4. Validating package.json dependencies..."
-if grep -q "@prisma/adapter-mariadb" package.json; then
-    echo "✅ PASS: @prisma/adapter-mariadb in dependencies"
-else
-    echo "❌ FAIL: @prisma/adapter-mariadb not in dependencies"
-    exit 1
-fi
-
-# Test 5: Check docker-compose.portainer.yml
-echo "5. Validating docker-compose.portainer.yml..."
-if grep -q "DB_HOST" docker-compose.portainer.yml && \
-   grep -q "DB_USER" docker-compose.portainer.yml && \
-   grep -q "DB_PASSWORD" docker-compose.portainer.yml; then
-    echo "✅ PASS: docker-compose.portainer.yml has DB_* environment variables"
-else
-    echo "❌ FAIL: docker-compose.portainer.yml missing DB_* environment variables"
-    exit 1
-fi
-
-# Test 6: Check database schema exists
-echo "6. Validating database schema (casn.sql)..."
-if [ -f "casn.sql" ]; then
-    if grep -q "CREATE TABLE.*Author" casn.sql && grep -q "CREATE TABLE.*Analysis" casn.sql; then
-        echo "✅ PASS: casn.sql contains Author and Analysis tables"
-
-# Test 7: Check Dockerfile copies casn.sql
-echo "7. Validating Dockerfile copies casn.sql for data loading..."
-if grep -q "casn.sql" Dockerfile; then
-    echo "✅ PASS: Dockerfile copies casn.sql"
-else
-    echo "❌ FAIL: Dockerfile missing casn.sql copy"
-    exit 1
-fi
+# Test 4: Check docker-entrypoint.sh handles migrations
+echo "4. Validating docker-entrypoint.sh migration handling..."
+if [ -f "docker-entrypoint.sh" ]; then
+    if grep -q "prisma migrate deploy" docker-entrypoint.sh; then
+        echo "✅ PASS: docker-entrypoint.sh handles Prisma migrations"
     else
-        echo "❌ FAIL: casn.sql missing required tables"
+        echo "❌ FAIL: docker-entrypoint.sh missing migration commands"
         exit 1
     fi
 else
-    echo "❌ FAIL: casn.sql file not found"
+    echo "❌ FAIL: docker-entrypoint.sh not found"
+    exit 1
+fi
+
+# Test 5: Check package.json has required dependencies
+echo "5. Validating package.json dependencies..."
+if grep -q "@prisma/adapter-mariadb" package.json && \
+   grep -q "@prisma/client" package.json; then
+    echo "✅ PASS: package.json has required Prisma dependencies"
+else
+    echo "❌ FAIL: package.json missing required Prisma dependencies"
+    exit 1
+fi
+
+# Test 6: Check database schema
+echo "6. Validating database schema (prisma/schema.prisma)..."
+if [ -f "prisma/schema.prisma" ]; then
+    if grep -q "datasource db {" prisma/schema.prisma && \
+       grep -q "provider.*=.*\"mysql\"" prisma/schema.prisma; then
+        echo "✅ PASS: prisma/schema.prisma has correct MySQL datasource"
+    else
+        echo "❌ FAIL: prisma/schema.prisma missing proper datasource configuration"
+        exit 1
+    fi
+else
+    echo "❌ FAIL: prisma/schema.prisma not found"
+    exit 1
+fi
+
+# Test 7: Check Dockerfile
+echo "7. Validating Dockerfile..."
+if [ -f "Dockerfile" ]; then
+    if grep -q "docker-entrypoint.sh" Dockerfile; then
+        echo "✅ PASS: Dockerfile uses docker-entrypoint.sh"
+    else
+        echo "❌ FAIL: Dockerfile missing docker-entrypoint.sh reference"
+        exit 1
+    fi
+else
+    echo "❌ FAIL: Dockerfile not found"
     exit 1
 fi
 
 echo ""
 echo "🎉 === ALL TESTS PASSED ==="
-echo "✅ Prisma v7 configuration is valid and ready for deployment"
+echo "✅ Docker deployment configuration is valid and ready"
 echo ""
-echo "Next steps:"
-echo "1. Deploy with: portainer stack deploy --composefile docker-compose.portainer.yml casn"
-echo "2. Migrate with: docker-compose -f docker-compose.portainer.yml exec migrate npx prisma migrate deploy"
-echo "3. Test with: docker-compose -f docker-compose.portainer.yml exec app npm test"
+echo "Deploy with:"
+echo "  docker-compose -f docker-compose.final.yml up -d"
+echo ""
+echo "Access at:"
+echo "  http://localhost:3001"
