@@ -7,15 +7,8 @@ FROM base AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 
-# Install dependencies with additional flags to handle environment issues
-RUN \
-  if [ -f package-lock.json ]; then \
-    npm cache clean --force && \
-    npm config set registry https://registry.npmjs.org/ && \
-    npm install --no-optional --legacy-peer-deps --force; \
-  else \
-    echo "Lockfile not found." && exit 1; \
-  fi
+# Install dependencies - simplified approach
+RUN npm install
 
 COPY . .
 
