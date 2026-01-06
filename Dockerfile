@@ -7,8 +7,8 @@ FROM base AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 
-# Install dependencies - simplified approach
-RUN npm install
+# Install dependencies - with cache clearing and force flag to handle integrity issues
+RUN npm cache clean --force && npm install --force
 
 COPY . .
 

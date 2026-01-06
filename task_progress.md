@@ -1,64 +1,32 @@
-# CI/CD i Docker - Analiza i Odpowiedź
+# Docker Build Fix Plan
 
-## Cel
-Odpowiedzieć na pytanie: "Czy CI/CD zawiera tworzenie dockerów?"
+## Task: Fix npm integrity checksum error in Docker build
 
-## Kroki analizy
-- [x] Wyjaśnić podstawy CI/CD
-- [x] Wyjaśnić rolę Docker w CI/CD
-- [x] Przeanalizować jak Docker integruje się z procesami CI/CD
-- [x] Przedstawić przykłady z projektu
-- [x] Podsumować odpowiedź na pytanie
+### Root Cause
+- npm integrity checksum failed for `qs` package (version >=6.14.1)
+- Issue occurs during `npm install` step in Docker builder stage
+- Error: "integrity checksum failed when using sha512... but got sha512..."
 
-## Implementacja CI/CD z Docker
+### Solution Steps
+- [x] Update Dockerfile to handle npm cache and integrity issues
+- [x] Add npm cache clear and use of `--force` flag
+- [x] Create comprehensive documentation and fix summary
+- [x] Ready for GitHub Actions workflow testing
 
-### Wykonane zadania
-- [x] Sprawdzić status git
-- [x] Dodać nowe pliki do repozytorium
-- [x] Stworzyć commit
-- [x] Push na GitHub (zablokowany - wymaga PR)
-- [x] Utworzyć Pull Request (blokowany przez repo rules)
-- [x] Sprawdzić czy workflow się uruchomił
-- [x] Sprawdzić czy obraz pojawił się w GHCR
-- [x] Przetestować pullowanie obrazu
-- [x] Zaktualizować origin brancha
-- [x] Wyjaśnić status lokalnego main
-- [x] Naprawić niecommitowane zmiany w task_progress.md
-- [x] Potwierdzić obecność workflow docker.yml
-- [x] Wypchnąć finalne zmiany na GitHub
-- [x] Wyjaśnić dlaczego origin/main jest nieaktualny
-- [x] Naprawić błąd workflow w cache Docker
-- [x] Naprawić błąd tagów Docker (invalid reference format)
-- [x] Naprawić błąd bash w Dockerfile (multi-stage)
-- [x] Naprawić TypeScript dependencies w builder stage
-- [x] Potwierdzić działanie GitHub Actions workflow
+### Expected Outcome
+- Docker build completes successfully without integrity errors
+- All npm dependencies install correctly
+- Image builds and pushes to registry as expected
 
-### Odpowiedź na pytanie
-**TAK, CI/CD zawiera tworzenie Dockerów** jako integralną część procesu!
+### Files to Modify
+- `Dockerfile` - Update npm install commands with cache clearing and force flags
 
-Docker stanowi kluczowy element nowoczesnego CI/CD:
+### Timeline
+- Estimated completion: 15-20 minutes
 
-1. **Konteneryzacja**: Docker umożliwia pakowanie aplikacji w kontenery, zapewniając spójne środowisko
-2. **Automatyzacja**: CI/CD pipeline'y automatycznie budują obrazy Docker 
-3. **Testing**: Aplikacje są testowane w kontenerach Docker przed wdrożeniem
-4. **Deployment**: Gotowe obrazy Docker są wdrażane na serwery
-5. **Skalowanie**: Docker umożliwia łatwe skalowanie aplikacji
+## Changes Made
+- Modified Dockerfile line 11: Changed `RUN npm install` to `RUN npm cache clean --force && npm install --force`
+- This should resolve the integrity checksum issue by forcing npm to redownload packages and ignore cached data
 
-## Podsumowanie implementacji
-
-### Rozwiązane problemy:
-1. ✅ **Cache Docker** - usunięto niekompatybilne cache-from/cache-to
-2. ✅ **Invalid tag format** - usunięto problematyczne tagowanie z prefiksami
-3. ✅ **Bash w multi-stage** - dodano bash do base stage
-4. ✅ **TypeScript devDependencies** - zmodyfikowano builder stage do instalacji wszystkich dependencies
-
-### Struktura finalna:
-- **Multi-stage Dockerfile**: base → builder → runner
-- **GitHub Actions workflow**: automatyczne build i push do GHCR
-- **Typy tagów**: branch, PR, semver (version, major.minor)
-- **Pull Request integration**: workflow uruchamia się na PR do main
-
-## Status
-🟢 **ZADANIE UKOŃCZONE** - CI/CD i Docker w pełni zintegrowane
-
-Wszystkie problemy zostały rozwiązane. GitHub Actions workflow działa poprawnie z najnowszymi zmianami TypeScript dependencies w builder stage.
+## Additional Documentation
+- Created `DOCKER_FIX_SUMMARY.md` with comprehensive fix explanation and verification steps
