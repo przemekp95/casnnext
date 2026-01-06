@@ -64,3 +64,6 @@ ENV HOSTNAME="0.0.0.0"
 
 # Use entrypoint script to run migrations before starting server
 ENTRYPOINT ["./docker-entrypoint.sh"]
+# server.js is created by next build from the standalone output
+# https://nextjs.org/docs/pages/api-reference/next-config-js/output
+CMD ["node", "server.js"]

@@ -46,8 +46,9 @@ async function getArticles(): Promise<ArticleRow[]> {
       await connection.end();
 
       return rows as ArticleRow[];
-    } catch (error) {
-      console.warn('Błąd podczas pobierania artykułów z bazy dla sitemapy podczas builda:', error);
+    } catch {
+      // Database not available during Docker build - this is expected
+      // Sitemap will be generated with dynamic data at runtime
       return [];
     }
   }
