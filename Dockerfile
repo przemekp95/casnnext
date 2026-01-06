@@ -12,24 +12,25 @@ RUN npm cache clean --force && npm install --force
 
 COPY . .
 
-# Generate Prisma client (dummy URL for build-time only)
+# Generate Prisma client with proper MariaDB adapter configuration for build-time
+# Set DB_* variables for MariaDB adapter during build
 ENV DB_HOST="localhost"
-ENV DB_USER="user"
-ENV DB_PASSWORD="pass"
-ENV DB_NAME="db"
+ENV DB_PORT="3306"
+ENV DB_USER="builduser"
+ENV DB_PASSWORD="buildpass"
+ENV DB_NAME="builddb"
+ENV NEXT_PHASE="phase-production-build"
 
-# Try to generate Prisma client, but don't fail if it doesn't work
-RUN npx prisma generate || echo "Prisma generate failed, continuing without client generation"
+# Generate Prisma client
+RUN npx prisma generate
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Build Next.js application
 RUN npm run build
-
-# If using npm comment out above and use below instead
-# RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -51,6 +52,9 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/casn.sql ./
 COPY --from=builder /app/prisma.config.ts ./
 COPY --from=builder /app/prisma ./prisma
+
+# Copy Prisma client generated during build
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 # Install prisma CLI for migrations (minimal install)
 RUN npm install -g prisma@latest
