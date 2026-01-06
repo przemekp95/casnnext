@@ -1,6 +1,6 @@
-name: Deploy
+name: Deploy (Symfony - Disabled for Next.js project)
 on:
-  push: { branches: [ main ] }
+  # push: { branches: [ main ] } - Disabled for Next.js project
   workflow_dispatch:
 
 concurrency:
