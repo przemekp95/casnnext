@@ -9,6 +9,7 @@ generator client {
 // Database connection is managed by PrismaMariaDb adapter
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model Author {
