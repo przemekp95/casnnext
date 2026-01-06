@@ -55,6 +55,7 @@
     "@capacitor/ios": "^7.4.3",
     "@eslint/eslintrc": "^3",
     "@prisma/client": "^7.1.0",
+    "@prisma/adapter-mariadb": "^7.1.0",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
