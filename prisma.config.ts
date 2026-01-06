@@ -9,7 +9,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    provider: "mysql",
     host: process.env.DB_HOST || "mysql",
     port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
     user: process.env.DB_USER || "casn_user",
