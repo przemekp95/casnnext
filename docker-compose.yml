@@ -35,6 +35,11 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=mysql://casn_user:casn_password123@mysql:3306/casn
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=casn_user
+      - DB_PASSWORD=casn_password123
+      - DB_NAME=casn
       - NEXTAUTH_SECRET=your-secret-key-here
       - NEXTAUTH_URL=http://localhost:3000
     depends_on:
