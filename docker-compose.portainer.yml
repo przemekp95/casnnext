@@ -49,7 +49,7 @@ services:
         echo "== migrate: DB_HOST=${DB_HOST}";
         cd /app;
         # Prisma v7: migracje muszą przejść, inaczej STOP
-        prisma migrate deploy
+        prisma migrate deploy && echo "== Loading initial data from casn.sql" && mysql -h mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME < /app/casn.sql && echo "== Data loaded successfully"
       '
     networks:
       - casn-network

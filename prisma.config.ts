@@ -8,7 +8,6 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
-  datasource: {
-    url: `mysql://${process.env.DB_USER || "casn_user"}:${process.env.DB_PASSWORD || "casn_password123"}@${process.env.DB_HOST || "mysql"}:${process.env.DB_PORT || 3306}/${process.env.DB_NAME || "casn"}?charset=utf8mb4`,
-  },
+  // Prisma v7 with MariaDB adapter - using PrismaMariaDb adapter only
+  // Database connection is managed by PrismaMariaDb adapter in lib/prisma.ts
 });

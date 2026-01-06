@@ -9,7 +9,7 @@ echo "🔍 === PRISMA V7 CONFIGURATION VALIDATION ==="
 
 # Test 1: Check schema.prisma
 echo "1. Validating schema.prisma (should have NO url in datasource)..."
-if grep -q "url.*=.*env" prisma/schema.prisma; then
+if grep -q "url.*=" prisma/schema.prisma; then
     echo "❌ FAIL: schema.prisma still contains url = env(), should be removed for v7"
     exit 1
 else
@@ -17,15 +17,13 @@ else
 fi
 
 # Test 2: Check prisma.config.ts
-echo "2. Validating prisma.config.ts (should have DATABASE_URL or DB_* parameters)..."
-if grep -q "url:" prisma.config.ts; then
-    echo "✅ PASS: prisma.config.ts has DATABASE_URL"
+echo "2. Validating prisma.config.ts (should have NO url field for Prisma v7 adapter)..."
+if ! grep -q "url" prisma.config.ts; then
+    echo "✅ PASS: prisma.config.ts has no url field"
 else
-    echo "❌ FAIL: prisma.config.ts missing DATABASE_URL"
+    echo "❌ FAIL: prisma.config.ts contains url field"
     exit 1
 fi
-
-# Test 3: Check lib/prisma.ts
 echo "3. Validating lib/prisma.ts (should import MariaDB adapter)..."
 if grep -q "PrismaMariaDb.*from.*@prisma/adapter-mariadb" lib/prisma.ts; then
     echo "✅ PASS: lib/prisma.ts imports PrismaMariaDb adapter"
@@ -59,6 +57,15 @@ echo "6. Validating database schema (casn.sql)..."
 if [ -f "casn.sql" ]; then
     if grep -q "CREATE TABLE.*Author" casn.sql && grep -q "CREATE TABLE.*Analysis" casn.sql; then
         echo "✅ PASS: casn.sql contains Author and Analysis tables"
+
+# Test 7: Check Dockerfile copies casn.sql
+echo "7. Validating Dockerfile copies casn.sql for data loading..."
+if grep -q "casn.sql" Dockerfile; then
+    echo "✅ PASS: Dockerfile copies casn.sql"
+else
+    echo "❌ FAIL: Dockerfile missing casn.sql copy"
+    exit 1
+fi
     else
         echo "❌ FAIL: casn.sql missing required tables"
         exit 1

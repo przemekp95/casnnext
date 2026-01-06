@@ -13,7 +13,10 @@ RUN npm cache clean --force && npm install --force
 COPY . .
 
 # Generate Prisma client (dummy URL for build-time only)
-ENV DATABASE_URL="mysql://user:pass@localhost:3306/db"
+ENV DB_HOST="localhost"
+ENV DB_USER="user"
+ENV DB_PASSWORD="pass"
+ENV DB_NAME="db"
 
 # Try to generate Prisma client, but don't fail if it doesn't work
 RUN npx prisma generate || echo "Prisma generate failed, continuing without client generation"
@@ -53,6 +56,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy Prisma schema for runtime migrations
 
 # Copy Prisma config for v7 migrations
+COPY --from=builder --chown=nextjs:nodejs /app/casn.sql ./
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
