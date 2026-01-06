@@ -72,3 +72,4 @@ ENV HOSTNAME="0.0.0.0"
 
 # Use entrypoint script to run migrations before starting server
 ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", ".next/standalone/server.js"]
