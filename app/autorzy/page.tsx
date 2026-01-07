@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { query } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,9 +13,25 @@ export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
 type AuthorRow = { slug: string; name: string; img?: string | null };
 
 export default async function AuthorsPage() {
-  const authors = await query<AuthorRow>(
-    "SELECT slug, name, img FROM Author ORDER BY name ASC"
-  );
+  // Skip Prisma during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
+    return (
+      <main className="bg-gray-100 min-h-screen pb-12">
+        <div className="container py-12">
+          <div className="text-center">
+            <h1>Nasi autorzy</h1>
+            <p>Ładowanie autorów...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const authors = await prisma.author.findMany({
+    orderBy: {
+      name: 'asc',
+    },
+  });
 
   const normalizeSrc = (src?: string | null) =>
     src && (src.startsWith("/") || src.startsWith("http"))
