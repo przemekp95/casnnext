@@ -44,8 +44,8 @@ FROM base AS runner
 WORKDIR /app
 
 # Security: Create non-root user and set proper permissions
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --gid 1001 nextjs --home /app --shell /bin/sh
+RUN addgroup -S -g 1001 nodejs && \
+    adduser -S -G nodejs -h /app -s /bin/sh nextjs
 
 # Set production environment
 ENV NODE_ENV=production \
