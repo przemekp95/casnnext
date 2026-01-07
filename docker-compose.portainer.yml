@@ -46,8 +46,9 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Warsaw
       SKIP_PRISMA_MIGRATE: "1"  # Skip migrations since we have pre-populated DB
-    # Use original Dockerfile CMD but ensure entrypoint can handle it properly
-    command: ["npm", "start"]
+    # Override entrypoint to skip docker-entrypoint.sh entirely and run npm directly
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["npm start"]
     ports:
       - "18080:80"
     healthcheck:
