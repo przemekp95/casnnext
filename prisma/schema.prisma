@@ -6,9 +6,10 @@ generator client {
 }
 
 // Prisma v7 with MariaDB adapter
-// Database connection is managed by PrismaMariaDb adapter in prisma.config.ts
+// Connection URL is managed by PrismaMariaDb adapter in prisma.config.ts
 datasource db {
   provider = "mysql"
+  url = "mysql://user:password@localhost:3306/db" // Placeholder - overridden by adapter
 }
 
 model Author {
