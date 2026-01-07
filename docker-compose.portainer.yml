@@ -13,7 +13,6 @@ services:
       TZ: Europe/Warsaw
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./docker-init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro  # PRE-POPULATED DB
     command: >
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
@@ -45,7 +44,7 @@ services:
       NEXTAUTH_URL: "https://casn.tojest.dev"
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Warsaw
-      SKIP_PRISMA_MIGRATE: "1"  # Skip migrations since we have pre-populated DB
+      SKIP_PRISMA_MIGRATE: "1"  # Skip migrations - database will be populated manually
     # Completely override entrypoint to bypass docker-entrypoint.sh completely
     entrypoint: []
     command: ["node", "node_modules/.bin/next", "start", "-p", "3000"]
