@@ -242,7 +242,7 @@ const analyses = [
     authorSlug: "giera"
   },
   {
-    title: "Zagrożenie wolności słowa związane z ustawodawstwem dotyczącym tzw. „mowy nienawiści"",
+    title: "Zagrożenie wolności słowa związane z ustawodawstwem dotyczącym tzw. "mowy nienawiści",
     slug: "gorka-artykul",
     authorSlug: "gorka"
   },
