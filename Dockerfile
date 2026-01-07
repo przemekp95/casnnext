@@ -67,6 +67,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 # Copy Prisma files for runtime
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
+# Copy generated Prisma client
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+
 # Copy MDX posts for runtime loading
 COPY --from=builder --chown=nextjs:nodejs /app/posts ./posts
 
