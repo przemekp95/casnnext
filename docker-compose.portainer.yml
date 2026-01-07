@@ -13,7 +13,6 @@ services:
       TZ: Europe/Warsaw
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./casn.sql:/docker-entrypoint-initdb.d/casn.sql:ro
     command: >
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
