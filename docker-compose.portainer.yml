@@ -45,9 +45,9 @@ services:
       NEXTAUTH_URL: "https://casn.tojest.dev"
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Warsaw
-    # Completely override both entrypoint and command to bypass docker-entrypoint.sh
-    entrypoint: ["node", "node_modules/.bin/next"]
-    command: ["start", "-p", "3000"]
+      SKIP_PRISMA_MIGRATE: "1"  # Skip migrations since we have pre-populated DB
+    # Use original Dockerfile CMD but ensure entrypoint can handle it properly
+    command: ["npm", "start"]
     ports:
       - "18080:80"
     healthcheck:
