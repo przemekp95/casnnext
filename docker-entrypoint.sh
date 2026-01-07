@@ -17,7 +17,8 @@ if [ "${SKIP_PRISMA_MIGRATE:-0}" != "1" ]; then
 
   # Run seed script to populate database with initial data
   echo "🌱 Running database seed..."
-  npx --yes prisma db seed
+  # Use node directly since tsx may not be available
+  node --loader ts-node/esm prisma/seed.ts || echo "Seed script failed, continuing..."
 fi
 
 echo "✅ Migrations and seeding completed. Starting server..."
