@@ -45,8 +45,8 @@ services:
       NEXTAUTH_URL: "https://casn.tojest.dev"
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Warsaw
-    # Override entrypoint to skip problematic docker-entrypoint.sh
-    entrypoint: ["npm", "start"]
+    # Override both entrypoint and command to skip docker-entrypoint.sh
+    entrypoint: []
     command: ["npm", "start"]
     ports:
       - "18080:80"
