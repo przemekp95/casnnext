@@ -75,5 +75,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 EXPOSE 3000
 
-# Default command with proper signal handling
-CMD ["node", "node_modules/.bin/next", "start", "-p", "3000"]
+# Support both npm start and direct Next.js execution
+# Default command - can be overridden for npm start compatibility
+CMD ["npm", "start"]
