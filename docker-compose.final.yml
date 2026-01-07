@@ -59,8 +59,8 @@ services:
       retries: 3
     networks:
       - casn-network
-    volumes:
-      - ./public:/app/public:ro
+    # volumes:
+    #   - ./public:/app/public:ro  # REMOVED - public files are already in the image
 
 volumes:
   mysql_data:
