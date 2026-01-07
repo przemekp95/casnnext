@@ -1,3 +1,4 @@
+# SINGLE COMPOSE FILE - Pre-Populated Database with Entrypoint Override
 version: "3.8"
 
 services:
@@ -22,6 +23,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
+    ports:
+      - "3306:3306"
     networks:
       - casn-network
 
@@ -34,7 +37,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      PORT: "80"
+      PORT: "3000"
       DATABASE_URL: "mysql://casn_user:casn_password123@mysql:3306/casn"
       DB_HOST: mysql
       DB_PORT: "3306"
@@ -42,16 +45,15 @@ services:
       DB_PASSWORD: casn_password123
       DB_NAME: casn
       NEXTAUTH_SECRET: "your-secret-key-here"
-      NEXTAUTH_URL: "https://casn.tojest.dev"
-      NEXT_TELEMETRY_DISABLED: "1"
+      NEXTAUTH_URL: "http://localhost:3001"
       TZ: Europe/Warsaw
-    # Override entrypoint to skip problematic docker-entrypoint.sh
-    entrypoint: ["npm", "start"]
+    # Override entrypoint to skip docker-entrypoint.sh entirely
+    entrypoint: ["npm", "start"]  # THIS SKIPS THE BROKEN ENTRYPOINT
     command: ["npm", "start"]
     ports:
-      - "18080:80"
+      - "3001:3000"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
