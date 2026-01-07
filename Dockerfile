@@ -13,9 +13,8 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies (use npm install instead of ci to handle lock file sync issues)
-RUN npm install --omit=dev --ignore-scripts && \
-    npm cache clean --force
+# Install dependencies (including @prisma/client from dependencies)
+RUN npm install --omit=dev --ignore-scripts
 
 # Copy source code
 COPY . .
@@ -30,6 +29,9 @@ ENV DB_HOST="localhost" \
     NEXT_PHASE="phase-production-build"
 
 RUN npx prisma generate
+
+# Clean npm cache
+RUN npm cache clean --force
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
