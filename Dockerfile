@@ -20,14 +20,7 @@ RUN npm install --omit=dev --ignore-scripts && \
 # Copy source code
 COPY . .
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Build Next.js application with optimized settings
-RUN npm run build
-
-# Generate Prisma client after build (Prisma 7.x compatibility)
+# Generate Prisma client BEFORE build (required for Prisma 7.x)
 # Set DB_* variables for MariaDB adapter during generation
 ENV DB_HOST="localhost" \
     DB_PORT="3306" \
@@ -37,6 +30,13 @@ ENV DB_HOST="localhost" \
     NEXT_PHASE="phase-production-build"
 
 RUN npx prisma generate
+
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build Next.js application with optimized settings
+RUN npm run build
 
 # Production image with security hardening
 FROM base AS runner
