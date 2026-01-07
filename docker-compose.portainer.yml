@@ -46,9 +46,8 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Warsaw
       SKIP_PRISMA_MIGRATE: "1"  # Skip migrations since we have pre-populated DB
-    # Override entrypoint to skip docker-entrypoint.sh entirely and run npm directly
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["npm start"]
+    # Run the package.json start script directly as a single command
+    command: ["sh", "-c", "npm run start"]
     ports:
       - "18080:80"
     healthcheck:
