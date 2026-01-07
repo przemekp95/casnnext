@@ -14,7 +14,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 
 # Install dependencies with security audit and cache optimization
-RUN npm ci --only=production --ignore-scripts && \
+RUN npm ci --omit=dev --ignore-scripts && \
     npm cache clean --force
 
 # Copy source code
