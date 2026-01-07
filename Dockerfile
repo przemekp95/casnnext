@@ -70,7 +70,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Copy generated Prisma client
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
-# Copy MDX posts for runtime loading
+# Copy MDX posts for runtime loading BEFORE switching to non-root user
 COPY --from=builder --chown=nextjs:nodejs /app/posts ./posts
 
 # Security: Switch to non-root user
