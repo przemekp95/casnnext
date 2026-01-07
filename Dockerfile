@@ -1,76 +1,79 @@
-# Use Node.js 20 LTS
-FROM node:20-alpine AS base
-RUN apk add --no-cache bash
+# Use Node.js 22 LTS (latest LTS for better performance and security)
+FROM node:22-alpine AS base
+
+# Install security updates and required packages
+RUN apk add --no-cache bash curl && \
+    apk upgrade --no-cache && \
+    rm -rf /var/cache/apk/*
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+
+# Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies - with cache clearing and force flag to handle integrity issues
-RUN npm cache clean --force && npm install --force
+# Install dependencies with security audit and cache optimization
+RUN npm ci --only=production --ignore-scripts && \
+    npm cache clean --force
 
+# Copy source code
 COPY . .
 
 # Generate Prisma client with proper MariaDB adapter configuration for build-time
 # Set DB_* variables for MariaDB adapter during build
-ENV DB_HOST="localhost"
-ENV DB_PORT="3306"
-ENV DB_USER="builduser"
-ENV DB_PASSWORD="buildpass"
-ENV DB_NAME="builddb"
-ENV NEXT_PHASE="phase-production-build"
+ENV DB_HOST="localhost" \
+    DB_PORT="3306" \
+    DB_USER="builduser" \
+    DB_PASSWORD="buildpass" \
+    DB_NAME="builddb" \
+    NEXT_PHASE="phase-production-build"
 
-# Generate Prisma client
+# Generate Prisma client for Next.js 16 compatibility
 RUN npx prisma generate
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build Next.js application
+# Build Next.js application with optimized settings
 RUN npm run build
 
-# Production image, copy all the files and run next
+# Production image with security hardening
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
-# Uncomment the following line in case you want to disable telemetry during runtime.
-ENV NEXT_TELEMETRY_DISABLED=1
+# Security: Create non-root user and set proper permissions
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --gid 1001 nextjs --home /app --shell /bin/sh
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Set production environment
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME="0.0.0.0"
 
-# Copy built files from builder
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
+# Copy package.json for health checks and metadata
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
-# Copy Prisma schema for runtime migrations (no prisma.config.ts needed for MariaDB)
-COPY --from=builder /app/casn.sql ./
-COPY --from=builder /app/prisma ./prisma
+# Copy built application with proper ownership
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 
-# Copy Prisma client generated during build
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# Copy production dependencies
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# Install prisma CLI for migrations (minimal install)
-RUN npm install -g prisma@latest
+# Copy Prisma files for runtime
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
-# Copy entrypoint script
-COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
-
+# Security: Switch to non-root user
 USER nextjs
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
 
 EXPOSE 3000
 
-ENV PORT=3000
-# set hostname to localhost
-ENV HOSTNAME="0.0.0.0"
-
-# Use entrypoint script to run migrations before starting server
-ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["npm", "start"]
+# Default command with proper signal handling
+CMD ["node", "node_modules/.bin/next", "start", "-p", "3000"]
