@@ -46,8 +46,9 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Warsaw
       SKIP_PRISMA_MIGRATE: "1"  # Skip migrations since we have pre-populated DB
-    # Run the package.json start script directly as a single command
-    command: ["sh", "-c", "npm run start"]
+    # Completely override entrypoint to bypass docker-entrypoint.sh completely
+    entrypoint: []
+    command: ["node", "node_modules/.bin/next", "start", "-p", "3000"]
     ports:
       - "18080:80"
     healthcheck:
