@@ -13,8 +13,8 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies with security audit and cache optimization
-RUN npm ci --omit=dev --ignore-scripts && \
+# Install dependencies (use npm install instead of ci to handle lock file sync issues)
+RUN npm install --omit=dev --ignore-scripts && \
     npm cache clean --force
 
 # Copy source code
