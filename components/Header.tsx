@@ -1,6 +1,18 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 
 export default function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
   return (
     <header id="topnav" className="defaultscroll scroll-active" role="banner">
       <div className="tagline">
@@ -32,12 +44,13 @@ export default function Header() {
           <div className="menu-item">
             <button
               className="navbar-toggle"
-              aria-expanded="false"
+              aria-expanded={isMenuOpen}
               aria-controls="navigation"
               aria-label="Przełącz menu nawigacyjne"
               type="button"
+              onClick={toggleMenu}
             >
-              <div className="lines" aria-hidden="true">
+              <div className={`lines${isMenuOpen ? " open" : ""}`} aria-hidden="true">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -46,13 +59,13 @@ export default function Header() {
           </div>
         </div>
 
-        <nav id="navigation" aria-label="Menu główne" role="navigation">
+        <nav id="navigation" aria-label="Menu główne" role="navigation" className={isMenuOpen ? "open" : ""}>
           <ul className="navigation-menu" role="list">
             <li className="active" role="listitem">
-              <Link href="/" aria-current="page">Strona główna</Link>
+              <Link href="/" aria-current="page" onClick={closeMenu}>Strona główna</Link>
             </li>
             <li className="active" role="listitem">
-              <Link href="/autorzy">Autorzy</Link>
+              <Link href="/autorzy" onClick={closeMenu}>Autorzy</Link>
             </li>
 
             {/*<li className="has-submenu">
@@ -94,10 +107,10 @@ export default function Header() {
             </li> */}
 
             <li className="active" role="listitem">
-              <Link href="/zbiory">Zbiory analiz</Link>
+              <Link href="/zbiory" onClick={closeMenu}>Zbiory analiz</Link>
             </li>
             <li role="listitem">
-              <Link href="/kontakt">Kontakt</Link>
+              <Link href="/kontakt" onClick={closeMenu}>Kontakt</Link>
             </li>
           </ul>
         </nav>
