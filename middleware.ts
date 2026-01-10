@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-// import { initializeDatabase } from '@/lib/init-db';
+import { initializeDatabase } from '@/lib/init-db';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export async function middleware(request: NextRequest) {
-  // Temporarily disable database initialization to test if middleware is causing issues
   // Skip database initialization during build time
-  // if (process.env.NEXT_PHASE === 'phase-production-build') {
-  //   return NextResponse.next();
-  // }
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return NextResponse.next();
+  }
 
-  // Only initialize database for actual runtime requests when database is configured
-  // if (process.env.DB_HOST || process.env.DATABASE_URL) {
-  //   try {
-  //     await initializeDatabase();
-  //   } catch (error) {
-  //     console.error('Database initialization failed in middleware:', error);
-  //     // Continue anyway - let the application handle database errors gracefully
-  //   }
-  // }
+  // Only initialize database for API routes that need it, not for static pages
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/') && !request.nextUrl.pathname.startsWith('/api/health');
+
+  if (isApiRoute && (process.env.DB_HOST || process.env.DATABASE_URL)) {
+    try {
+      await initializeDatabase();
+    } catch (error) {
+      console.error('Database initialization failed in middleware:', error);
+      // Continue anyway - let the application handle database errors gracefully
+    }
+  }
 
   return NextResponse.next();
 }
