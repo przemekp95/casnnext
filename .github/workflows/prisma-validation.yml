@@ -127,7 +127,6 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = require('path');
 
             let coverage = 'Not available';
             let coverageStatus = '⚠️ Unknown';
@@ -138,13 +137,19 @@ jobs:
               coverageStatus = coverageData.total.lines.pct >= 80 ? '✅' : '⚠️';
             }
 
+            const jobStatus = '${{ job.status }}';
+            const unitTests = jobStatus === 'success' ? '✅ Passed' : '❌ Failed';
+            const e2eTests = jobStatus === 'success' ? '✅ Passed' : '❌ Failed';
+            const typeCheck = jobStatus === 'success' ? '✅ Passed' : '❌ Failed';
+            const linting = jobStatus === 'success' ? '✅ Passed' : '❌ Failed';
+
             const body = `## 🧪 CI Test Results
 
             **Coverage:** ${coverageStatus} ${coverage} (minimum: 80%)
-            **Unit Tests:** ${{ job.status == 'success' ? '✅ Passed' : '❌ Failed' }}
-            **E2E Tests:** ${{ job.status == 'success' ? '✅ Passed' : '❌ Failed' }}
-            **Type Check:** ${{ job.status == 'success' ? '✅ Passed' : '❌ Failed' }}
-            **Linting:** ${{ job.status == 'success' ? '✅ Passed' : '❌ Failed' }}
+            **Unit Tests:** ${unitTests}
+            **E2E Tests:** ${e2eTests}
+            **Type Check:** ${typeCheck}
+            **Linting:** ${linting}
 
             ### 📊 Test Coverage Report
             [View detailed coverage report](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}})
