@@ -32,8 +32,8 @@ if (databaseUrl) {
     username: url.username,
     password: url.password,
     database: url.pathname.slice(1), // Remove leading slash
-    synchronize: !isProduction,
-    logging: !isProduction,
+    synchronize: !isProduction && !isTest, // Don't synchronize in tests
+    logging: !isProduction && !isTest,
   };
 } else if (isTest) {
   // Use MySQL for testing with test database
