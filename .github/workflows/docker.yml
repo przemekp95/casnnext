@@ -87,6 +87,11 @@ jobs:
           file: ./coverage/lcov.info
           fail_ci_if_error: false
 
+      - name: Build for E2E tests
+        run: npm run build
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+
       - name: Run E2E tests
         run: |
           # Start Next.js server in background
