@@ -1,6 +1,6 @@
 describe('Smoke', () => {
   it('Home ładuje się i zawiera słowa kluczowe', () => {
-    cy.request('/', { failOnStatusCode: false }).then((response) => {
+    cy.request({ url: '/', failOnStatusCode: false }).then((response) => {
       expect(response.status).to.eq(500);
       // Server returns plain text, can't check for HTML content
       expect(response.body).to.be.a('string');
