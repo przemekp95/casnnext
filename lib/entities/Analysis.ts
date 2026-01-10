@@ -5,7 +5,7 @@ export const AnalysisSchema = new EntitySchema({
   tableName: 'Analysis',
   columns: {
     id: {
-      type: Number,
+      type: 'int',
       primary: true,
       generated: true,
     },

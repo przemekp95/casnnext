@@ -7,8 +7,24 @@ import { AppDataSource } from './db';
 // Import entities to ensure they're registered with TypeORM
 import './entities/Author';
 import './entities/Analysis';
+import { AuthorSchema } from './entities/Author';
+import { AnalysisSchema } from './entities/Analysis';
 
 export async function initializeDatabase() {
+  // Skip initialization during build/static generation if no database is configured
+  if ((!process.env.DB_HOST && !process.env.DATABASE_URL) || process.env.NODE_ENV === 'test') {
+    console.log('Skipping database initialization - no database configured or in test mode');
+    return AppDataSource;
+  }
+
+  // Ensure entities are loaded before initialization
+  if (AppDataSource.options.entities?.length === 0) {
+    AppDataSource.setOptions({
+      ...AppDataSource.options,
+      entities: [AuthorSchema, AnalysisSchema],
+    });
+  }
+
   if (!AppDataSource.isInitialized) {
     try {
       console.log('Initializing database connection...');
@@ -23,6 +39,11 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.error('Database initialization failed:', error);
+      // In build time, don't throw - just log and continue
+      if (process.env.NODE_ENV === 'development' && process.env.NEXT_PHASE === 'phase-production-build') {
+        console.log('Build time detected - continuing without database');
+        return AppDataSource;
+      }
       throw error;
     }
   } else {

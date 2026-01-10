@@ -64,10 +64,18 @@ if (databaseUrl) {
 
 export const AppDataSource = new DataSource({
   ...dbConfig,
-  entities: [AuthorSchema, AnalysisSchema],
+  entities: [], // Load entities conditionally to avoid validation during build
   migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
   subscribers: [],
 });
+
+// Add entities conditionally to avoid build-time validation
+if (dbConfig.type) {
+  AppDataSource.setOptions({
+    ...AppDataSource.options,
+    entities: [AuthorSchema, AnalysisSchema],
+  });
+}
 
 // For production, ensure database is initialized synchronously
 if (isProduction) {

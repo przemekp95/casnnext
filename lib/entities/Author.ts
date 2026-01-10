@@ -5,7 +5,7 @@ export const AuthorSchema = new EntitySchema({
   tableName: 'Author',
   columns: {
     id: {
-      type: Number,
+      type: 'int',
       primary: true,
       generated: true,
     },
