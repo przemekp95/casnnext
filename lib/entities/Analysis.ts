@@ -28,6 +28,7 @@ export const AnalysisSchema = new EntitySchema({
       target: 'Author',
       joinColumn: { name: 'authorId' },
       onDelete: 'RESTRICT',
+      nullable: false,
     },
   },
 });

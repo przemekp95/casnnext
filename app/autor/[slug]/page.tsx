@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { query } from "@/lib/db";
+import { AppDataSource } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,17 +17,18 @@ export default async function AuthorPage(props: any) {
   const { slug }: { slug: string } = await props.params;
   if (!slug) return notFound();
 
-  const authors = await query<AuthorRow>(
-    "SELECT id, slug, name, bio, img FROM Author WHERE slug = ? LIMIT 1",
-    [slug]
-  );
-  const author = authors[0];
+  const authorRepository = AppDataSource.getRepository('Author');
+  const author = await authorRepository.findOne({
+    where: { slug },
+  });
   if (!author) return notFound();
 
-  const analyses = await query<AnalysisRow>(
-    "SELECT id, title, slug FROM Analysis WHERE authorId = ? ORDER BY id DESC",
-    [author.id]
-  );
+  const analysisRepository = AppDataSource.getRepository('Analysis');
+  const analyses = await analysisRepository.find({
+    where: { authorId: author.id },
+    order: { id: 'DESC' },
+    select: ['id', 'title', 'slug'],
+  });
 
   const imgSrc =
     author.img && (author.img.startsWith("/") || author.img.startsWith("http"))

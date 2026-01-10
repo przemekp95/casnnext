@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { AppDataSource } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,8 +13,8 @@ export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
 type AuthorRow = { slug: string; name: string; img?: string | null };
 
 export default async function AuthorsPage() {
-  // Skip Prisma during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
+  // Skip during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
         <div className="container py-12">
@@ -27,10 +27,9 @@ export default async function AuthorsPage() {
     );
   }
 
-  const authors = await prisma.author.findMany({
-    orderBy: {
-      name: 'asc',
-    },
+  const authorRepository = AppDataSource.getRepository('Author');
+  const authors = await authorRepository.find({
+    order: { name: 'ASC' },
   });
 
   const normalizeSrc = (src?: string | null) =>

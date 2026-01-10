@@ -1,2 +1,2 @@
-export { Author } from './Author';
-export { Analysis } from './Analysis';
+export { AuthorSchema } from './Author';
+export { AnalysisSchema } from './Analysis';
