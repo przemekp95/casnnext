@@ -5,21 +5,21 @@ export const AuthorSchema = new EntitySchema({
   tableName: 'Author',
   columns: {
     id: {
-      type: 'int',
+      type: Number,
       primary: true,
       generated: true,
     },
     slug: {
-      type: 'varchar',
+      type: String,
       length: 191,
       unique: true,
     },
     name: {
-      type: 'varchar',
+      type: String,
       length: 255,
     },
     img: {
-      type: 'varchar',
+      type: String,
       length: 255,
     },
     bio: {

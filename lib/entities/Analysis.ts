@@ -5,21 +5,21 @@ export const AnalysisSchema = new EntitySchema({
   tableName: 'Analysis',
   columns: {
     id: {
-      type: 'int',
+      type: Number,
       primary: true,
       generated: true,
     },
     title: {
-      type: 'varchar',
+      type: String,
       length: 255,
     },
     slug: {
-      type: 'varchar',
+      type: String,
       length: 191,
       unique: true,
     },
     authorId: {
-      type: 'int',
+      type: Number,
     },
   },
 });
