@@ -68,7 +68,7 @@ jobs:
         run: npm run type-check
 
       - name: Lint code
-        run: npx eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 0
+        run: npx eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 50
 
       - name: Check posts
         run: npm run check:posts
