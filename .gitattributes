@@ -1,0 +1,2 @@
+# Treat MDX files in posts/ as documentation, not code
+posts/**/*.mdx linguist-documentation
