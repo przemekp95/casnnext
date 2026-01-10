@@ -19,10 +19,18 @@ describe('Database Seeding', () => {
 
   it('seed script populates database with initial data', async () => {
     // Clear existing data first to ensure clean test state
+    // Clear child table first (Analysis) then parent table (Author) to avoid FK constraints
     const authorRepository = AppDataSource.getRepository('Author');
     const analysisRepository = AppDataSource.getRepository('Analysis');
-    await analysisRepository.clear();
-    await authorRepository.clear();
+
+    // Use query to disable FK checks temporarily for clean truncation
+    await AppDataSource.query('SET FOREIGN_KEY_CHECKS = 0');
+    try {
+      await analysisRepository.clear();
+      await authorRepository.clear();
+    } finally {
+      await AppDataSource.query('SET FOREIGN_KEY_CHECKS = 1');
+    }
 
     // Run the seeding script
     try {
