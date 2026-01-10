@@ -1,4 +1,4 @@
-name: Prisma v7 Configuration Validation
+name: CI Pipeline
 
 on:
   pull_request:
@@ -7,23 +7,50 @@ on:
 
 permissions:
   contents: read
-
+  checks: write
+  pull-requests: write
 
 jobs:
-  validate-prisma-config:
+  validate-and-test:
     runs-on: ubuntu-latest
-    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: casn_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"
+
       - name: Validate Prisma v7 Configuration
         run: |
           echo "🔍 === PRISMA V7 CONFIGURATION VALIDATION ==="
-          
+
           # Make test script executable
           chmod +x test-prisma-config.sh
-          
+
           # Run the validation script
           if ./test-prisma-config.sh; then
             echo "✅ Prisma v7 configuration validation PASSED"
@@ -32,11 +59,100 @@ jobs:
             echo "❌ Prisma v7 configuration validation FAILED"
             exit 1
           fi
-          
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run database migrations
+        run: npx prisma db push
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Check posts
+        run: npm run check:posts
+
+      - name: Run unit tests with coverage
+        run: npm run test:ci -- --coverage --watchAll=false --passWithNoTests
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+
+      - name: Check coverage threshold (soft requirement)
+        run: |
+          if [ -f "coverage/coverage-summary.json" ]; then
+            COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+            echo "Test coverage: $COVERAGE%"
+            if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+              echo "⚠️  WARNING: Coverage below 80% minimum requirement (soft constraint)"
+              echo "Current: $COVERAGE% - Target: 80%"
+              # Don't fail CI, but warn
+              echo "coverage_warning=true" >> $GITHUB_ENV
+            else
+              echo "✅ Coverage meets 80% minimum requirement"
+            fi
+          else
+            echo "⚠️  No coverage report found"
+          fi
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+
+      - name: Build application
+        run: npm run build
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: prisma-validation-results
-          path: test-prisma-config.sh
+          name: ci-test-results-${{ github.run_id }}
+          path: |
+            coverage/
+            cypress/videos/
+            cypress/screenshots/
+            test-prisma-config.sh
           retention-days: 30
+
+      - name: Comment PR with test results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            let coverage = 'Not available';
+            let coverageStatus = '⚠️ Unknown';
+
+            if (fs.existsSync('coverage/coverage-summary.json')) {
+              const coverageData = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+              coverage = `${coverageData.total.lines.pct}%`;
+              coverageStatus = coverageData.total.lines.pct >= 80 ? '✅' : '⚠️';
+            }
+
+            const body = `## 🧪 CI Test Results
+
+            **Coverage:** ${coverageStatus} ${coverage} (minimum: 80%)
+            **Unit Tests:** ${{ job.status == 'success' ? '✅ Passed' : '❌ Failed' }}
+            **E2E Tests:** ${{ job.status == 'success' ? '✅ Passed' : '❌ Failed' }}
+            **Type Check:** ${{ job.status == 'success' ? '✅ Passed' : '❌ Failed' }}
+            **Linting:** ${{ job.status == 'success' ? '✅ Passed' : '❌ Failed' }}
+
+            ### 📊 Test Coverage Report
+            [View detailed coverage report](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}})
+
+            ---
+            *This comment was automatically generated by CI Pipeline*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
