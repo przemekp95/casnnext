@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 shopt -s nullglob
+
+# Set locale to handle UTF-8 properly
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
 ERR=0
 for f in posts/*.mdx; do
 
