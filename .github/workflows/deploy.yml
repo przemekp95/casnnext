@@ -13,9 +13,9 @@ on:
         options:
           - production
           - staging
+
 permissions:
   contents: read
-
 
 env:
   REGISTRY: ghcr.io
@@ -65,7 +65,7 @@ jobs:
       - name: Manual deployment notification
         if: ${{ !env.DEPLOY_HOST && !env.PORTAINER_URL }}
         run: |
-          echo "🚀 Deployment Ready!"� Deployment Ready!"
+          echo "Deployment Ready!"
           echo "Commit: ${{ github.sha }}"
           echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main"
           echo ""
@@ -80,13 +80,13 @@ jobs:
           echo "Performing health check..."
           for i in {1..30}; do
             if curl -f -s ${{ secrets.HEALTH_CHECK_URL }} > /dev/null; then
-              echo "✅ Health check passed"
+              echo "Health check passed"
               exit 0
             fi
             echo "Health check attempt $i failed, retrying in 10 seconds..."
             sleep 10
           done
-          echo "❌ Health check failed after 30 attempts"
+          echo "Health check failed after 30 attempts"
           exit 1
 
       - name: Notify deployment status
