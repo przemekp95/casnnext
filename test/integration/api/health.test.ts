@@ -4,8 +4,9 @@ import { NextResponse } from 'next/server';
 let route: { GET: () => Promise<NextResponse> } | null = null;
 
 try {
-  route = require('@/app/api/health/route');
-} catch (_) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  route = require('@/app/api/health/route') as RouteModule;
+} catch {
   route = null;
 }
 
@@ -55,6 +56,7 @@ try {
 
   it('GET używa domyślnej wersji gdy process.env nie istnieje', async () => {
     const originalProcess = global.process;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (global as any).process;
 
     try {
