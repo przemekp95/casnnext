@@ -1,0 +1,59 @@
+name: 'Generate Changelog'
+description: 'Generate changelog from git commits'
+
+inputs:
+  since-tag:
+    description: 'Generate changelog since this tag (optional)'
+    required: false
+
+outputs:
+  changelog:
+    description: 'Generated changelog content'
+    value: ${{ steps.changelog.outputs.changelog }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate changelog
+      id: changelog
+      shell: bash
+      run: |
+        SINCE_TAG="${{ inputs.since-tag }}"
+
+        if [ -z "$SINCE_TAG" ]; then
+          # Auto-detect latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        else
+          LATEST_TAG="$SINCE_TAG"
+        fi
+
+        if [ -z "$LATEST_TAG" ]; then
+          # First release
+          echo "📝 First release - generating from recent commits"
+          CHANGES=$(git log --oneline --pretty=format:"- %s" | head -20)
+          {
+            echo "changelog<<EOF"
+            echo "# Initial Release"
+            echo ""
+            echo "## Changes"
+            echo ""
+            echo "$CHANGES"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        else
+          # Generate changelog since last tag
+          echo "📝 Generating changelog since $LATEST_TAG"
+          CHANGES=$(git log --oneline --pretty=format:"- %s" ${LATEST_TAG}..HEAD 2>/dev/null || echo "")
+
+          if [ -z "$CHANGES" ]; then
+            CHANGES="No changes since last release"
+          fi
+
+          {
+            echo "changelog<<EOF"
+            echo "# Changes since ${LATEST_TAG}"
+            echo ""
+            echo "$CHANGES"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        fi

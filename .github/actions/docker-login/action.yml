@@ -1,0 +1,25 @@
+name: 'Docker Registry Login'
+description: 'Login to container registry'
+
+inputs:
+  registry:
+    description: 'Container registry URL'
+    required: true
+  username:
+    description: 'Registry username'
+    required: false
+    default: ${{ github.actor }}
+  password:
+    description: 'Registry password/token'
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
