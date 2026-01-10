@@ -1,0 +1,39 @@
+name: 'Setup Database'
+description: 'Setup and wait for database to be ready'
+
+inputs:
+  database-url:
+    description: 'Database connection URL'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Wait for database
+      run: |
+        # Extract database type and connection details from URL
+        DB_URL="${{ inputs.database-url }}"
+        if [[ $DB_URL == mysql://* ]]; then
+          # MySQL setup
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"
+        elif [[ $DB_URL == postgresql://* ]]; then
+          # PostgreSQL setup (if needed in future)
+          while ! pg_isready -h 127.0.0.1 -p 5432; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+        else
+          echo "Database type not recognized, skipping health check"
+        fi
+      shell: bash
+
+    - name: Database schema setup
+      run: |
+        echo "=== SETTING UP DATABASE SCHEMA ==="
+        echo "Database schema will be created by application/TypeORM synchronize"
+      shell: bash

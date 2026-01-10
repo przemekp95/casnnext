@@ -1,0 +1,20 @@
+name: 'Quality Checks'
+description: 'Run linting, type checking, and code quality checks'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Type check
+      run: npm run type-check
+      shell: bash
+
+    - name: Format and lint code
+      run: |
+        npx prettier --write .
+        npx eslint . --ext .ts,.tsx,.js,.jsx --fix
+        npx eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 0
+      shell: bash
+
+    - name: Check posts
+      run: npm run check:posts
+      shell: bash

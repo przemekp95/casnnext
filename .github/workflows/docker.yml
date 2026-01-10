@@ -36,45 +36,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and dependencies
+        uses: ./.github/workflows/setup-node
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+      - name: Setup database
+        uses: ./.github/workflows/setup-database
+        with:
+          database-url: mysql://root:root@localhost:3306/casn_test
 
-      - name: Wait for MySQL
-        run: |
-          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
-            echo "Waiting for MySQL..."
-            sleep 2
-          done
-          echo "MySQL is ready!"
-
-      - name: Run database setup
-        run: |
-          echo "=== SETTING UP DATABASE SCHEMA ==="
-          # In development/CI, TypeORM synchronize handles schema creation
-          # No migrations needed - synchronize creates tables automatically
-          echo "Database schema will be created by TypeORM synchronize"
-
-      - name: Type check
-        run: npm run type-check
-
-      - name: Format and lint code
-        run: |
-          npx prettier --write .
-          npx eslint . --ext .ts,.tsx,.js,.jsx --fix
-          npx eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 0
-
-      - name: Check posts
-        run: npm run check:posts
+      - name: Run quality checks
+        uses: ./.github/workflows/quality-checks
 
       - name: Run unit tests with coverage
         run: npm run test:ci -- --coverage --watchAll=false
