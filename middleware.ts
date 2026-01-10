@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AppDataSource } from '@/lib/db';
+import { initializeDatabase } from '@/lib/init-db';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export async function middleware(request: NextRequest) {
   // Ensure database is initialized for all requests
-  if (!AppDataSource.isInitialized) {
-    try {
-      await AppDataSource.initialize();
-      console.log('Database initialized in middleware');
-    } catch (error) {
-      console.error('Database initialization failed:', error);
-      // Continue anyway - let the application handle database errors gracefully
-    }
+  try {
+    await initializeDatabase();
+  } catch (error) {
+    console.error('Database initialization failed in middleware:', error);
+    // Continue anyway - let the application handle database errors gracefully
   }
 
   return NextResponse.next();
