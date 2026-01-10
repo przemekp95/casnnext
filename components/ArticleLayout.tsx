@@ -1,5 +1,4 @@
 // components/ArticleLayout.tsx
-import Link from "next/link";  // tylko to zostawiamy, jeśli jest używane
 
 type Crumb = { label: string; href?: string; active?: boolean };
 

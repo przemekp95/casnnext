@@ -1,69 +1,95 @@
-// lib/db.ts
-import mysql from "mysql2/promise";
+import { DataSource } from 'typeorm';
+import { AuthorSchema } from './entities/Author';
+import { AnalysisSchema } from './entities/Analysis';
 
-type QueryResult<T = unknown> = T[];
+const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
 
-let pool: mysql.Pool | null = null;
+// Type for database configuration
+interface DatabaseConfig {
+  type: 'mysql' | 'sqlite';
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database: string;
+  synchronize: boolean;
+  logging: boolean;
+  dropSchema?: boolean;
+}
 
-function buildConfig(): mysql.PoolOptions {
-  // domyślne zmienne środowiskowe
-  const { DB_CONN_LIMIT = "2" } = process.env;
-  let {
-    DB_HOST = "localhost",
-    DB_USER,
-    DB_PASS,
-    DB_NAME,
-    DB_SOCKET,
-  } = process.env;
+// Support for DATABASE_URL environment variable (used in CI/testing)
+const databaseUrl = process.env.DATABASE_URL;
+let dbConfig: DatabaseConfig;
 
-  // opcjonalnie: parsuj DATABASE_URL (np. z socketem)
-  const urlStr = process.env.DATABASE_URL;
-  if (urlStr) {
-    try {
-      const u = new URL(urlStr);
-      if (!DB_SOCKET && u.hostname) DB_HOST = u.hostname;
-      if (!DB_USER && u.username) DB_USER = decodeURIComponent(u.username);
-      if (!DB_PASS && u.password) DB_PASS = decodeURIComponent(u.password);
-      if (!DB_NAME && u.pathname) DB_NAME = u.pathname.replace(/^\//, "");
-      const s = u.searchParams.get("socket");
-      if (s) DB_SOCKET = s;
-    } catch {
-      // ignoruj błąd parsowania URL w trakcie buildu
-    }
-  }
-
-  if (!DB_USER || !DB_PASS || !DB_NAME) {
-    throw new Error("DB env missing (DB_USER/DB_PASS/DB_NAME). Ustaw w .env lub DATABASE_URL.");
-  }
-
-  const cfg: mysql.PoolOptions = {
-    waitForConnections: true,
-    connectionLimit: parseInt(DB_CONN_LIMIT, 10),
-    queueLimit: 0,
-    user: DB_USER,
-    password: DB_PASS,
-    database: DB_NAME,
+if (databaseUrl) {
+  // Parse DATABASE_URL for connection details
+  const url = new URL(databaseUrl);
+  dbConfig = {
+    type: 'mysql' as const,
+    host: url.hostname,
+    port: parseInt(url.port || '3306'),
+    username: url.username,
+    password: url.password,
+    database: url.pathname.slice(1), // Remove leading slash
+    synchronize: false, // Never synchronize - use migrations
+    logging: !isProduction && !isTest,
   };
+} else if (isTest) {
+  // Use MySQL for testing with test database
+  dbConfig = {
+    type: 'mysql' as const,
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    username: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'casn_test',
+    synchronize: false, // Don't synchronize in tests - use migrations
+    logging: false,
+    dropSchema: false,
+  };
+} else {
+  // Fallback to individual environment variables
+  dbConfig = {
+    type: 'mysql' as const,
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    username: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'casn',
+    synchronize: !isProduction,
+    logging: !isProduction,
+  };
+}
 
-  if (DB_SOCKET) {
-    cfg.socketPath = DB_SOCKET; // preferowane na hostingu (unikasz IPv6 ::1)
-  } else {
-    cfg.host = DB_HOST;
-    cfg.port = 3306;
+// Check if database is configured
+const hasDatabaseConfig = !!(databaseUrl || process.env.DB_HOST || process.env.DB_USER || process.env.DB_NAME);
+
+// Lazy DataSource creation
+let _appDataSource: DataSource | null = null;
+
+const getDataSource = (): DataSource | null => {
+  if (!hasDatabaseConfig) return null;
+
+  if (!_appDataSource) {
+    _appDataSource = new DataSource({
+      ...dbConfig,
+      entities: [AuthorSchema, AnalysisSchema],
+      migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
+      subscribers: [],
+    });
   }
+  return _appDataSource;
+};
 
-  return cfg;
+// Export AppDataSource - create with lazy entity loading
+export const AppDataSource = getDataSource();
+
+// For production, ensure database is initialized synchronously
+if (isProduction) {
+  // This will be handled by the application startup
+  console.log('Database will be initialized by application startup');
 }
 
-function getPool(): mysql.Pool {
-  if (!pool) {
-    pool = mysql.createPool(buildConfig());
-  }
-  return pool;
-}
-
-export async function query<T = unknown>(sql: string, values?: unknown[]): Promise<QueryResult<T>> {
-  const p = getPool();
-  const [rows] = await p.execute<mysql.RowDataPacket[]>(sql, values);
-  return rows as QueryResult<T>;
-}
+// Helper function to check if database is configured
+export const isDatabaseConfigured = () => hasDatabaseConfig;

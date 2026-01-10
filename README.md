@@ -14,7 +14,7 @@ Strona internetowa Centrum Analiz Służby Niepodległej (CASN) - platforma publ
 
 ### Dane
 
-- Prisma ORM
+- TypeORM
 - MySQL/MariaDB (silnik bazy danych)
 
 ### Treści
@@ -40,7 +40,7 @@ Strona internetowa Centrum Analiz Służby Niepodległej (CASN) - platforma publ
 ### Deployment
 
 - Budowanie: `npm run build`
-- Uruchamianie: `npm run start` (z automatycznym `prisma migrate deploy`)
+- Uruchamianie: `npm run start` (z automatycznym `npm run migration:run`)
 - Hosting: self-hosted (np. Cyber_Folks, własny serwer)
 
 ## Setup
@@ -52,7 +52,7 @@ Wymagania:
 Konfiguracja:
 1. Zainstaluj zależności: `npm install`
 2. Skopiuj plik środowiskowy: `cp .env.example .env.local` i uzupełnij `DATABASE_URL`
-3. Uruchom migracje: `npx prisma migrate deploy`
+3. Uruchom migracje: `npm run migration:run`
 4. Start dev: `npm run dev`
 
 ## Getting Started
@@ -70,7 +70,7 @@ Konfiguracja:
 * Sklonuj repozytorium
 * Zainstaluj zależności: `npm install`
 * Skonfiguruj bazę danych i zmienne środowiskowe
-* Uruchom migracje: `npx prisma migrate deploy`
+* Uruchom migracje: `npm run migration:run`
 
 ### Executing program
 
@@ -133,7 +133,7 @@ docker-compose build app
 docker-compose up -d app
 
 # Run database migrations
-docker-compose exec app npx prisma migrate deploy
+docker-compose exec app npm run migration:run
 
 # Access database
 docker-compose exec mysql mysql -u casn_user -pcasn_password123 casn
@@ -166,7 +166,7 @@ Copy `docker-compose.env.example` to `.env` and configure:
 W przypadku problemów sprawdź:
 - Konfigurację zmiennych środowiskowych w `.env.local`
 - Logi błędów w konsoli deweloperskiej
-- Dokumentację Next.js i Prisma ORM
+- Dokumentację Next.js i TypeORM
 
 ## Authors
 
@@ -179,13 +179,13 @@ contact@pietrzakprzemyslaw.pl
 
 Inspiration, code snippets, etc.
 * [Next.js](https://nextjs.org/)
-* [Prisma](https://www.prisma.io/)
+* [TypeORM](https://typeorm.io/)
 * [MDX](https://mdxjs.com/)
 
 ## Version History
 
 - 1.0
-  - Pierwsza wersja produkcyjna z Next.js 15 i Prisma
+  - Pierwsza wersja produkcyjna z Next.js 15 i TypeORM
 - 0.1
   - Initial Release
 
@@ -289,7 +289,7 @@ Invalidacja cache dla taga.
     →
 [MDX Files (posts/)] ← Processed by MDXContent Component
     →
-[Prisma ORM (optional)] → Migration + Query Builder
+[TypeORM] → Migration + Query Builder
 ```
 
 ## Data Flow Diagram
@@ -309,7 +309,7 @@ Follows Conventional Commits.
 - fix: correct table names case sensitivity
 - refactor: move mobile menu to separate component
 
-> **EN summary**: This project is a Next.js 15 web app for an NGO, featuring articles in MDX and a Prisma ORM backend.
+> **EN summary**: This project is a Next.js 15 web app for an NGO, featuring articles in MDX and a TypeORM backend.
 
 ## Docker Deployment
 
@@ -366,7 +366,7 @@ docker-compose build app
 docker-compose up -d app
 
 # Run database migrations
-docker-compose exec app npx prisma migrate deploy
+docker-compose exec app npm run migration:run
 
 # Access database
 docker-compose exec mysql mysql -u casn_user -pcasn_password123 casn

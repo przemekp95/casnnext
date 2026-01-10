@@ -1,0 +1,59 @@
+name: MySQL Service Template
+
+on:
+  workflow_call:
+    inputs:
+      mysql-version:
+        description: 'MySQL version'
+        type: string
+        default: '8.4'
+        required: false
+      database-name:
+        description: 'Database name'
+        type: string
+        default: 'casn_test'
+        required: false
+      root-password:
+        description: 'MySQL root password'
+        type: string
+        default: 'rootpassword'
+        required: false
+      user-name:
+        description: 'MySQL user name'
+        type: string
+        default: 'casn_user'
+        required: false
+      user-password:
+        description: 'MySQL user password'
+        type: string
+        default: 'casn_password'
+        required: false
+
+jobs:
+  mysql-service:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:${{ inputs.mysql-version }}
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ inputs.root-password }}
+          MYSQL_DATABASE: ${{ inputs.database-name }}
+          MYSQL_USER: ${{ inputs.user-name }}
+          MYSQL_PASSWORD: ${{ inputs.user-password }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -p${{ inputs.root-password }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    outputs:
+      database-url: mysql://root:${{ inputs.root-password }}@localhost:3306/${{ inputs.database-name }}
+    steps:
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"

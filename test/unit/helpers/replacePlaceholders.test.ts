@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+
 let mod: unknown;
 try {
   // jeśli helper zostanie przeniesiony do lib/, zaktualizuj import

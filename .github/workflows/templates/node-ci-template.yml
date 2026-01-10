@@ -1,0 +1,147 @@
+name: Node.js CI Template
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version'
+        type: string
+        default: '20'
+        required: false
+      database-url:
+        description: 'Database connection URL'
+        type: string
+        required: false
+      run-e2e:
+        description: 'Whether to run E2E tests'
+        type: boolean
+        default: false
+        required: false
+    secrets:
+      codecov-token:
+        description: 'Codecov upload token'
+        required: false
+
+jobs:
+  quality-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and dependencies
+        uses: ./.github/workflows/setup-node
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Run quality checks
+        uses: ./.github/workflows/quality-checks
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: casn_test
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and dependencies
+        uses: ./.github/workflows/setup-node
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Setup database
+        uses: ./.github/workflows/setup-database
+        with:
+          database-url: ${{ inputs.database-url || 'mysql://root:root@localhost:3306/casn_test' }}
+
+      - name: Run unit tests with coverage
+        run: npm run test:ci -- --coverage --watchAll=false
+        env:
+          DATABASE_URL: ${{ inputs.database-url || 'mysql://root:root@localhost:3306/casn_test' }}
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.codecov-token }}
+          file: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  e2e:
+    if: ${{ inputs.run-e2e }}
+    runs-on: ubuntu-latest
+    needs: test
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: casn_test
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and dependencies
+        uses: ./.github/workflows/setup-node
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Setup database
+        uses: ./.github/workflows/setup-database
+        with:
+          database-url: ${{ inputs.database-url || 'mysql://root:root@localhost:3306/casn_test' }}
+
+      - name: Build for E2E tests
+        run: npm run build
+        env:
+          DATABASE_URL: ${{ inputs.database-url || 'mysql://root:root@localhost:3306/casn_test' }}
+
+      - name: Run E2E tests
+        run: |
+          # Start Next.js server in background
+          npm run start &
+          SERVER_PID=$!
+
+          # Wait for server to be ready
+          echo "Waiting for server to be ready..."
+          timeout 120 bash -c 'until curl -f http://localhost:3000/api/health; do echo "Server not ready, waiting..."; sleep 3; done'
+          echo "Server is ready!"
+
+          # Give server a moment to fully initialize
+          sleep 5
+
+          # Verify server is still responding
+          curl -f http://localhost:3000/api/health || (echo "Server health check failed" && exit 1)
+
+          # Run E2E tests
+          echo "Starting E2E tests..."
+          npm run test:e2e
+
+          # Clean up server
+          echo "Cleaning up server..."
+          kill $SERVER_PID || true
+        env:
+          DATABASE_URL: ${{ inputs.database-url || 'mysql://root:root@localhost:3306/casn_test' }}
+          PORT: 3000

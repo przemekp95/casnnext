@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { AppDataSource, isDatabaseConfigured } from "@/lib/db";
+import { initializeDatabase } from "@/lib/init-db";
 
 // Typy danych
 type ArticleRow = {
@@ -36,8 +38,45 @@ function isBodyWithSlug(x: unknown): x is BodyWithSlug {
 // GET: pobiera wszystkie artykuły
 export async function GET() {
   try {
-    // Skip Prisma during build time - return empty array for build
-    if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
+    // Skip during build time - return empty array for build
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      return NextResponse.json([], {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'CDN-Cache-Control': 'max-age=300',
+        },
+      });
+    }
+
+    // Skip if database is not configured
+    if (!isDatabaseConfigured()) {
+      return NextResponse.json([], {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'CDN-Cache-Control': 'max-age=300',
+        },
+      });
+    }
+
+    // Ensure database is initialized
+    try {
+      if (AppDataSource && !AppDataSource.isInitialized) {
+        await initializeDatabase();
+      }
+    } catch (error) {
+      console.error('Database initialization failed in GET:', error);
+      return NextResponse.json([], {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'CDN-Cache-Control': 'max-age=300',
+        },
+      });
+    }
+
+    if (!AppDataSource || !AppDataSource.isInitialized) {
       return NextResponse.json([], {
         status: 200,
         headers: {
@@ -52,22 +91,13 @@ export async function GET() {
     if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
       const getArticlesCached = unstable_cache(
         async () => {
-          const data = await prisma!.analysis.findMany({
-            include: {
-              author: {
-                select: {
-                  name: true,
-                  slug: true,
-                },
-              },
-            },
-            orderBy: {
-              id: 'desc',
-            },
+          const analysisRepository = AppDataSource.getRepository('Analysis');
+          const data = await analysisRepository.find({
+            relations: ['author'],
+            order: { id: 'DESC' },
           });
 
           // Transform to match existing API format
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return data.map((item: any) => ({
             id: item.id,
             title: item.title,
@@ -86,23 +116,13 @@ export async function GET() {
       articles = await getArticlesCached();
     } else {
       // Direct query for tests or when caching unavailable
-      const data = await prisma.analysis.findMany({
-        include: {
-          author: {
-            select: {
-              name: true,
-              slug: true,
-            },
-          },
-        },
-        orderBy: {
-          id: 'desc',
-        },
+      const analysisRepository = AppDataSource.getRepository('Analysis');
+      const data = await analysisRepository.find({
+        relations: ['author'],
+        order: { id: 'DESC' },
       });
 
-          // Transform to match existing API format
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          articles = data.map((item: any) => ({
+      articles = data.map((item: any) => ({
         id: item.id,
         title: item.title,
         slug: item.slug,
@@ -127,9 +147,14 @@ export async function GET() {
 
 // POST: dodaje nowy artykuł
 export async function POST(req: Request) {
-  // Skip Prisma during build time - return error for build
-  if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
+  // Skip during build time - return error for build
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
     return NextResponse.json({ error: "Build time - API unavailable" }, { status: 503 });
+  }
+
+  // Skip if database is not configured
+  if (!isDatabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
 
   let body: unknown = null;
@@ -149,9 +174,24 @@ export async function POST(req: Request) {
   if (isBodyWithId(body)) {
     authorId = body.authorId;
   } else if (isBodyWithSlug(body)) {
-    const author = await prisma.author.findUnique({
+    // Ensure database is initialized
+    try {
+      if (AppDataSource && !AppDataSource.isInitialized) {
+        await initializeDatabase();
+      }
+    } catch (error) {
+      console.error('Database initialization failed in POST:', error);
+      return NextResponse.json({ error: "Database not available" }, { status: 503 });
+    }
+
+    if (!AppDataSource || !AppDataSource.isInitialized) {
+      return NextResponse.json({ error: "Database not available" }, { status: 503 });
+    }
+
+    const authorRepository = AppDataSource.getRepository('Author');
+    const author = await authorRepository.findOne({
       where: { slug: body.authorSlug },
-      select: { id: true },
+      select: ['id'],
     });
     if (author) authorId = author.id;
   }
@@ -163,20 +203,31 @@ export async function POST(req: Request) {
     );
   }
 
-  const newArticle = await prisma.analysis.create({
-    data: {
-      title,
-      slug,
-      authorId,
-    },
-    include: {
-      author: {
-        select: {
-          name: true,
-          slug: true,
-        },
-      },
-    },
+  // Ensure database is initialized for saving
+  try {
+    if (AppDataSource && !AppDataSource.isInitialized) {
+      await initializeDatabase();
+    }
+  } catch (error) {
+    console.error('Database initialization failed in POST save:', error);
+    return NextResponse.json({ error: "Database not available" }, { status: 503 });
+  }
+
+  if (!AppDataSource || !AppDataSource.isInitialized) {
+    return NextResponse.json({ error: "Database not available" }, { status: 503 });
+  }
+
+  const analysisRepository = AppDataSource.getRepository('Analysis');
+  const newArticle = await analysisRepository.save({
+    title,
+    slug,
+    authorId,
+  });
+
+  // Load the author relation for the response
+  const articleWithAuthor = await analysisRepository.findOne({
+    where: { id: newArticle.id },
+    relations: ['author'],
   });
 
   // Invalidate cache when new article is added (only in production)
@@ -186,12 +237,12 @@ export async function POST(req: Request) {
 
   // Transform to match existing API format
   const article = {
-    id: newArticle.id,
-    title: newArticle.title,
-    slug: newArticle.slug,
-    authorId: newArticle.authorId,
-    author_name: newArticle.author.name,
-    author_slug: newArticle.author.slug,
+    id: articleWithAuthor!.id,
+    title: articleWithAuthor!.title,
+    slug: articleWithAuthor!.slug,
+    authorId: articleWithAuthor!.authorId,
+    author_name: articleWithAuthor!.author.name,
+    author_slug: articleWithAuthor!.author.slug,
   };
 
   return NextResponse.json(article, { status: 201 });

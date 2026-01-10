@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 /** @jest-environment node */
 import { query } from '@/lib/db';
 
@@ -10,7 +11,7 @@ let route: RouteModule | null = null;
 
 try {
   route = require('@/app/api/articles/route') as RouteModule;
-} catch (_) {
+} catch {
   route = null;
 }
 

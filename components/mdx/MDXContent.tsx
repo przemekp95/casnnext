@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // components/mdx/MDXContent.tsx
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import SafeImage from '../SafeImage';
@@ -6,6 +7,7 @@ import Chart from '../charts/Chart';
 import Map from '../maps/Map';
 
 const components = {
+  // MDX component props require any types due to dynamic nature
   img: (props: any) => <SafeImage {...props} />,
   Image: (props: any) => <SafeImage {...props} />,
   Chart: Chart as any,

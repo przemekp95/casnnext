@@ -43,8 +43,9 @@
   "exclude": [
     "node_modules",
     "cypress",
+    "cypress.config.ts",
+    "cypress/tsconfig.json",
     "test",
-    "prisma",
     ".next/cache",
     "dist"
   ]

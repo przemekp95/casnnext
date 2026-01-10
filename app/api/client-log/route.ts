@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     await fs.appendFile(logFile, line, "utf8");
 
     return NextResponse.json({ ok: true });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
