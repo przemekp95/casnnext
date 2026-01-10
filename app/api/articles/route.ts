@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { AppDataSource } from "@/lib/db";
-import { Analysis } from "@/lib/entities/Analysis";
-import { Author } from "@/lib/entities/Author";
 
 // Typy danych
 type ArticleRow = {
@@ -54,14 +52,14 @@ export async function GET() {
     if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
       const getArticlesCached = unstable_cache(
         async () => {
-          const analysisRepository = AppDataSource.getRepository(Analysis);
+          const analysisRepository = AppDataSource.getRepository('Analysis');
           const data = await analysisRepository.find({
             relations: ['author'],
             order: { id: 'DESC' },
           });
 
           // Transform to match existing API format
-          return data.map((item) => ({
+          return data.map((item: any) => ({
             id: item.id,
             title: item.title,
             slug: item.slug,
@@ -79,13 +77,13 @@ export async function GET() {
       articles = await getArticlesCached();
     } else {
       // Direct query for tests or when caching unavailable
-      const analysisRepository = AppDataSource.getRepository(Analysis);
+      const analysisRepository = AppDataSource.getRepository('Analysis');
       const data = await analysisRepository.find({
         relations: ['author'],
         order: { id: 'DESC' },
       });
 
-      articles = data.map((item) => ({
+      articles = data.map((item: any) => ({
         id: item.id,
         title: item.title,
         slug: item.slug,
@@ -132,7 +130,7 @@ export async function POST(req: Request) {
   if (isBodyWithId(body)) {
     authorId = body.authorId;
   } else if (isBodyWithSlug(body)) {
-    const authorRepository = AppDataSource.getRepository(Author);
+    const authorRepository = AppDataSource.getRepository('Author');
     const author = await authorRepository.findOne({
       where: { slug: body.authorSlug },
       select: ['id'],
@@ -147,7 +145,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const analysisRepository = AppDataSource.getRepository(Analysis);
+  const analysisRepository = AppDataSource.getRepository('Analysis');
   const newArticle = await analysisRepository.save({
     title,
     slug,

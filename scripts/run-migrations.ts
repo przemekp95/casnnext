@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 
-import 'reflect-metadata';
 import { AppDataSource } from '../lib/db';
 
 async function runMigrations() {
