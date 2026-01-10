@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 /** @jest-environment node */
 import { query } from '@/lib/db';
 
