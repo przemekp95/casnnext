@@ -71,7 +71,15 @@ const eslintConfig = [
     },
   },
 
-  // 8) Drobne dopasowania pod projekt
+  // 8) Reguły dla scripts - allow require() and disable module assignment warnings
+  {
+    files: ["scripts/**/*.js", "test/**/*.ts"],
+    rules: {
+      "@next/next/no-assign-module-variable": "off", // Allow module assignments in tests
+    },
+  },
+
+  // 9) Drobne dopasowania pod projekt
   {
     rules: {
       // Pozwól używać <img> (np. w stopce)
