@@ -11,7 +11,6 @@
     "prebuild": "bash scripts/check-posts.sh",
     "postbuild": "node scripts/prepare-tmp.js",
     "start": "next start -p $PORT",
-    "start:standalone": "node .next/standalone/server.js",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit -p tsconfig.ci.json",
@@ -19,17 +18,12 @@
     "test:ci": "jest --runInBand",
     "test:unit": "jest",
     "test:e2e": "cypress run --headless",
-    "check:posts": "bash scripts/check-posts.sh",
-    "logs:server": "tail -f tmp/runtime.log",
-    "logs:client": "tail -f tmp/client.log",
-    "deploy": "bash scripts/deploy.sh"
+    "check:posts": "bash scripts/check-posts.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@capacitor/cli": "^7.4.3",
-    "@capacitor/core": "^7.4.3",
     "@mdi/font": "^7.4.47",
     "@prisma/adapter-mariadb": "^6.9.0",
     "@prisma/client": "^6.9.0",
@@ -53,8 +47,6 @@
     "zod": "^4.0.17"
   },
   "devDependencies": {
-    "@capacitor/android": "^7.4.3",
-    "@capacitor/ios": "^7.4.3",
     "@eslint/eslintrc": "^3",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
