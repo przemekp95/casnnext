@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test Prisma Configuration - Updated for Single Compose File
+# Test TypeORM Configuration - Updated for TypeORM Migration
 # This script validates that the Docker deployment configuration is properly set up
 
 set -e
@@ -93,7 +93,7 @@ fi
 echo "5. Validating package.json dependencies..."
 if [ -f "package.json" ]; then
     if grep -q "next" package.json && \
-       grep -q "prisma" package.json; then
+       grep -q "typeorm" package.json; then
         echo "✅ PASS: package.json has required dependencies"
     else
         echo "❌ FAIL: package.json missing required dependencies"
@@ -104,38 +104,33 @@ else
     exit 1
 fi
 
-# Test 6: Check database schema
-echo "6. Validating database schema (prisma/schema.prisma)..."
-if [ -f "prisma/schema.prisma" ]; then
-    if grep -q "datasource db {" prisma/schema.prisma && \
-       grep -q "provider.*=.*\"mysql\"" prisma/schema.prisma; then
-        echo "✅ PASS: prisma/schema.prisma has correct MySQL datasource"
+# Test 6: Check TypeORM entities
+echo "6. Validating TypeORM entities..."
+if [ -f "lib/entities/Author.ts" ] && [ -f "lib/entities/Analysis.ts" ]; then
+    if grep -q "@Entity" lib/entities/Author.ts && \
+       grep -q "@Entity" lib/entities/Analysis.ts; then
+        echo "✅ PASS: TypeORM entities are properly configured"
     else
-        echo "❌ FAIL: prisma/schema.prisma missing proper datasource configuration"
+        echo "❌ FAIL: TypeORM entities missing @Entity decorators"
         exit 1
     fi
 else
-    echo "❌ FAIL: prisma/schema.prisma not found"
+    echo "❌ FAIL: TypeORM entities not found"
     exit 1
 fi
 
-# Test 7: Check seed script syntax (should be fixed)
-echo "7. Validating seed script syntax..."
-if [ -f "prisma/seed.ts" ]; then
-    # Check that the problematic quote is fixed
-    if ! grep -q '"mowy nienawiści""' prisma/seed.ts; then
-        echo "✅ PASS: prisma/seed.ts has correct quote syntax"
-    else
-        echo "❌ FAIL: prisma/seed.ts still has syntax errors with quotes"
-        exit 1
-    fi
+# Test 7: Check migration scripts
+echo "7. Validating TypeORM migration scripts..."
+if [ -d "lib/migrations" ] && [ "$(ls lib/migrations/*.ts 2>/dev/null | wc -l)" -gt 0 ]; then
+    echo "✅ PASS: TypeORM migrations directory exists and contains migration files"
 else
-    echo "✅ PASS: prisma/seed.ts not found (using pre-populated database approach)"
+    echo "❌ FAIL: TypeORM migrations not found"
+    exit 1
 fi
 
 echo ""
 echo "🎉 === ALL TESTS PASSED ==="
-echo "✅ Docker deployment configuration is valid and ready for empty database approach"
+echo "✅ Docker deployment configuration is valid and ready for TypeORM approach"
 echo ""
 echo "Deploy with:"
 echo "  docker-compose -f docker-compose.final.yml up -d"
@@ -144,6 +139,6 @@ echo "Access at:"
 echo "  http://localhost:3001"
 echo ""
 echo "This setup uses:"
-echo "  • Empty database (no seeding)"
-echo "  • Entrypoint override (skips migration scripts)"
-echo "  • Final compose file"
+echo "  • TypeORM migrations"
+echo "  • Automatic database initialization"
+echo "  • TypeORM entities for schema management"
