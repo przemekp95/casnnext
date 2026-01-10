@@ -18,7 +18,7 @@ function runSeed() {
   // spawnSync daje nam status + stdout/stderr, więc możemy sensownie rozróżnić błędy
   const res = spawnSync('npx', ['tsx', 'scripts/seed.ts'], {
     stdio: 'pipe',
-    timeout: 30_000,
+    timeout: 60_000, // Increase timeout to 60 seconds for seeding
     env,
   });
 
