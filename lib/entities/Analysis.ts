@@ -1,7 +1,6 @@
 import { EntitySchema } from 'typeorm';
 
-// Disable entity processing in CI to prevent TypeORM initialization issues
-export const AnalysisSchema = process.env.GITHUB_ACTIONS ? null : new EntitySchema({
+export const AnalysisSchema = new EntitySchema({
   name: 'Analysis',
   tableName: 'Analysis',
   columns: {

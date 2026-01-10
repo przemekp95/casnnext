@@ -82,8 +82,8 @@ const getDataSource = (): DataSource | null => {
   return _appDataSource;
 };
 
-// Export AppDataSource - only create if not during build phase
-export const AppDataSource = process.env.NEXT_PHASE?.includes('build') ? null : getDataSource();
+// Export AppDataSource - create with lazy entity loading
+export const AppDataSource = getDataSource();
 
 // For production, ensure database is initialized synchronously
 if (isProduction) {
