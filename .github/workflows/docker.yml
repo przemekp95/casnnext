@@ -55,13 +55,28 @@ jobs:
           done
           echo "MySQL is ready!"
 
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Run database migrations
-        run: npx prisma db push
+      - name: Run TypeORM migrations
+        run: |
+          echo "= === RUNNING TYPEORM MIGRATIONS ==="
+          node -e "
+          require('reflect-metadata');
+          const { AppDataSource } = require('./lib/db.ts');
+          AppDataSource.initialize().then(async () => {
+            console.log(' Database connected');
+            await AppDataSource.runMigrations();
+            console.log(' Migrations completed');
+            process.exit(0);
+          }).catch(err => {
+            console.error('L Migration failed:', err);
+            process.exit(1);
+          });
+          "
         env:
-          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          DB_HOST: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: root
+          DB_NAME: casn_test
 
       - name: Type check
         run: npm run type-check
