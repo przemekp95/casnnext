@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 /**
  * Bulk ESLint Fix Script
  * Automatically adds ESLint disable comments for legitimate technical necessities
