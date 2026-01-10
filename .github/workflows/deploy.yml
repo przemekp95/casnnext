@@ -21,7 +21,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'production' }}
+    environment: production
 
     steps:
       - name: Checkout repository
@@ -62,7 +62,7 @@ jobs:
       - name: Manual deployment notification
         if: ${{ !env.DEPLOY_HOST && !env.PORTAINER_URL }}
         run: |
-          echo "=Ä Deployment Ready!"
+          echo "üöÄ Deployment Ready!"Ä Deployment Ready!"
           echo "Commit: ${{ github.sha }}"
           echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main"
           echo ""
@@ -77,13 +77,13 @@ jobs:
           echo "Performing health check..."
           for i in {1..30}; do
             if curl -f -s ${{ secrets.HEALTH_CHECK_URL }} > /dev/null; then
-              echo " Health check passed"
+              echo "‚úÖ Health check passed"
               exit 0
             fi
             echo "Health check attempt $i failed, retrying in 10 seconds..."
             sleep 10
           done
-          echo "L Health check failed after 30 attempts"
+          echo "‚ùå Health check failed after 30 attempts"
           exit 1
 
       - name: Notify deployment status
