@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: TypeORM CI Pipeline
 
 on:
   pull_request:
@@ -54,29 +54,28 @@ jobs:
           done
           echo "MySQL is ready!"
 
-      - name: Validate Prisma v7 Configuration
+      - name: Run TypeORM migrations
         run: |
-          echo "🔍 === PRISMA V7 CONFIGURATION VALIDATION ==="
-
-          # Make test script executable
-          chmod +x test-prisma-config.sh
-
-          # Run the validation script
-          if ./test-prisma-config.sh; then
-            echo "✅ Prisma v7 configuration validation PASSED"
-            exit 0
-          else
-            echo "❌ Prisma v7 configuration validation FAILED"
-            exit 1
-          fi
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Run database migrations
-        run: npx prisma db push
+          echo "🔄 === RUNNING TYPEORM MIGRATIONS ==="
+          node -e "
+          require('reflect-metadata');
+          const { AppDataSource } = require('./lib/db.ts');
+          AppDataSource.initialize().then(async () => {
+            console.log('✅ Database connected');
+            await AppDataSource.runMigrations();
+            console.log('✅ Migrations completed');
+            process.exit(0);
+          }).catch(err => {
+            console.error('❌ Migration failed:', err);
+            process.exit(1);
+          });
+          "
         env:
-          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          DB_HOST: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: root
+          DB_NAME: casn_test
 
       - name: Type check
         run: npm run type-check
