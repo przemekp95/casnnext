@@ -68,3 +68,9 @@ export const AppDataSource = new DataSource({
   migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
   subscribers: [],
 });
+
+// For production, ensure database is initialized synchronously
+if (isProduction) {
+  // This will be handled by the application startup
+  console.log('Database will be initialized by application startup');
+}
