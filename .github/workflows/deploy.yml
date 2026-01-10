@@ -98,10 +98,34 @@ jobs:
           fi
           echo "✅ Coverage meets 80% minimum requirement"
 
+      - name: Build application
+        run: npm run build
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+
+      - name: Start application server
+        run: |
+          npm start &
+          echo $! > server.pid
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          PORT: 3000
+
+      - name: Wait for server to be ready
+        run: npx wait-on http://localhost:3000 --timeout 60000
+
       - name: Run E2E tests
         run: npm run test:e2e
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+
+      - name: Stop application server
+        run: |
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) || true
+            rm server.pid
+          fi
+        if: always()
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
