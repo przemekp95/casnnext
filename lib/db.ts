@@ -3,14 +3,15 @@ import { AuthorSchema } from './entities/Author';
 import { AnalysisSchema } from './entities/Analysis';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
 
 // Type for database configuration
 interface DatabaseConfig {
-  type: 'mysql';
-  host: string;
-  port: number;
-  username: string;
-  password: string;
+  type: 'mysql' | 'sqlite';
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
   database: string;
   synchronize: boolean;
   logging: boolean;
@@ -32,6 +33,19 @@ if (databaseUrl) {
     database: url.pathname.slice(1), // Remove leading slash
     synchronize: !isProduction,
     logging: !isProduction,
+  };
+} else if (isTest) {
+  // Use MySQL for testing with test database
+  dbConfig = {
+    type: 'mysql' as const,
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    username: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'casn_test',
+    synchronize: false, // Don't synchronize in tests - use migrations
+    logging: false,
+    dropSchema: false,
   };
 } else {
   // Fallback to individual environment variables

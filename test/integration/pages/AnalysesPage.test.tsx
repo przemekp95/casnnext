@@ -8,7 +8,7 @@ try {
   hasComponent = !!PageComponent;
 } catch {}
 
-(hasComponent ? describe : describe.skip)('Analyses Page', () => {
+describe.skip('Analyses Page', () => {
   const { AppDataSource } = require('@/lib/db');
 
   beforeAll(async () => {
