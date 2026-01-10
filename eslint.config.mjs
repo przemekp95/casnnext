@@ -10,7 +10,7 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
-export default [
+const eslintConfig = [
   // 1) Ignorowane ścieżki (zamiast .eslintignore)
   {
     ignores: [
@@ -44,3 +44,5 @@ export default [
   //   },
   // },
 ];
+
+export default eslintConfig;
