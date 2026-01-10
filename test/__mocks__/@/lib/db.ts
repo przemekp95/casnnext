@@ -90,6 +90,7 @@ const mockRepository = {
 
 // Mock DataSource
 export const AppDataSource = {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getRepository: jest.fn().mockImplementation((_entityName: string) => {
     // Return the same mock repository for all entities
     return mockRepository;
