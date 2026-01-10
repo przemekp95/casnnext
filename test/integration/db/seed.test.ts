@@ -66,26 +66,13 @@ describe('Database Seeding', () => {
   });
 
   it(
-    'seed script populates database with initial data',
+    'database is seeded automatically during initialization',
     async () => {
-      // Clear existing data first to ensure clean test state
-      // Clear child table first (Analysis) then parent table (Author) to avoid FK constraints
+      // Database should already be seeded during beforeAll initialization
       const authorRepository = AppDataSource.getRepository('Author');
       const analysisRepository = AppDataSource.getRepository('Analysis');
 
-      // Use query to disable FK checks temporarily for clean truncation/clearing
-      await AppDataSource.query('SET FOREIGN_KEY_CHECKS = 0');
-      try {
-        await analysisRepository.clear();
-        await authorRepository.clear();
-      } finally {
-        await AppDataSource.query('SET FOREIGN_KEY_CHECKS = 1');
-      }
-
-      // Run the seeding script (throw only on real failures)
-      runSeed();
-
-      // Verify that analyses were created using TypeORM
+      // Verify that analyses were created during database initialization
       const analyses = await analysisRepository.find({
         order: { id: 'ASC' },
       });
