@@ -6,15 +6,101 @@ export const query = jest.fn().mockImplementation((sql: string) => {
   return Promise.resolve([]);
 });
 
+// Mock TypeORM Repository
 const mockRepository = {
-  findOne: jest.fn(),
-  find: jest.fn(),
+  findOne: jest.fn().mockImplementation((options) => {
+    // Mock data based on the query
+    if (options.where?.slug === 'test-author') {
+      return Promise.resolve({
+        id: 1,
+        name: 'Test Author',
+        slug: 'test-author',
+        bio: 'Test biography',
+        img: '/images/test-author.jpg',
+        analyses: [
+          { id: 1, title: 'Test Analysis', slug: 'test-analysis' },
+          { id: 2, title: 'Another Analysis', slug: 'another-analysis' },
+        ],
+      });
+    }
+    if (options.where?.slug === 'test-author-no-analyses') {
+      return Promise.resolve({
+        id: 2,
+        name: 'Test Author No Analyses',
+        slug: 'test-author-no-analyses',
+        bio: 'Test biography',
+        img: '/images/test-author.jpg',
+        analyses: [],
+      });
+    }
+    if (options.where?.slug === 'non-existent-author') {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(null);
+  }),
+  find: jest.fn().mockImplementation((options) => {
+    // Mock authors list
+    if (options?.order?.name === 'ASC') {
+      return Promise.resolve([
+        {
+          id: 1,
+          name: 'Jan Kowalski',
+          slug: 'jan-kowalski',
+          bio: 'Ekspert polityczny',
+          img: '/images/author1.jpg',
+        },
+        {
+          id: 2,
+          name: 'Anna Nowak',
+          slug: 'anna-nowak',
+          bio: 'Analityk ekonomiczny',
+          img: '/images/author2.jpg',
+        },
+      ]);
+    }
+    // Mock analyses list
+    return Promise.resolve([
+      {
+        id: 1,
+        title: 'Test Analysis 1',
+        slug: 'test-analysis-1',
+        author: {
+          name: 'Test Author',
+          slug: 'test-author',
+          img: '/images/test-author.jpg',
+        },
+      },
+      {
+        id: 2,
+        title: 'Test Analysis 2',
+        slug: 'test-analysis-2',
+        author: {
+          name: 'Test Author 2',
+          slug: 'test-author-2',
+          img: '/images/test-author-2.jpg',
+        },
+      },
+    ]);
+  }),
+  create: jest.fn(),
+  save: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
 };
 
+// Mock DataSource
 export const AppDataSource = {
-  getRepository: jest.fn().mockReturnValue(mockRepository),
+  getRepository: jest.fn().mockImplementation((entityName: string) => {
+    // Return the same mock repository for all entities
+    return mockRepository;
+  }),
+  getMetadata: jest.fn().mockReturnValue({
+    name: 'MockEntity',
+    target: class MockEntity {},
+  }),
   initialize: jest.fn().mockResolvedValue(undefined),
   isInitialized: true,
+  destroy: jest.fn().mockResolvedValue(undefined),
 };
 
 export const buildConfig = jest.fn().mockImplementation(() => {
