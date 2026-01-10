@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-import { spawnSync } from 'child_process';
 import { AppDataSource } from '@/lib/db';
 
 // Ten plik robi prawdziwe I/O (DB + seed), więc musi mieć większy timeout niż domyślne 5s.
@@ -8,42 +7,47 @@ const TEST_TIMEOUT_MS = Number(process.env.JEST_INTEGRATION_TEST_TIMEOUT_MS ?? 6
 
 jest.setTimeout(FILE_TIMEOUT_MS);
 
-function runSeed() {
-  const env = {
-    ...process.env,
-    DATABASE_URL:
-      process.env.DATABASE_URL || 'mysql://testuser:testpass@localhost:3306/casn_test',
-  };
+async function runSeed() {
+  const authorRepository = AppDataSource.getRepository('Author');
+  const analysisRepository = AppDataSource.getRepository('Analysis');
 
-  // spawnSync daje nam status + stdout/stderr, więc możemy sensownie rozróżnić błędy
-  const res = spawnSync('npx', ['tsx', 'scripts/seed.ts'], {
-    stdio: 'pipe',
-    timeout: 60_000, // Increase timeout to 60 seconds for seeding
-    env,
+  // Check if data already exists
+  const authorCount = await authorRepository.count();
+  const analysisCount = await analysisRepository.count();
+
+  if (authorCount > 0 || analysisCount > 0) {
+    // Data already exists, skip seeding
+    return;
+  }
+
+  // Create test authors
+  const author1 = await authorRepository.save({
+    slug: "test-author-1",
+    name: "Jan Kowalski",
+    bio: "Ekspert w dziedzinie analiz politycznych",
+    img: "/images/test1.png"
   });
 
-  const stdout = (res.stdout ?? '').toString();
-  const stderr = (res.stderr ?? '').toString();
-  const combined = `${stdout}\n${stderr}`;
+  const author2 = await authorRepository.save({
+    slug: "test-author-2",
+    name: "Anna Nowak",
+    bio: "Specjalistka ds. prawa europejskiego",
+    img: "/images/test2.png"
+  });
 
-  if (res.error) {
-    // np. timeout, brak npx itp.
-    throw res.error;
-  }
-
-  if (res.status !== 0) {
-    // Ignorujemy tylko typowe komunikaty świadczące o idempotency/duplikatach
-    const looksLikeDuplicate =
-      /ER_DUP_ENTRY|Duplicate entry|already exists|UNIQUE/i.test(combined);
-
-    if (!looksLikeDuplicate) {
-      throw new Error(
-        `Seed failed (exit=${res.status}). Output:\n${combined}`.trim()
-      );
-    }
-  }
-
-  return { stdout, stderr };
+  // Create test analyses
+  await analysisRepository.save([
+    {
+      title: "Pierwsza analiza CASN",
+      slug: "pierwsza-analiza",
+      authorId: author1.id,
+    },
+    {
+      title: "Druga analiza CASN",
+      slug: "druga-analiza",
+      authorId: author2.id,
+    },
+  ]);
 }
 
 describe('Database Seeding', () => {
