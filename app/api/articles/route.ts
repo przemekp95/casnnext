@@ -59,6 +59,17 @@ export async function GET() {
       });
     }
 
+    // Ensure database is initialized
+    if (!AppDataSource || !AppDataSource.isInitialized) {
+      return NextResponse.json([], {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'CDN-Cache-Control': 'max-age=300',
+        },
+      });
+    }
+
     // Use caching only in production Next.js runtime, not in tests
     let articles: ArticleRow[];
     if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
@@ -89,25 +100,20 @@ export async function GET() {
       articles = await getArticlesCached();
     } else {
       // Direct query for tests or when caching unavailable
-      if (!AppDataSource) {
-        // This shouldn't happen due to earlier check, but just in case
-        articles = [];
-      } else {
-        const analysisRepository = AppDataSource.getRepository('Analysis');
-        const data = await analysisRepository.find({
-          relations: ['author'],
-          order: { id: 'DESC' },
-        });
+      const analysisRepository = AppDataSource.getRepository('Analysis');
+      const data = await analysisRepository.find({
+        relations: ['author'],
+        order: { id: 'DESC' },
+      });
 
-        articles = data.map((item: any) => ({
-          id: item.id,
-          title: item.title,
-          slug: item.slug,
-          authorId: item.authorId,
-          author_name: item.author.name,
-          author_slug: item.author.slug,
-        }));
-      }
+      articles = data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        slug: item.slug,
+        authorId: item.authorId,
+        author_name: item.author.name,
+        author_slug: item.author.slug,
+      }));
     }
 
     return NextResponse.json(articles, {
@@ -152,7 +158,7 @@ export async function POST(req: Request) {
   if (isBodyWithId(body)) {
     authorId = body.authorId;
   } else if (isBodyWithSlug(body)) {
-    if (!AppDataSource) {
+    if (!AppDataSource || !AppDataSource.isInitialized) {
       return NextResponse.json({ error: "Database not available" }, { status: 503 });
     }
     const authorRepository = AppDataSource.getRepository('Author');
@@ -170,7 +176,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!AppDataSource) {
+  if (!AppDataSource || !AppDataSource.isInitialized) {
     return NextResponse.json({ error: "Database not available" }, { status: 503 });
   }
 

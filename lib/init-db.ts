@@ -12,8 +12,14 @@ import { AnalysisSchema } from './entities/Analysis';
 
 export async function initializeDatabase() {
   // Skip initialization during build/static generation if no database is configured
-  if ((!process.env.DB_HOST && !process.env.DATABASE_URL) || process.env.NODE_ENV === 'test') {
-    console.log('Skipping database initialization - no database configured or in test mode');
+  if (!process.env.DB_HOST && !process.env.DATABASE_URL) {
+    console.log('Skipping database initialization - no database configured');
+    return AppDataSource;
+  }
+
+  // Skip for unit tests without DATABASE_URL
+  if (process.env.NODE_ENV === 'test' && !process.env.DATABASE_URL) {
+    console.log('Skipping database initialization - unit test mode without DATABASE_URL');
     return AppDataSource;
   }
 
