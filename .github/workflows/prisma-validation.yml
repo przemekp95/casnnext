@@ -125,7 +125,7 @@ jobs:
             coverage/
             cypress/videos/
             cypress/screenshots/
-            test-prisma-config.sh
+            test-typeorm-config.sh
           retention-days: 30
 
       - name: Comment PR with test results
