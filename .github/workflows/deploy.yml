@@ -23,7 +23,7 @@ env:
 
 jobs:
   mysql-setup:
-    uses: ./.github/workflows/templates/mysql-service.yml
+    uses: ./.github/workflows/mysql-service.yml
     with:
       mysql-version: '8.4'
       database-name: 'casn_test'
