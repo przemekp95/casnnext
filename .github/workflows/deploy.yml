@@ -87,7 +87,7 @@ jobs:
             echo "L Coverage below 80% minimum requirement"
             exit 1
           fi
-          echo " Coverage meets 80% minimum requirement"
+          echo "✅ Coverage meets 80% minimum requirement"
 
       - name: Run E2E tests
         run: npm run test:e2e
