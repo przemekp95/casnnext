@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { AppDataSource } from '@/lib/db';
+import { initializeDatabase } from '@/lib/init-db';
 
 // Ten plik robi prawdziwe I/O (DB + seed), więc musi mieć większy timeout niż domyślne 5s.
 const FILE_TIMEOUT_MS = Number(process.env.JEST_INTEGRATION_TIMEOUT_MS ?? 120_000);
@@ -52,10 +53,8 @@ async function runSeed() {
 
 describe('Database Seeding', () => {
   beforeAll(async () => {
-    // Ensure TypeORM is initialized - in CI this should already be connected
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
-    }
+    // Ensure database is initialized with seeding - matches workflow behavior
+    await initializeDatabase();
   });
 
   afterAll(async () => {
