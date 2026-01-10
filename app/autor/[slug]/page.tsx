@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppDataSource } from "@/lib/db";
+import { initializeDatabase } from "@/lib/init-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,15 @@ export const fetchCache = "force-no-store";
 export default async function AuthorPage(props: any) {
   const { slug }: { slug: string } = await props.params;
   if (!slug) return notFound();
+
+  // Ensure database is initialized
+  if (AppDataSource && !AppDataSource.isInitialized) {
+    await initializeDatabase();
+  }
+
+  if (!AppDataSource || !AppDataSource.isInitialized) {
+    throw new Error('Database not available');
+  }
 
   const authorRepository = AppDataSource.getRepository('Author');
   const author = await authorRepository.findOne({

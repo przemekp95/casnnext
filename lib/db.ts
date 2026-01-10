@@ -75,17 +75,8 @@ export const AppDataSource = hasDatabaseConfig
     })
   : null; // No fallback - return null when no database configured
 
-// Initialize database immediately if configured and not in build phase
-if (AppDataSource && process.env.NEXT_PHASE !== 'phase-production-build') {
-  AppDataSource.initialize()
-    .then(() => {
-      console.log('Database initialized successfully');
-    })
-    .catch((error) => {
-      console.error('Database initialization failed:', error);
-      // Don't throw - let the application handle gracefully
-    });
-}
+// Database will be initialized lazily when first accessed
+// This prevents issues during server startup if database is not ready
 
 // For production, ensure database is initialized synchronously
 if (isProduction) {

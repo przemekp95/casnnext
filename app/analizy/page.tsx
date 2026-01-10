@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AppDataSource } from "@/lib/db";
+import { initializeDatabase } from "@/lib/init-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +26,15 @@ export default async function AnalysesPage() {
   }
 
   try {
+    // Ensure database is initialized
+    if (AppDataSource && !AppDataSource.isInitialized) {
+      await initializeDatabase();
+    }
+
+    if (!AppDataSource || !AppDataSource.isInitialized) {
+      throw new Error('Database not available');
+    }
+
     // Fetch all analyses with author data
     const analysisRepository = AppDataSource.getRepository('Analysis');
     const analyses = await analysisRepository.find({

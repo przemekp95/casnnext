@@ -26,4 +26,11 @@ export const AuthorSchema = new EntitySchema({
       type: 'text',
     },
   },
+  relations: {
+    analyses: {
+      type: 'one-to-many',
+      target: 'Analysis',
+      inverseSide: 'author',
+    },
+  },
 });
