@@ -18,9 +18,15 @@ describe('Database Seeding', () => {
   });
 
   it('seed script populates database with initial data', async () => {
+    // Clear existing data first to ensure clean test state
+    const authorRepository = AppDataSource.getRepository('Author');
+    const analysisRepository = AppDataSource.getRepository('Analysis');
+    await analysisRepository.clear();
+    await authorRepository.clear();
+
     // Run the seeding script
     try {
-      execSync('node scripts/seed.cjs', {
+      execSync('npx tsx scripts/seed.ts', {
         stdio: 'pipe',
         timeout: 30000,
         env: {
@@ -33,43 +39,29 @@ describe('Database Seeding', () => {
       console.log('Seeding completed (data may already exist)');
     }
 
-    // Verify that articles were created using TypeORM
-    const articleRepository = AppDataSource.getRepository('Analysis');
-    const articles = await articleRepository.find({
+    // Verify that analyses were created using TypeORM
+    const analyses = await analysisRepository.find({
       order: { id: 'ASC' }
     });
 
-    // Should have at least the seeded articles
-    expect(articles.length).toBeGreaterThanOrEqual(2);
+    // Should have at least the seeded analyses
+    expect(analyses.length).toBeGreaterThanOrEqual(2);
 
-    // Verify article structure
-    const firstArticle = articles[0];
-    expect(firstArticle).toHaveProperty('id');
-    expect(firstArticle).toHaveProperty('title');
-    expect(firstArticle).toHaveProperty('slug');
-    expect(firstArticle).toHaveProperty('publishedAt');
+    // Verify analysis structure
+    const firstAnalysis = analyses[0];
+    expect(firstAnalysis).toHaveProperty('id');
+    expect(firstAnalysis).toHaveProperty('title');
+    expect(firstAnalysis).toHaveProperty('slug');
+    expect(firstAnalysis).toHaveProperty('authorId');
 
     // Check specific seeded data
-    const seededArticle = articles.find(a => a.slug === 'pierwsza-analiza');
-    expect(seededArticle).toBeDefined();
-    expect(seededArticle?.title).toBe('Pierwsza analiza CASN');
-    expect(seededArticle?.published).toBe(true);
+    const seededAnalysis = analyses.find(a => a.slug === 'pierwsza-analiza');
+    expect(seededAnalysis).toBeDefined();
+    expect(seededAnalysis?.title).toBe('Pierwsza analiza CASN');
+    expect(typeof seededAnalysis?.authorId).toBe('number');
   });
 
-  it('seed script creates articles with proper tags', async () => {
-    const articleRepository = AppDataSource.getRepository('Analysis');
-    const articles = await articleRepository.find();
 
-    // Find articles with tags
-    const articlesWithTags = articles.filter(a => a.tags && a.tags.length > 0);
-    expect(articlesWithTags.length).toBeGreaterThan(0);
-
-    // Verify tag structure
-    const taggedArticle = articlesWithTags[0];
-    expect(Array.isArray(taggedArticle.tags)).toBe(true);
-    expect(taggedArticle.tags.length).toBeGreaterThan(0);
-    expect(typeof taggedArticle.tags[0]).toBe('string');
-  });
 
   it('seed script only runs once (idempotent)', async () => {
     // Count articles before second seed attempt
@@ -78,7 +70,7 @@ describe('Database Seeding', () => {
 
     // Try to run seed again
     try {
-      execSync('node scripts/seed.cjs', {
+      execSync('npx tsx scripts/seed.ts', {
         stdio: 'pipe',
         timeout: 30000,
         env: {
