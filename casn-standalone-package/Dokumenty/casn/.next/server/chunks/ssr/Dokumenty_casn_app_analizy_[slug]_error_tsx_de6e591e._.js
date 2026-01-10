@@ -1,3 +1,0 @@
-module.exports=[71846,a=>{"use strict";var b=a.i(83629);function c({error:a,reset:c}){return(0,b.jsxs)("div",{className:"mx-auto max-w-prose p-6",children:[(0,b.jsx)("h2",{children:"Coś poszło nie tak przy renderowaniu artykułu."}),(0,b.jsx)("pre",{className:"text-xs bg-gray-100 p-3 rounded overflow-auto",children:a.message}),(0,b.jsx)("button",{onClick:()=>c(),className:"mt-4 px-3 py-2 rounded bg-black text-white",children:"Spróbuj ponownie"})]})}a.s(["default",()=>c])}];
-
-//# sourceMappingURL=Dokumenty_casn_app_analizy_%5Bslug%5D_error_tsx_de6e591e._.js.map
