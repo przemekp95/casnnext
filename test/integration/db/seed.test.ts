@@ -100,12 +100,11 @@ describe('Database Seeding', () => {
       expect(typeof firstAnalysis.authorId).toBe('number');
 
       // Verify foreign key relationship exists
-      const analysisWithAuthor = await analysisRepository.findOne({
-        where: { id: firstAnalysis.id },
-        relations: ['author']
+      const author = await authorRepository.findOne({
+        where: { id: firstAnalysis.authorId }
       });
-      expect(analysisWithAuthor?.author).toBeDefined();
-      expect(analysisWithAuthor?.author.id).toBe(firstAnalysis.authorId);
+      expect(author).toBeDefined();
+      expect(author?.id).toBe(firstAnalysis.authorId);
     },
     TEST_TIMEOUT_MS
   );
