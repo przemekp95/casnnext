@@ -18,6 +18,10 @@ const config = {
     'ts-jest': {
       tsconfig: 'tsconfig.json'
     }
+  },
+  // Set NODE_ENV for tests
+  testEnvironmentOptions: {
+    NODE_ENV: 'test'
   }
 };
 export default createJestConfig(config);
