@@ -4,9 +4,21 @@ import { AnalysisSchema } from './entities/Analysis';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Type for database configuration
+interface DatabaseConfig {
+  type: 'mysql';
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+  synchronize: boolean;
+  logging: boolean;
+}
+
 // Support for DATABASE_URL environment variable (used in CI/testing)
 const databaseUrl = process.env.DATABASE_URL;
-let dbConfig: any;
+let dbConfig: DatabaseConfig;
 
 if (databaseUrl) {
   // Parse DATABASE_URL for connection details
