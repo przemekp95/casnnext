@@ -13,6 +13,10 @@ permissions:
 jobs:
   validate-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     services:
       mysql:
         image: mysql:8.0
