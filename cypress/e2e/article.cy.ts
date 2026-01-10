@@ -2,16 +2,19 @@ describe('Artykuł i 404', () => {
   it('Wizyta na nieistniejącym slugu → 404', () => {
     cy.request({ url: '/analizy/nieistniejacy-slug-xyz', failOnStatusCode: false })
       .its('status')
-      .should('be.oneOf', [404, 200]); // 200, jeśli aplikacja customowo obsłuży brak
+      .should('eq', 404);
   });
 
-  it('Wejście na przykładowy slug (jeśli istnieje) nie powinno crashować', () => {
-    const candidate = 'pierwsza-analiza';
-    cy.request({ url: `/analizy/${candidate}`, failOnStatusCode: false }).then(res => {
-      expect([200,404]).to.include(res.status);
+  it('Wejście na istniejący artykuł nie powinno crashować', () => {
+    // Use a slug that exists in the database
+    const existingSlug = 'wot-balcerowski';
+    cy.request({ url: `/analizy/${existingSlug}`, failOnStatusCode: false }).then(res => {
       if (res.status === 200) {
-        cy.visit(`/analizy/${candidate}`);
+        cy.visit(`/analizy/${existingSlug}`);
         cy.get('h1').should('exist');
+      } else {
+        // If article doesn't exist, that's also acceptable for this test
+        expect(res.status).to.eq(404);
       }
     });
   });
