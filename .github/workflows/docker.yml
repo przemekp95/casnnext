@@ -88,9 +88,22 @@ jobs:
           fail_ci_if_error: false
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: |
+          # Start Next.js server in background
+          npm run start &
+          SERVER_PID=$!
+
+          # Wait for server to be ready
+          timeout 60 bash -c 'until curl -f http://localhost:3000/api/health; do sleep 2; done'
+
+          # Run E2E tests
+          npm run test:e2e
+
+          # Clean up server
+          kill $SERVER_PID
         env:
           DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          PORT: 3000
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
