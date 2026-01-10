@@ -1,0 +1,77 @@
+name: Release Database Dump
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g., db-v1.0.0)'
+        required: true
+        type: string
+      release_name:
+        description: 'Release name (optional, defaults to tag name)'
+        required: false
+        type: string
+      body:
+        description: 'Release description'
+        required: false
+        type: string
+        default: 'Database dump for seeding'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if casn.sql exists
+        run: |
+          if [ ! -f "casn.sql" ]; then
+            echo "casn.sql not found in repository"
+            exit 1
+          fi
+
+      - name: Get file size
+        run: |
+          FILE_SIZE=$(stat -c%s casn.sql)
+          echo "Database dump size: $FILE_SIZE bytes"
+          echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_ENV
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ inputs.tag_name }}
+          release_name: ${{ inputs.release_name || inputs.tag_name }}
+          body: |
+            ${{ inputs.body }}
+
+            **Database Dump Details:**
+            - File: `casn.sql`
+            - Size: ${{ env.FILE_SIZE }} bytes
+            - Created: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          draft: false
+          prerelease: false
+
+      - name: Upload database dump
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./casn.sql
+          asset_name: casn.sql
+          asset_content_type: application/sql
+
+      - name: Notify success
+        run: |
+          echo "Database dump released successfully!"
+          echo "Release: ${{ inputs.tag_name }}"
+          echo "Download URL: https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag_name }}/casn.sql"

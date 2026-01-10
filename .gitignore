@@ -92,5 +92,8 @@ tmp/
 # build artifacts
 build-casn.tgz
 
+# database dumps
+*.sql
+
 .early.coverage
 /generated/prisma

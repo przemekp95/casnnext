@@ -32,6 +32,10 @@ node scripts/prepare-tmp.js
 ```
 node scripts/seed.cjs
 ```
+* Pobierz zrzut bazy danych z GitHub releases
+```
+./scripts/download-db-dump.sh [tag]
+```
 
 ## Help
 
