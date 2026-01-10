@@ -18,7 +18,7 @@ export const AppDataSource = {
 };
 
 export const buildConfig = jest.fn().mockImplementation(() => {
-  const config: any = {
+  const config: Record<string, unknown> = {
     waitForConnections: true,
     queueLimit: 0,
   };
@@ -40,7 +40,8 @@ export const buildConfig = jest.fn().mockImplementation(() => {
         delete config.host;
         delete config.port;
       }
-    } catch (e) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       // Invalid URL, fall back to individual env vars
     }
   }
