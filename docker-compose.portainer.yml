@@ -44,7 +44,7 @@ services:
       NEXTAUTH_URL: "https://casn.pl"
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Warsaw
-      SKIP_PRISMA_MIGRATE: "1"  # Skip migrations - database will be populated manually
+
       APP_ROOT: "/app"  # Set correct path for MDX files in container
     # Run npm start directly to avoid shell parsing issues
     command: ["npm", "start"]
