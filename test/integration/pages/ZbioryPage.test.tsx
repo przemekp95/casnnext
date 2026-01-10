@@ -1,4 +1,3 @@
-/** @jest-environment node */
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
 import { render, screen } from '@testing-library/react';
@@ -14,7 +13,7 @@ try {
   it('renderuje stronę zbiorów z hero sekcją', () => {
     render(<PageComponent />);
 
-    expect(screen.getByText('Zbiory analiz')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Zbiory analiz' })).toBeInTheDocument();
 
     const heroSection = screen.getByRole('main').querySelector('section');
     expect(heroSection).toBeInTheDocument();

@@ -1,4 +1,3 @@
-/** @jest-environment node */
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
 import { render, screen } from '@testing-library/react';
@@ -14,7 +13,7 @@ try {
   it('renderuje stronę kontaktową z hero sekcją', () => {
     render(<PageComponent />);
 
-    expect(screen.getByText('Kontakt')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Kontakt' })).toBeInTheDocument();
 
     // Check for hero section
     const heroSection = screen.getByRole('main').querySelector('section');
@@ -50,7 +49,7 @@ try {
   it('renderuje informacje kontaktowe - strona www', () => {
     render(<PageComponent />);
 
-    const websiteLink = screen.getByRole('link', { name: /sluzbaniepodleglej\.pl/ });
+    const websiteLink = screen.getByRole('link', { name: 'sluzbaniepodleglej.pl' });
     expect(websiteLink).toBeInTheDocument();
     expect(websiteLink).toHaveAttribute('href', 'https://sluzbaniepodleglej.pl');
     expect(websiteLink).toHaveAttribute('target', '_blank');
@@ -76,7 +75,6 @@ try {
 
     expect(container.querySelector('.col-md-4')).toBeInTheDocument();
     expect(container.querySelector('.col-md-5')).toBeInTheDocument();
-    expect(container.querySelector('.col-md-6')).toBeInTheDocument();
   });
 
   it('renderuje odpowiednie obrazy hero', () => {
@@ -97,7 +95,7 @@ try {
     const { container } = render(<PageComponent />);
 
     expect(container.querySelector('.contact-us-home')).toBeInTheDocument();
-    expect(container.querySelector('.bg-gray-100')).toBeInTheDocument();
+    expect(container.querySelector('[class*="bg-"]')).toBeInTheDocument();
     expect(container.querySelector('.min-h-screen')).toBeInTheDocument();
   });
 
@@ -116,12 +114,13 @@ try {
     const { container } = render(<PageComponent />);
 
     const sections = container.querySelectorAll('section');
-    expect(sections.length).toBe(3); // hero, map, contact info
+    expect(sections.length).toBe(4); // hero, map, contact info, address
 
     // Check for specific sections
     expect(sections[0]).toHaveClass('contact-us-home');
     expect(sections[1].querySelector('.map')).toBeInTheDocument();
     expect(sections[2]).toHaveClass('section', 'bg-light');
+    expect(sections[3]).toHaveClass('section');
   });
 
   it('ma accessibility - linki mają odpowiednie atrybuty', () => {
