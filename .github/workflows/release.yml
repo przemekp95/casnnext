@@ -34,12 +34,12 @@ jobs:
             git log --pretty=format:"- %s (%h)" --oneline >> changelog.md
           fi
 
-          # Set output for use in release body
-          {
-            echo 'changelog<<EOF'
-            cat changelog.md
-            echo EOF
-          } >> $GITHUB_OUTPUT
+          # Set output for use in release body (escape for multiline)
+          CHANGELOG_CONTENT=$(cat changelog.md)
+          CHANGELOG_CONTENT="${CHANGELOG_CONTENT//'%'/'%25'}"
+          CHANGELOG_CONTENT="${CHANGELOG_CONTENT//$'\n'/'%0A'}"
+          CHANGELOG_CONTENT="${CHANGELOG_CONTENT//$'\r'/'%0D'}"
+          echo "changelog=$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
 
           rm changelog.md
 
