@@ -31,7 +31,6 @@ export const AuthorSchema = new EntitySchema({
       type: 'one-to-many',
       target: 'Analysis',
       inverseSide: 'author',
-      cascade: false,
     },
   },
 });
