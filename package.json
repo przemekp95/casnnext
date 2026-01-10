@@ -18,10 +18,8 @@
     "test:ci": "jest --runInBand",
     "test:unit": "jest",
     "test:e2e": "cypress run --headless",
-    "check:posts": "bash scripts/check-posts.sh"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "check:posts": "bash scripts/check-posts.sh",
+    "db:seed": "echo 'Seeding handled by migrations - data included in InitialSetup migration'"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
