@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AppDataSource } from '@/lib/db';
 
-export async function middleware(_request: NextRequest) {
+export async function middleware(request: NextRequest) {
   // Ensure database is initialized for all requests
   if (!AppDataSource.isInitialized) {
     try {
@@ -13,6 +13,7 @@ export async function middleware(_request: NextRequest) {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return NextResponse.next();
 }
 
