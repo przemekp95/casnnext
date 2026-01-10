@@ -7,8 +7,6 @@ import { AppDataSource } from './db';
 // Import entities to ensure they're registered with TypeORM
 import './entities/Author';
 import './entities/Analysis';
-import { AuthorSchema } from './entities/Author';
-import { AnalysisSchema } from './entities/Analysis';
 
 export async function initializeDatabase() {
   // Skip initialization during build/static generation if no database is configured
