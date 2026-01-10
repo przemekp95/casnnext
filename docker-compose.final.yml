@@ -49,7 +49,7 @@ services:
       NEXTAUTH_SECRET: "your-secret-key-here"
       NEXTAUTH_URL: "http://localhost:3001"  # Fixed: External URL uses port 3001
       TZ: Europe/Warsaw
-      # Automatic migrations via docker-entrypoint.sh
+    command: ["npm", "start"]  # Override entrypoint to skip migrations since DB is initialized from SQL
     ports:
       - "3001:3000"                # Fixed: Host port 3001, Container port 3000
     healthcheck:
