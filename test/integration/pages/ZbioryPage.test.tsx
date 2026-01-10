@@ -6,7 +6,7 @@ let hasComponent = false;
 try {
   PageComponent = require('@/app/zbiory/page').default;
   hasComponent = !!PageComponent;
-} catch (e) {}
+} catch {}
 
 (hasComponent ? describe : describe.skip)('Zbiory Page', () => {
   it('renderuje stronę zbiorów z hero sekcją', () => {

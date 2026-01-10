@@ -15,7 +15,7 @@ let hasComponent = false;
 try {
   PageComponent = require('@/app/analizy/page').default;
   hasComponent = !!PageComponent;
-} catch (e) {}
+} catch {}
 
 (hasComponent ? describe : describe.skip)('Analyses Page', () => {
   const mockPrisma = {

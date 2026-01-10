@@ -6,7 +6,7 @@ let hasComponent = false;
 try {
   PageComponent = require('@/app/page').default;
   hasComponent = !!PageComponent;
-} catch (e) {}
+} catch {}
 
 (hasComponent ? describe : describe.skip)('Homepage', () => {
   it('renderuje główną sekcję z hero', () => {

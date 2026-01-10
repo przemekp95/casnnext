@@ -6,7 +6,7 @@ let hasComponent = false;
 try {
   PageComponent = require('@/app/kontakt/page').default;
   hasComponent = !!PageComponent;
-} catch (e) {}
+} catch {}
 
 (hasComponent ? describe : describe.skip)('Kontakt Page', () => {
   it('renderuje stronę kontaktową z hero sekcją', () => {

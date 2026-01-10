@@ -5,8 +5,8 @@ import path from 'path';
 let route: { POST: (req: Request) => Promise<Response> } | null = null;
 
 try {
-  route = require('@/app/api/client-log/route');
-} catch (_) {
+  route = require('@/app/api/client-log/route') as RouteModule;
+} catch {
   route = null;
 }
 

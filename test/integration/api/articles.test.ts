@@ -10,7 +10,7 @@ let route: RouteModule | null = null;
 
 try {
   route = require('@/app/api/articles/route') as RouteModule;
-} catch (_) {
+} catch {
   route = null;
 }
 

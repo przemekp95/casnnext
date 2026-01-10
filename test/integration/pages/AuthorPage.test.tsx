@@ -17,7 +17,7 @@ let hasComponent = false;
 try {
   PageComponent = require('@/app/autor/[slug]/page').default;
   hasComponent = !!PageComponent;
-} catch (e) {}
+} catch {}
 
 (hasComponent ? describe : describe.skip)('Author Page', () => {
   const mockQuery = require('@/lib/db').query;

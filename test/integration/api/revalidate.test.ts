@@ -4,8 +4,8 @@ import { revalidateTag } from 'next/cache';
 let route: { POST: (req: Request) => Promise<Response> } | null = null;
 
 try {
-  route = require('@/app/api/revalidate/route');
-} catch (_) {
+  route = require('@/app/api/revalidate/route') as RouteModule;
+} catch {
   route = null;
 }
 
