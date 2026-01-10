@@ -1,36 +1,23 @@
-import { EntitySchema } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Analysis } from './Analysis';
 
-export const AuthorSchema = new EntitySchema({
-  name: 'Author',
-  tableName: 'Author',
-  columns: {
-    id: {
-      type: Number,
-      primary: true,
-      generated: true,
-    },
-    slug: {
-      type: 'varchar',
-      length: 191,
-      unique: true,
-    },
-    name: {
-      type: 'varchar',
-      length: 255,
-    },
-    img: {
-      type: 'varchar',
-      length: 255,
-    },
-    bio: {
-      type: 'text',
-    },
-  },
-  relations: {
-    analyses: {
-      type: 'one-to-many',
-      target: 'Analysis',
-      inverseSide: 'author',
-    },
-  },
-});
+@Entity('Author')
+export class Author {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ type: 'varchar', length: 191, unique: true })
+  slug: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  name: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  img: string;
+
+  @Column({ type: 'text' })
+  bio: string;
+
+  @OneToMany(() => Analysis, analysis => analysis.author)
+  analyses: Analysis[];
+}
