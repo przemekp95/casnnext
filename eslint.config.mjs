@@ -31,7 +31,7 @@ const eslintConfig = [
     rules: {
       "@typescript-eslint/no-explicit-any": "off", // Test mocks require any types
       "@typescript-eslint/no-require-imports": "off", // Jest compatibility requires require()
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }], // Allow unused _ variables in tests
+      "@typescript-eslint/no-unused-vars": "off", // Test files often have unused variables (catch blocks, mocks)
       "@typescript-eslint/ban-ts-comment": "off", // Allow @ts-ignore in tests
     },
   },
