@@ -67,9 +67,21 @@ describe('Database Seeding', () => {
   it(
     'database is seeded automatically during initialization',
     async () => {
-      // Database should already be seeded during beforeAll initialization
+      // Clear database first to ensure clean state for seeding test
       const authorRepository = AppDataSource.getRepository('Author');
       const analysisRepository = AppDataSource.getRepository('Analysis');
+
+      // Use query to disable FK checks temporarily for clean truncation
+      await AppDataSource.query('SET FOREIGN_KEY_CHECKS = 0');
+      try {
+        await analysisRepository.clear();
+        await authorRepository.clear();
+      } finally {
+        await AppDataSource.query('SET FOREIGN_KEY_CHECKS = 1');
+      }
+
+      // Re-initialize database which should trigger seeding
+      await initializeDatabase();
 
       // Verify that analyses were created during database initialization
       const analyses = await analysisRepository.find({
