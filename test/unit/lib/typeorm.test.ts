@@ -22,6 +22,7 @@ try {
     process.env = { ...originalEnv };
 
     // Reset globalForPrisma
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).prisma = undefined;
 
     // Mock PrismaClient and adapter
