@@ -92,10 +92,19 @@ export async function GET() {
       const getArticlesCached = unstable_cache(
         async () => {
           const analysisRepository = AppDataSource.getRepository('Analysis');
-          const data = await analysisRepository.find({
-            relations: ['author'],
-            order: { id: 'DESC' },
-          });
+          const data = await analysisRepository
+            .createQueryBuilder('analysis')
+            .leftJoin('Author', 'author', 'author.id = analysis.authorId')
+            .select([
+              'analysis.id',
+              'analysis.title',
+              'analysis.slug',
+              'analysis.authorId',
+              'author.name as author_name',
+              'author.slug as author_slug'
+            ])
+            .orderBy('analysis.id', 'DESC')
+            .getRawMany();
 
           // Transform to match existing API format
           return data.map((item: any) => ({
@@ -117,18 +126,27 @@ export async function GET() {
     } else {
       // Direct query for tests or when caching unavailable
       const analysisRepository = AppDataSource.getRepository('Analysis');
-      const data = await analysisRepository.find({
-        relations: ['author'],
-        order: { id: 'DESC' },
-      });
+      const data = await analysisRepository
+        .createQueryBuilder('analysis')
+        .leftJoin('Author', 'author', 'author.id = analysis.authorId')
+        .select([
+          'analysis.id',
+          'analysis.title',
+          'analysis.slug',
+          'analysis.authorId',
+          'author.name as author_name',
+          'author.slug as author_slug'
+        ])
+        .orderBy('analysis.id', 'DESC')
+        .getRawMany();
 
       articles = data.map((item: any) => ({
         id: item.id,
         title: item.title,
         slug: item.slug,
         authorId: item.authorId,
-        author_name: item.author.name,
-        author_slug: item.author.slug,
+        author_name: item.author_name,
+        author_slug: item.author_slug,
       }));
     }
 
@@ -224,11 +242,20 @@ export async function POST(req: Request) {
     authorId,
   });
 
-  // Load the author relation for the response
-  const articleWithAuthor = await analysisRepository.findOne({
-    where: { id: newArticle.id },
-    relations: ['author'],
-  });
+  // Load the author data for the response using query builder
+  const articleWithAuthor = await analysisRepository
+    .createQueryBuilder('analysis')
+    .leftJoin('Author', 'author', 'author.id = analysis.authorId')
+    .select([
+      'analysis.id',
+      'analysis.title',
+      'analysis.slug',
+      'analysis.authorId',
+      'author.name as author_name',
+      'author.slug as author_slug'
+    ])
+    .where('analysis.id = :id', { id: newArticle.id })
+    .getRawOne();
 
   // Invalidate cache when new article is added (only in production)
   if (typeof revalidateTag !== 'undefined' && process.env.NODE_ENV !== 'test') {
@@ -237,12 +264,12 @@ export async function POST(req: Request) {
 
   // Transform to match existing API format
   const article = {
-    id: articleWithAuthor!.id,
-    title: articleWithAuthor!.title,
-    slug: articleWithAuthor!.slug,
-    authorId: articleWithAuthor!.authorId,
-    author_name: articleWithAuthor!.author.name,
-    author_slug: articleWithAuthor!.author.slug,
+    id: articleWithAuthor.id,
+    title: articleWithAuthor.title,
+    slug: articleWithAuthor.slug,
+    authorId: articleWithAuthor.authorId,
+    author_name: articleWithAuthor.author_name,
+    author_slug: articleWithAuthor.author_slug,
   };
 
   return NextResponse.json(article, { status: 201 });

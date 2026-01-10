@@ -112,7 +112,7 @@ jobs:
           PORT: 3000
 
       - name: Wait for server to be ready
-        run: npx wait-on http://localhost:3000 --timeout 60000
+        run: npx wait-on http://localhost:3000/api/health --timeout 60000
 
       - name: Run E2E tests
         run: npm run test:e2e
