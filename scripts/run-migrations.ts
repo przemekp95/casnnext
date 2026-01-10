@@ -9,8 +9,14 @@ async function runMigrations() {
     await AppDataSource.initialize();
     console.log('✅ Database connected');
 
-    await AppDataSource.runMigrations();
-    console.log('✅ Migrations completed');
+    // Check if we're in production (production uses migrations)
+    // In development/CI, synchronize handles schema creation
+    if (process.env.NODE_ENV === 'production') {
+      await AppDataSource.runMigrations();
+      console.log('✅ Migrations completed');
+    } else {
+      console.log('ℹ️  Skipping migrations in development/CI (using synchronize)');
+    }
 
     process.exit(0);
   } catch (error) {
