@@ -7,44 +7,44 @@ set -e
 
 echo "🔍 === DOCKER DEPLOYMENT CONFIGURATION VALIDATION ==="
 
-# Test 1: Check docker-compose.single.yml exists and has correct structure
-echo "1. Validating docker-compose.single.yml..."
-if [ -f "docker-compose.single.yml" ]; then
-    if grep -q "mysql:" docker-compose.single.yml && \
-       grep -q "app:" docker-compose.single.yml && \
-       grep -q "3001:3000" docker-compose.single.yml && \
-       grep -q "docker-init-db.sql" docker-compose.single.yml; then
-        echo "✅ PASS: docker-compose.single.yml has correct structure with pre-populated database"
+# Test 1: Check docker-compose.final.yml exists and has correct structure
+echo "1. Validating docker-compose.final.yml..."
+if [ -f "docker-compose.final.yml" ]; then
+    if grep -q "mysql:" docker-compose.final.yml && \
+       grep -q "app:" docker-compose.final.yml && \
+       grep -q "3001:3000" docker-compose.final.yml && \
+       grep -q "casn.sql" docker-compose.final.yml; then
+        echo "✅ PASS: docker-compose.final.yml has correct structure with database init"
     else
-        echo "❌ FAIL: docker-compose.single.yml missing required services, port mapping, or database init"
+        echo "❌ FAIL: docker-compose.final.yml missing required services, port mapping, or database init"
         exit 1
     fi
 else
-    echo "❌ FAIL: docker-compose.single.yml not found"
+    echo "❌ FAIL: docker-compose.final.yml not found"
     exit 1
 fi
 
-# Test 2: Check docker-init-db.sql exists
-echo "2. Validating docker-init-db.sql (pre-populated database)..."
-if [ -f "docker-init-db.sql" ]; then
-    if grep -q "Author" docker-init-db.sql && \
-       grep -q "Analysis" docker-init-db.sql; then
-        echo "✅ PASS: docker-init-db.sql contains authors and analyses data"
+# Test 2: Check casn.sql exists
+echo "2. Validating casn.sql (database init)..."
+if [ -f "casn.sql" ]; then
+    if grep -q "Author" casn.sql && \
+       grep -q "Analysis" casn.sql; then
+        echo "✅ PASS: casn.sql contains authors and analyses data"
     else
-        echo "❌ FAIL: docker-init-db.sql missing author and analysis data"
+        echo "❌ FAIL: casn.sql missing author and analysis data"
         exit 1
     fi
 else
-    echo "❌ FAIL: docker-init-db.sql not found"
+    echo "❌ FAIL: casn.sql not found"
     exit 1
 fi
 
-# Test 3: Check app entrypoint override
-echo "3. Validating app entrypoint override..."
-if grep -q "entrypoint.*npm.*start" docker-compose.single.yml; then
-    echo "✅ PASS: docker-compose.single.yml overrides entrypoint to skip migrations"
+# Test 3: Check app command override
+echo "3. Validating app command override..."
+if grep -q "command.*npm.*start" docker-compose.final.yml; then
+    echo "✅ PASS: docker-compose.final.yml overrides command to skip migrations"
 else
-    echo "❌ FAIL: docker-compose.single.yml missing entrypoint override"
+    echo "❌ FAIL: docker-compose.final.yml missing command override"
     exit 1
 fi
 
@@ -108,15 +108,15 @@ fi
 
 echo ""
 echo "🎉 === ALL TESTS PASSED ==="
-echo "✅ Docker deployment configuration is valid and ready for pre-populated database approach"
+echo "✅ Docker deployment configuration is valid and ready for database init approach"
 echo ""
 echo "Deploy with:"
-echo "  docker-compose -f docker-compose.single.yml up -d"
+echo "  docker-compose -f docker-compose.final.yml up -d"
 echo ""
 echo "Access at:"
 echo "  http://localhost:3001"
 echo ""
 echo "This setup uses:"
-echo "  • Pre-populated database (no migrations needed)"
+echo "  • Database init from casn.sql"
 echo "  • Entrypoint override (skips migration scripts)"
-echo "  • Single compose file (simplified deployment)"
+echo "  • Final compose file"
