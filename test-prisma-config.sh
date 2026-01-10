@@ -12,11 +12,10 @@ echo "1. Validating docker-compose.final.yml..."
 if [ -f "docker-compose.final.yml" ]; then
     if grep -q "mysql:" docker-compose.final.yml && \
        grep -q "app:" docker-compose.final.yml && \
-       grep -q "3001:3000" docker-compose.final.yml && \
-       grep -q "casn.sql" docker-compose.final.yml; then
-        echo "✅ PASS: docker-compose.final.yml has correct structure with database init"
+       grep -q "3001:3000" docker-compose.final.yml; then
+        echo "✅ PASS: docker-compose.final.yml has correct structure"
     else
-        echo "❌ FAIL: docker-compose.final.yml missing required services, port mapping, or database init"
+        echo "❌ FAIL: docker-compose.final.yml missing required services or port mapping"
         exit 1
     fi
 else
@@ -108,7 +107,7 @@ fi
 
 echo ""
 echo "🎉 === ALL TESTS PASSED ==="
-echo "✅ Docker deployment configuration is valid and ready for database init approach"
+echo "✅ Docker deployment configuration is valid and ready for empty database approach"
 echo ""
 echo "Deploy with:"
 echo "  docker-compose -f docker-compose.final.yml up -d"
@@ -117,6 +116,6 @@ echo "Access at:"
 echo "  http://localhost:3001"
 echo ""
 echo "This setup uses:"
-echo "  • Database init from casn.sql"
+echo "  • Empty database (no seeding)"
 echo "  • Entrypoint override (skips migration scripts)"
 echo "  • Final compose file"

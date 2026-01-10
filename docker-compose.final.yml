@@ -16,7 +16,7 @@ services:
       TZ: Europe/Warsaw
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./casn.sql:/docker-entrypoint-initdb.d/casn.sql:ro
+      # - ./casn.sql:/docker-entrypoint-initdb.d/casn.sql:ro  # Disabled seeding for dev/prod
     command: >
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
