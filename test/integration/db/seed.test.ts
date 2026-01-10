@@ -97,7 +97,7 @@ describe('Database Seeding', () => {
       expect(firstAnalysis).toHaveProperty('authorId');
 
       // Check specific seeded data
-      const seededAnalysis = analyses.find((a: any) => a.slug === 'pierwsza-analiza');
+      const seededAnalysis = analyses.find((a) => a.slug === 'pierwsza-analiza');
       expect(seededAnalysis).toBeDefined();
       expect(seededAnalysis?.title).toBe('Pierwsza analiza CASN');
       expect(typeof seededAnalysis?.authorId).toBe('number');
