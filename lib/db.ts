@@ -15,6 +15,7 @@ interface DatabaseConfig {
   database: string;
   synchronize: boolean;
   logging: boolean;
+  dropSchema?: boolean;
 }
 
 // Support for DATABASE_URL environment variable (used in CI/testing)
