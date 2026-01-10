@@ -12,14 +12,32 @@ echo "1. Validating docker-compose.final.yml..."
 if [ -f "docker-compose.final.yml" ]; then
     if grep -q "mysql:" docker-compose.final.yml && \
        grep -q "app:" docker-compose.final.yml && \
-       grep -q "3001:3000" docker-compose.final.yml; then
+       grep -q "3001:3000" docker-compose.final.yml && \
+       grep -q 'PORT: "3000"' docker-compose.final.yml; then
         echo "✅ PASS: docker-compose.final.yml has correct structure"
     else
-        echo "❌ FAIL: docker-compose.final.yml missing required services or port mapping"
+        echo "❌ FAIL: docker-compose.final.yml missing required services, port mapping, or PORT environment variable"
         exit 1
     fi
 else
     echo "❌ FAIL: docker-compose.final.yml not found"
+    exit 1
+fi
+
+# Test 1b: Check docker-compose.portainer.yml exists and has correct structure
+echo "1b. Validating docker-compose.portainer.yml..."
+if [ -f "docker-compose.portainer.yml" ]; then
+    if grep -q "mysql:" docker-compose.portainer.yml && \
+       grep -q "app:" docker-compose.portainer.yml && \
+       grep -q "80:3000" docker-compose.portainer.yml && \
+       grep -q 'PORT: "3000"' docker-compose.portainer.yml; then
+        echo "✅ PASS: docker-compose.portainer.yml has correct structure"
+    else
+        echo "❌ FAIL: docker-compose.portainer.yml missing required services, port mapping, or PORT environment variable"
+        exit 1
+    fi
+else
+    echo "❌ FAIL: docker-compose.portainer.yml not found"
     exit 1
 fi
 
