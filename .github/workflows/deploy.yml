@@ -32,7 +32,6 @@ jobs:
           MYSQL_DATABASE: casn_test
           MYSQL_USER: testuser
           MYSQL_PASSWORD: testpass
-          MYSQL_DEFAULT_AUTHENTICATION_PLUGIN: mysql_native_password
         ports:
           - 3306:3306
         options: >-
@@ -40,6 +39,7 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
+          --default-authentication-plugin=mysql_native_password
 
     steps:
       - name: Checkout repository
