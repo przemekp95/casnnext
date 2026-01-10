@@ -90,7 +90,7 @@ const mockRepository = {
 
 // Mock DataSource
 export const AppDataSource = {
-  getRepository: jest.fn().mockImplementation((entityName: string) => {
+  getRepository: jest.fn().mockImplementation((_entityName: string) => {
     // Return the same mock repository for all entities
     return mockRepository;
   }),
