@@ -4,15 +4,15 @@ import { AppDataSource } from '@/lib/db';
 
 describe('Database Seeding', () => {
   beforeAll(async () => {
-    // Ensure TypeORM is initialized
+    // Ensure TypeORM is initialized - in CI this should already be connected
     if (!AppDataSource.isInitialized) {
       await AppDataSource.initialize();
     }
   });
 
   afterAll(async () => {
-    // Clean up after tests
-    if (AppDataSource.isInitialized) {
+    // Don't destroy in CI - let the workflow handle cleanup
+    if (AppDataSource.isInitialized && !process.env.CI) {
       await AppDataSource.destroy();
     }
   });

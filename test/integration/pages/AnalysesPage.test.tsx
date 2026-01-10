@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor } from '@testing-library/react';
 
-// Mock Prisma
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
-    analysis: {
-      findMany: jest.fn(),
-    },
-  })),
+// Mock TypeORM DataSource
+jest.mock('@/lib/db', () => ({
+  AppDataSource: {
+    isInitialized: true,
+    getRepository: jest.fn(),
+  },
 }));
 
 let PageComponent: any;
@@ -18,20 +17,23 @@ try {
 } catch {}
 
 (hasComponent ? describe : describe.skip)('Analyses Page', () => {
-  const mockPrisma = {
-    analysis: {
-      findMany: jest.fn(),
-    },
-  };
+  const mockAppDataSource = require('@/lib/db').AppDataSource;
+
+  let mockAnalysisRepository: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock process.env for build time check
     delete (global as any).process.env.NEXT_PHASE;
 
-    // Setup Prisma mock
-    const { PrismaClient } = require('@prisma/client');
-    PrismaClient.mockImplementation(() => mockPrisma);
+    mockAnalysisRepository = {
+      find: jest.fn(),
+    };
+
+    mockAppDataSource.getRepository.mockImplementation((entityName: string) => {
+      if (entityName === 'Analysis') return mockAnalysisRepository;
+      return {};
+    });
   });
 
   it('renderuje loading state podczas build time', async () => {
@@ -67,7 +69,7 @@ try {
       },
     ];
 
-    mockPrisma.analysis.findMany.mockResolvedValue(mockAnalyses);
+    mockAnalysisRepository.find.mockResolvedValue(mockAnalyses);
 
     render(await PageComponent());
 
@@ -82,7 +84,7 @@ try {
   });
 
   it('renderuje pustą listę gdy brak analiz', async () => {
-    mockPrisma.analysis.findMany.mockResolvedValue([]);
+    mockAnalysisRepository.find.mockResolvedValue([]);
 
     render(await PageComponent());
 
@@ -107,7 +109,7 @@ try {
       },
     ];
 
-    mockPrisma.analysis.findMany.mockResolvedValue(mockAnalyses);
+    mockAnalysisRepository.find.mockResolvedValue(mockAnalyses);
 
     render(await PageComponent());
 
@@ -136,7 +138,7 @@ try {
       },
     ];
 
-    mockPrisma.analysis.findMany.mockResolvedValue(mockAnalyses);
+    mockAnalysisRepository.find.mockResolvedValue(mockAnalyses);
 
     render(await PageComponent());
 
@@ -148,7 +150,7 @@ try {
   });
 
   it('renderuje hero sekcję z breadcrumb', async () => {
-    mockPrisma.analysis.findMany.mockResolvedValue([]);
+    mockAnalysisRepository.find.mockResolvedValue([]);
 
     render(await PageComponent());
 
@@ -184,7 +186,7 @@ try {
       },
     ];
 
-    mockPrisma.analysis.findMany.mockResolvedValue(mockAnalyses);
+    mockAnalysisRepository.find.mockResolvedValue(mockAnalyses);
 
     render(await PageComponent());
 
@@ -211,7 +213,7 @@ try {
       },
     ];
 
-    mockPrisma.analysis.findMany.mockResolvedValue(mockAnalyses);
+    mockAnalysisRepository.find.mockResolvedValue(mockAnalyses);
 
     render(await PageComponent());
 
@@ -229,7 +231,7 @@ try {
   });
 
   it('obsługuje błędy bazy danych', async () => {
-    mockPrisma.analysis.findMany.mockRejectedValue(new Error('Database error'));
+    mockAnalysisRepository.find.mockRejectedValue(new Error('Database error'));
 
     render(await PageComponent());
 

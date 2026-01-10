@@ -7,11 +7,6 @@ jest.mock('next/navigation', () => ({
   notFound: jest.fn(),
 }));
 
-// Mock database queries
-jest.mock('@/lib/db', () => ({
-  query: jest.fn(),
-}));
-
 let PageComponent: any;
 let hasComponent = false;
 try {
@@ -20,11 +15,37 @@ try {
 } catch {}
 
 (hasComponent ? describe : describe.skip)('Author Page', () => {
-  const mockQuery = require('@/lib/db').query;
+  const { AppDataSource } = require('@/lib/db');
   const mockNotFound = notFound as jest.MockedFunction<typeof notFound>;
 
-  beforeEach(() => {
+  beforeAll(async () => {
+    // In CI environment, database should already be initialized by workflow
+    // In local development, initialize if needed
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize();
+    }
+  });
+
+  afterAll(async () => {
+    // Don't destroy in CI - let the workflow handle cleanup
+    // Only destroy in local development
+    if (AppDataSource.isInitialized && !process.env.CI) {
+      await AppDataSource.destroy();
+    }
+  });
+
+  beforeEach(async () => {
     jest.clearAllMocks();
+    // Clear all data before each test (only if database is initialized)
+    if (AppDataSource.isInitialized) {
+      try {
+        await AppDataSource.getRepository('Author').delete({});
+        await AppDataSource.getRepository('Analysis').delete({});
+      } catch (error) {
+        // If tables don't exist yet, that's ok - they'll be created by synchronize
+        console.log('Database cleanup skipped - tables may not exist yet');
+      }
+    }
   });
 
   it('wywołuje notFound gdy brakuje slug', async () => {
@@ -36,36 +57,29 @@ try {
   });
 
   it('wywołuje notFound gdy autor nie istnieje', async () => {
-    mockQuery.mockResolvedValueOnce([]); // No author found
-
     const props = { params: { slug: 'non-existent-author' } };
 
     await PageComponent(props);
 
-    expect(mockQuery).toHaveBeenCalledWith(
-      "SELECT id, slug, name, bio, img FROM Author WHERE slug = ? LIMIT 1",
-      ['non-existent-author']
-    );
     expect(mockNotFound).toHaveBeenCalled();
   });
 
   it('renderuje stronę autora gdy dane są dostępne', async () => {
-    const mockAuthor = {
-      id: 1,
+    // Create test data in the database
+    const authorRepository = AppDataSource.getRepository('Author');
+    const analysisRepository = AppDataSource.getRepository('Analysis');
+
+    const author = await authorRepository.save({
       slug: 'test-author',
       name: 'Jan Kowalski',
       bio: 'Ekspert w dziedzinie analiz politycznych',
       img: '/images/author.jpg'
-    };
+    });
 
-    const mockAnalyses = [
-      { id: 1, title: 'Analiza 1', slug: 'analiza-1' },
-      { id: 2, title: 'Analiza 2', slug: 'analiza-2' },
-    ];
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor]) // Author query
-      .mockResolvedValueOnce(mockAnalyses); // Analyses query
+    await analysisRepository.save([
+      { title: 'Analiza 1', slug: 'analiza-1', authorId: author.id },
+      { title: 'Analiza 2', slug: 'analiza-2', authorId: author.id },
+    ]);
 
     const props = { params: { slug: 'test-author' } };
 
@@ -81,21 +95,22 @@ try {
   });
 
   it('renderuje prawidłowe linki do analiz autora', async () => {
-    const mockAuthor = {
-      id: 1,
+    // Create test data
+    const authorRepository = AppDataSource.getRepository('Author');
+    const analysisRepository = AppDataSource.getRepository('Analysis');
+
+    const author = await authorRepository.save({
       slug: 'test-author',
       name: 'Test Author',
       bio: 'Bio text',
       img: '/images/test.jpg'
-    };
+    });
 
-    const mockAnalyses = [
-      { id: 1, title: 'Test Analysis', slug: 'test-analysis' },
-    ];
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor])
-      .mockResolvedValueOnce(mockAnalyses);
+    await analysisRepository.save({
+      title: 'Test Analysis',
+      slug: 'test-analysis',
+      authorId: author.id
+    });
 
     const props = { params: { slug: 'test-author' } };
 
@@ -110,29 +125,17 @@ try {
   });
 
   it('renderuje obraz autora lub placeholder', async () => {
-    const mockAuthorWithImage = {
-      id: 1,
+    const authorRepository = AppDataSource.getRepository('Author');
+
+    // Test with image
+    const authorWithImage = await authorRepository.save({
       slug: 'author-with-image',
       name: 'Author With Image',
       bio: 'Bio',
       img: '/images/author.jpg'
-    };
-
-    const mockAuthorWithoutImage = {
-      id: 2,
-      slug: 'author-without-image',
-      name: 'Author Without Image',
-      bio: 'Bio',
-      img: null
-    };
-
-    // Test with image
-    mockQuery
-      .mockResolvedValueOnce([mockAuthorWithImage])
-      .mockResolvedValueOnce([]);
+    });
 
     const props1 = { params: { slug: 'author-with-image' } };
-
     const { rerender } = render(await PageComponent(props1));
 
     await waitFor(() => {
@@ -141,12 +144,14 @@ try {
     });
 
     // Test without image
-    mockQuery
-      .mockResolvedValueOnce([mockAuthorWithoutImage])
-      .mockResolvedValueOnce([]);
+    const authorWithoutImage = await authorRepository.save({
+      slug: 'author-without-image',
+      name: 'Author Without Image',
+      bio: 'Bio',
+      img: null
+    });
 
     const props2 = { params: { slug: 'author-without-image' } };
-
     rerender(await PageComponent(props2));
 
     await waitFor(() => {
@@ -156,17 +161,14 @@ try {
   });
 
   it('renderuje hero sekcję z breadcrumb', async () => {
-    const mockAuthor = {
-      id: 1,
+    const authorRepository = AppDataSource.getRepository('Author');
+
+    await authorRepository.save({
       slug: 'test-author',
       name: 'Test Author',
       bio: 'Bio',
       img: '/images/test.jpg'
-    };
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor])
-      .mockResolvedValueOnce([]);
+    });
 
     const props = { params: { slug: 'test-author' } };
 
@@ -181,25 +183,23 @@ try {
   });
 
   it('renderuje sekcję artykułów tylko gdy autor ma analizy', async () => {
-    const mockAuthor = {
-      id: 1,
+    const authorRepository = AppDataSource.getRepository('Author');
+    const analysisRepository = AppDataSource.getRepository('Analysis');
+
+    const author = await authorRepository.save({
       slug: 'test-author',
       name: 'Test Author',
       bio: 'Bio',
       img: '/images/test.jpg'
-    };
+    });
 
-    // Test with analyses
-    const mockAnalyses = [
-      { id: 1, title: 'Analysis 1', slug: 'analysis-1' },
-    ];
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor])
-      .mockResolvedValueOnce(mockAnalyses);
+    await analysisRepository.save({
+      title: 'Analysis 1',
+      slug: 'analysis-1',
+      authorId: author.id
+    });
 
     const props = { params: { slug: 'test-author' } };
-
     const { container } = render(await PageComponent(props));
 
     await waitFor(() => {
@@ -209,20 +209,16 @@ try {
   });
 
   it('nie renderuje sekcji artykułów gdy autor nie ma analiz', async () => {
-    const mockAuthor = {
-      id: 1,
+    const authorRepository = AppDataSource.getRepository('Author');
+
+    await authorRepository.save({
       slug: 'test-author',
       name: 'Test Author',
       bio: 'Bio',
       img: '/images/test.jpg'
-    };
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor])
-      .mockResolvedValueOnce([]); // No analyses
+    });
 
     const props = { params: { slug: 'test-author' } };
-
     const { container } = render(await PageComponent(props));
 
     await waitFor(() => {
@@ -234,17 +230,14 @@ try {
   });
 
   it('renderuje biogram autora', async () => {
-    const mockAuthor = {
-      id: 1,
+    const authorRepository = AppDataSource.getRepository('Author');
+
+    await authorRepository.save({
       slug: 'test-author',
       name: 'Test Author',
       bio: 'To jest przykładowy biogram autora z wieloma informacjami.',
       img: '/images/test.jpg'
-    };
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor])
-      .mockResolvedValueOnce([]);
+    });
 
     const props = { params: { slug: 'test-author' } };
 
@@ -256,17 +249,14 @@ try {
   });
 
   it('renderuje pusty biogram gdy nie jest dostępny', async () => {
-    const mockAuthor = {
-      id: 1,
+    const authorRepository = AppDataSource.getRepository('Author');
+
+    await authorRepository.save({
       slug: 'test-author',
       name: 'Test Author',
       bio: null,
       img: '/images/test.jpg'
-    };
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor])
-      .mockResolvedValueOnce([]);
+    });
 
     const props = { params: { slug: 'test-author' } };
 
@@ -282,20 +272,16 @@ try {
   });
 
   it('ma odpowiednie klasy CSS dla layout', async () => {
-    const mockAuthor = {
-      id: 1,
+    const authorRepository = AppDataSource.getRepository('Author');
+
+    await authorRepository.save({
       slug: 'test-author',
       name: 'Test Author',
       bio: 'Bio',
       img: '/images/test.jpg'
-    };
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor])
-      .mockResolvedValueOnce([]);
+    });
 
     const props = { params: { slug: 'test-author' } };
-
     const { container } = render(await PageComponent(props));
 
     await waitFor(() => {
@@ -303,39 +289,5 @@ try {
       expect(container.querySelector('.col-lg-8')).toBeInTheDocument();
       expect(container.querySelector('.team-details')).toBeInTheDocument();
     });
-  });
-
-  it('wywołuje prawidłowe zapytania do bazy danych', async () => {
-    const mockAuthor = {
-      id: 1,
-      slug: 'test-author',
-      name: 'Test Author',
-      bio: 'Bio',
-      img: '/images/test.jpg'
-    };
-
-    const mockAnalyses = [
-      { id: 1, title: 'Analysis', slug: 'analysis' },
-    ];
-
-    mockQuery
-      .mockResolvedValueOnce([mockAuthor])
-      .mockResolvedValueOnce(mockAnalyses);
-
-    const props = { params: { slug: 'test-author' } };
-
-    await PageComponent(props);
-
-    expect(mockQuery).toHaveBeenCalledTimes(2);
-    expect(mockQuery).toHaveBeenNthCalledWith(
-      1,
-      "SELECT id, slug, name, bio, img FROM Author WHERE slug = ? LIMIT 1",
-      ['test-author']
-    );
-    expect(mockQuery).toHaveBeenNthCalledWith(
-      2,
-      "SELECT id, title, slug FROM Analysis WHERE authorId = ? ORDER BY id DESC",
-      [1]
-    );
   });
 });

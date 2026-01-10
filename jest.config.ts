@@ -12,6 +12,12 @@ const config = {
   testMatch: ['**/?(*.)+(test|spec).[jt]s?(x)'],
   transformIgnorePatterns: ['/node_modules/(?!(nanoid)/)'],
   modulePathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/'],
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/']
+  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/'],
+  // Set test environment
+  globals: {
+    'ts-jest': {
+      tsconfig: 'tsconfig.json'
+    }
+  }
 };
 export default createJestConfig(config);

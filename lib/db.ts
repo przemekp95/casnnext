@@ -4,15 +4,39 @@ import { AnalysisSchema } from './entities/Analysis';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Support for DATABASE_URL environment variable (used in CI/testing)
+const databaseUrl = process.env.DATABASE_URL;
+let dbConfig: any;
+
+if (databaseUrl) {
+  // Parse DATABASE_URL for connection details
+  const url = new URL(databaseUrl);
+  dbConfig = {
+    type: 'mysql' as const,
+    host: url.hostname,
+    port: parseInt(url.port || '3306'),
+    username: url.username,
+    password: url.password,
+    database: url.pathname.slice(1), // Remove leading slash
+    synchronize: !isProduction,
+    logging: !isProduction,
+  };
+} else {
+  // Fallback to individual environment variables
+  dbConfig = {
+    type: 'mysql' as const,
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    username: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'casn',
+    synchronize: !isProduction,
+    logging: !isProduction,
+  };
+}
+
 export const AppDataSource = new DataSource({
-  type: 'mysql',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '3306'),
-  username: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'casn',
-  synchronize: !isProduction, // Use migrations in production
-  logging: !isProduction,
+  ...dbConfig,
   entities: [AuthorSchema, AnalysisSchema],
   migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
   subscribers: [],

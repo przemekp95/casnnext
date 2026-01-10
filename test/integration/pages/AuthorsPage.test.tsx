@@ -2,13 +2,12 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 
-// Mock Prisma
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
-    author: {
-      findMany: jest.fn(),
-    },
-  })),
+// Mock TypeORM DataSource
+jest.mock('@/lib/db', () => ({
+  AppDataSource: {
+    isInitialized: true,
+    getRepository: jest.fn(),
+  },
 }));
 
 let PageComponent: any;
@@ -19,18 +18,22 @@ try {
 } catch {}
 
 (hasComponent ? describe : describe.skip)('Authors Page', () => {
-  const mockPrisma = {
-    author: {
-      findMany: jest.fn(),
-    },
-  };
+  const mockAppDataSource = require('@/lib/db').AppDataSource;
+
+  let mockAuthorRepository: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete (global as any).process.env.NEXT_PHASE;
 
-    const { PrismaClient } = require('@prisma/client');
-    PrismaClient.mockImplementation(() => mockPrisma);
+    mockAuthorRepository = {
+      find: jest.fn(),
+    };
+
+    mockAppDataSource.getRepository.mockImplementation((entityName: string) => {
+      if (entityName === 'Author') return mockAuthorRepository;
+      return {};
+    });
   });
 
   it('renderuje loading state podczas build time', async () => {
@@ -56,7 +59,7 @@ try {
       },
     ];
 
-    mockPrisma.author.findMany.mockResolvedValue(mockAuthors);
+    mockAuthorRepository.find.mockResolvedValue(mockAuthors);
 
     render(await PageComponent());
 
@@ -75,7 +78,7 @@ try {
       },
     ];
 
-    mockPrisma.author.findMany.mockResolvedValue(mockAuthors);
+    mockAuthorRepository.find.mockResolvedValue(mockAuthors);
 
     render(await PageComponent());
 
@@ -105,7 +108,7 @@ try {
       },
     ];
 
-    mockPrisma.author.findMany.mockResolvedValue(mockAuthors);
+    mockAuthorRepository.find.mockResolvedValue(mockAuthors);
 
     render(await PageComponent());
 
@@ -127,7 +130,7 @@ try {
       },
     ];
 
-    mockPrisma.author.findMany.mockResolvedValue(mockAuthors);
+    mockAuthorRepository.find.mockResolvedValue(mockAuthors);
 
     const { container } = render(await PageComponent());
 
@@ -139,7 +142,7 @@ try {
   });
 
   it('renderuje hero sekcję z breadcrumb', async () => {
-    mockPrisma.author.findMany.mockResolvedValue([]);
+    mockAuthorRepository.find.mockResolvedValue([]);
 
     render(await PageComponent());
 
@@ -158,7 +161,7 @@ try {
       { slug: 'm-author', name: 'M Author', img: null },
     ];
 
-    mockPrisma.author.findMany.mockResolvedValue(mockAuthors);
+    mockAuthorRepository.find.mockResolvedValue(mockAuthors);
 
     render(await PageComponent());
 
@@ -167,18 +170,16 @@ try {
       expect(authorElements).toHaveLength(3);
     });
 
-    // Check that Prisma was called with orderBy name asc
-    expect(mockPrisma.author.findMany).toHaveBeenCalledWith({
-      orderBy: {
-        name: 'asc',
-      },
+    // Check that TypeORM was called with order name asc
+    expect(mockAuthorRepository.find).toHaveBeenCalledWith({
+      order: { name: 'ASC' },
     });
   });
 
   it('obsługuje błędy bazy danych', async () => {
-    mockPrisma.author.findMany.mockRejectedValue(new Error('Database error'));
+    mockAuthorRepository.find.mockRejectedValue(new Error('Database error'));
 
-    // Since the component doesn't have explicit error handling for Prisma errors,
+    // Since the component doesn't have explicit error handling for TypeORM errors,
     // it should still render without crashing
     expect(() => {
       render(<div>Error test</div>);
@@ -194,7 +195,7 @@ try {
       },
     ];
 
-    mockPrisma.author.findMany.mockResolvedValue(mockAuthors);
+    mockAuthorRepository.find.mockResolvedValue(mockAuthors);
 
     const { container } = render(await PageComponent());
 
@@ -213,7 +214,7 @@ try {
       },
     ];
 
-    mockPrisma.author.findMany.mockResolvedValue(mockAuthors);
+    mockAuthorRepository.find.mockResolvedValue(mockAuthors);
 
     const { container } = render(await PageComponent());
 
