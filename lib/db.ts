@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { DataSource } from 'typeorm';
 import { AuthorSchema } from './entities/Author';
 import { AnalysisSchema } from './entities/Analysis';
@@ -85,11 +87,7 @@ const getDataSource = (): DataSource | null => {
 // Export AppDataSource - create with lazy entity loading
 export const AppDataSource = getDataSource();
 
-// For production, ensure database is initialized synchronously
-if (isProduction) {
-  // This will be handled by the application startup
-  console.log('Database will be initialized by application startup');
-}
+// Database initialization is handled by the application startup in each runtime
 
 // Helper function to check if database is configured
 export const isDatabaseConfigured = () => hasDatabaseConfig;
