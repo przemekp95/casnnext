@@ -17,14 +17,6 @@ export async function initializeDatabase() {
     return AppDataSource;
   }
 
-  // Ensure entities are loaded before initialization
-  if (AppDataSource.options.entities?.length === 0) {
-    AppDataSource.setOptions({
-      ...AppDataSource.options,
-      entities: [AuthorSchema, AnalysisSchema],
-    });
-  }
-
   if (!AppDataSource.isInitialized) {
     try {
       console.log('Initializing database connection...');

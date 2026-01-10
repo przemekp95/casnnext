@@ -22,24 +22,18 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  mysql-setup:
+    uses: ./.github/workflows/templates/mysql-service.yml
+    with:
+      mysql-version: '8.4'
+      database-name: 'casn_test'
+      root-password: 'rootpassword'
+      user-name: 'casn_user'
+      user-password: 'casn_password'
+
   test:
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: casn_test
-          MYSQL_USER: testuser
-          MYSQL_PASSWORD: testpass
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
-          --default-authentication-plugin=mysql_native_password
+    needs: mysql-setup
 
     steps:
       - name: Checkout repository
@@ -66,13 +60,14 @@ jobs:
           done
           echo "MySQL is ready!"
 
-      - name: Generate Prisma client
-        run: npx prisma generate
-
       - name: Run database migrations
-        run: npx prisma db push
+        run: npm run migration:run
         env:
-          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          DB_HOST: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpassword
+          DB_NAME: casn_test
 
       - name: Type check
         run: npm run type-check
@@ -86,7 +81,7 @@ jobs:
       - name: Run unit tests with coverage
         run: npm run test:ci -- --coverage --watchAll=false
         env:
-          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
 
       - name: Check coverage threshold
         run: |
@@ -101,7 +96,7 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
         env:
-          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

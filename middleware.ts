@@ -11,7 +11,12 @@ export async function middleware(request: NextRequest) {
   // Only initialize database for API routes that need it, not for static pages
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/') && !request.nextUrl.pathname.startsWith('/api/health');
 
-  if (isApiRoute && (process.env.DB_HOST || process.env.DATABASE_URL)) {
+  // Skip middleware entirely if no database is configured
+  if (!process.env.DB_HOST && !process.env.DATABASE_URL) {
+    return NextResponse.next();
+  }
+
+  if (isApiRoute) {
     try {
       await initializeDatabase();
     } catch (error) {

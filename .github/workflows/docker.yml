@@ -12,27 +12,22 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  mysql-setup:
+    uses: ./.github/workflows/templates/mysql-service.yml
+    with:
+      mysql-version: '8.4'
+      database-name: 'casn_test'
+      root-password: 'rootpassword'
+      user-name: 'casn_user'
+      user-password: 'casn_password'
+
   test:
     runs-on: ubuntu-latest
+    needs: mysql-setup
     permissions:
       contents: read
       checks: write
       pull-requests: write
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: casn_test
-          MYSQL_USER: testuser
-          MYSQL_PASSWORD: testpass
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
 
     steps:
       - name: Checkout repository
@@ -46,7 +41,7 @@ jobs:
       - name: Setup database
         uses: ./.github/workflows/setup-database
         with:
-          database-url: mysql://root:root@localhost:3306/casn_test
+          database-url: mysql://root:rootpassword@localhost:3306/casn_test
 
       - name: Run quality checks
         uses: ./.github/workflows/quality-checks
@@ -54,7 +49,7 @@ jobs:
       - name: Run unit tests with coverage
         run: npm run test:ci -- --coverage --watchAll=false
         env:
-          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
@@ -65,7 +60,7 @@ jobs:
       - name: Build for E2E tests
         run: npm run build
         env:
-          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
 
       - name: Run E2E tests
         run: |
@@ -92,7 +87,7 @@ jobs:
           echo "Cleaning up server..."
           kill $SERVER_PID || true
         env:
-          DATABASE_URL: mysql://root:root@localhost:3306/casn_test
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
           PORT: 3000
 
       - name: Upload test results

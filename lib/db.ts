@@ -62,23 +62,24 @@ if (databaseUrl) {
   };
 }
 
-export const AppDataSource = new DataSource({
-  ...dbConfig,
-  entities: [], // Load entities conditionally to avoid validation during build
-  migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
-  subscribers: [],
-});
+// Check if database is configured
+const hasDatabaseConfig = !!(databaseUrl || process.env.DB_HOST || process.env.DB_USER || process.env.DB_NAME);
 
-// Add entities conditionally to avoid build-time validation
-if (dbConfig.type) {
-  AppDataSource.setOptions({
-    ...AppDataSource.options,
-    entities: [AuthorSchema, AnalysisSchema],
-  });
-}
+// Create DataSource only if database is configured
+export const AppDataSource = hasDatabaseConfig
+  ? new DataSource({
+      ...dbConfig,
+      entities: [AuthorSchema, AnalysisSchema],
+      migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
+      subscribers: [],
+    })
+  : null; // No fallback - return null when no database configured
 
 // For production, ensure database is initialized synchronously
 if (isProduction) {
   // This will be handled by the application startup
   console.log('Database will be initialized by application startup');
 }
+
+// Helper function to check if database is configured
+export const isDatabaseConfigured = () => hasDatabaseConfig;

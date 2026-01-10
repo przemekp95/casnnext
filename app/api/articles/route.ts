@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
-import { AppDataSource } from "@/lib/db";
+import { AppDataSource, isDatabaseConfigured } from "@/lib/db";
 
 // Typy danych
 type ArticleRow = {
@@ -48,6 +48,17 @@ export async function GET() {
       });
     }
 
+    // Skip if database is not configured
+    if (!isDatabaseConfigured()) {
+      return NextResponse.json([], {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'CDN-Cache-Control': 'max-age=300',
+        },
+      });
+    }
+
     // Use caching only in production Next.js runtime, not in tests
     let articles: ArticleRow[];
     if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
@@ -78,20 +89,25 @@ export async function GET() {
       articles = await getArticlesCached();
     } else {
       // Direct query for tests or when caching unavailable
-      const analysisRepository = AppDataSource.getRepository('Analysis');
-      const data = await analysisRepository.find({
-        relations: ['author'],
-        order: { id: 'DESC' },
-      });
+      if (!AppDataSource) {
+        // This shouldn't happen due to earlier check, but just in case
+        articles = [];
+      } else {
+        const analysisRepository = AppDataSource.getRepository('Analysis');
+        const data = await analysisRepository.find({
+          relations: ['author'],
+          order: { id: 'DESC' },
+        });
 
-      articles = data.map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        slug: item.slug,
-        authorId: item.authorId,
-        author_name: item.author.name,
-        author_slug: item.author.slug,
-      }));
+        articles = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          slug: item.slug,
+          authorId: item.authorId,
+          author_name: item.author.name,
+          author_slug: item.author.slug,
+        }));
+      }
     }
 
     return NextResponse.json(articles, {
@@ -114,6 +130,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Build time - API unavailable" }, { status: 503 });
   }
 
+  // Skip if database is not configured
+  if (!isDatabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  }
+
   let body: unknown = null;
   try {
     body = await req.json();
@@ -131,6 +152,9 @@ export async function POST(req: Request) {
   if (isBodyWithId(body)) {
     authorId = body.authorId;
   } else if (isBodyWithSlug(body)) {
+    if (!AppDataSource) {
+      return NextResponse.json({ error: "Database not available" }, { status: 503 });
+    }
     const authorRepository = AppDataSource.getRepository('Author');
     const author = await authorRepository.findOne({
       where: { slug: body.authorSlug },
@@ -144,6 +168,10 @@ export async function POST(req: Request) {
       { error: "authorId or authorSlug required" },
       { status: 400 }
     );
+  }
+
+  if (!AppDataSource) {
+    return NextResponse.json({ error: "Database not available" }, { status: 503 });
   }
 
   const analysisRepository = AppDataSource.getRepository('Analysis');
