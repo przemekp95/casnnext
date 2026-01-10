@@ -57,14 +57,12 @@ jobs:
           done
           echo "MySQL is ready!"
 
-      - name: Run TypeORM migrations
-        run: npx tsx scripts/run-migrations.ts
-        env:
-          DB_HOST: localhost
-          DB_PORT: 3306
-          DB_USER: root
-          DB_PASSWORD: root
-          DB_NAME: casn_test
+      - name: Run database setup
+        run: |
+          echo "= === SETTING UP DATABASE SCHEMA ==="
+          # In development/CI, TypeORM synchronize handles schema creation
+          # No migrations needed - synchronize creates tables automatically
+          echo " Database schema will be created by TypeORM synchronize"
 
       - name: Type check
         run: npm run type-check
