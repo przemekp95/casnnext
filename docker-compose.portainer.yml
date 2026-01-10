@@ -33,7 +33,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      PORT: "80"
+      PORT: "3000"
       DATABASE_URL: "mysql://casn_user:casn_password123@mysql:3306/casn"
       DB_HOST: mysql
       DB_PORT: "3306"
@@ -49,9 +49,9 @@ services:
     # Run npm start directly to avoid shell parsing issues
     command: ["npm", "start"]
     ports:
-      - "18080:80"
+      - "80:3000"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
