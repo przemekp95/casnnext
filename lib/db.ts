@@ -32,7 +32,7 @@ if (databaseUrl) {
     username: url.username,
     password: url.password,
     database: url.pathname.slice(1), // Remove leading slash
-    synchronize: !isProduction && !isTest, // Don't synchronize in tests
+    synchronize: false, // Never synchronize - use migrations
     logging: !isProduction && !isTest,
   };
 } else if (isTest) {
@@ -65,18 +65,25 @@ if (databaseUrl) {
 // Check if database is configured
 const hasDatabaseConfig = !!(databaseUrl || process.env.DB_HOST || process.env.DB_USER || process.env.DB_NAME);
 
-// Create DataSource only if database is configured
-export const AppDataSource = hasDatabaseConfig
-  ? new DataSource({
+// Lazy DataSource creation
+let _appDataSource: DataSource | null = null;
+
+const getDataSource = (): DataSource | null => {
+  if (!hasDatabaseConfig) return null;
+
+  if (!_appDataSource) {
+    _appDataSource = new DataSource({
       ...dbConfig,
       entities: [AuthorSchema, AnalysisSchema],
       migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
       subscribers: [],
-    })
-  : null; // No fallback - return null when no database configured
+    });
+  }
+  return _appDataSource;
+};
 
-// Database will be initialized lazily when first accessed
-// This prevents issues during server startup if database is not ready
+// Export AppDataSource - only create if not during build phase
+export const AppDataSource = process.env.NEXT_PHASE?.includes('build') ? null : getDataSource();
 
 // For production, ensure database is initialized synchronously
 if (isProduction) {
