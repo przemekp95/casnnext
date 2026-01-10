@@ -33,25 +33,25 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      PORT: "3000"
-      DATABASE_URL: "mysql://casn_user:casn_password123@mysql:3306/casn"
-      DB_HOST: mysql
+      PORT: "80"
+      DATABASE_URL: "mysql://casn_user:casn_password123@172.25.0.2:3306/casn"
+      DB_HOST: 172.25.0.2
       DB_PORT: "3306"
       DB_USER: casn_user
       DB_PASSWORD: casn_password123
       DB_NAME: casn
       NEXTAUTH_SECRET: "your-secret-key-here"
-      NEXTAUTH_URL: "https://casn.tojest.dev"
+      NEXTAUTH_URL: "https://casn.pl"
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Warsaw
-      SKIP_TYPEORM_MIGRATE: "1"  # Skip migrations - database will be populated manually
+
       APP_ROOT: "/app"  # Set correct path for MDX files in container
     # Run npm start directly to avoid shell parsing issues
     command: ["npm", "start"]
     ports:
-      - "80:3000"
+      - "18080:80"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
