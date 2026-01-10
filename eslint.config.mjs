@@ -16,9 +16,8 @@ const eslintConfig = [
     ignores: [
       ".next/**",
       "node_modules/**",
-      "app/generated/**", // Prisma client i runtime (vendor)
+      "app/generated/**", // Generated client and runtime (vendor)
       "**/*.d.ts", // TypeScript definition files
-      ".prisma/**", // Prisma generated files
     ],
   },
 
