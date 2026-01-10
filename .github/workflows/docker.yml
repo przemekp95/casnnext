@@ -12,39 +12,67 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  mysql-setup:
-    uses: ./.github/workflows/mysql-service.yml
-    with:
-      mysql-version: '8.4'
-      database-name: 'casn_test'
-      root-password: 'rootpassword'
-      user-name: 'casn_user'
-      user-password: 'casn_password'
-
   test:
     runs-on: ubuntu-latest
-    needs: mysql-setup
     permissions:
       contents: read
       checks: write
       pull-requests: write
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: casn_test
+          MYSQL_USER: casn_user
+          MYSQL_PASSWORD: casn_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and dependencies
-        uses: ./.github/workflows/setup-node
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
-      - name: Setup database
-        uses: ./.github/workflows/setup-database
-        with:
-          database-url: mysql://root:rootpassword@localhost:3306/casn_test
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
-      - name: Run quality checks
-        uses: ./.github/workflows/quality-checks
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"
+
+      - name: Run database migrations
+        run: npm run migration:run
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Check posts
+        run: npm run check:posts
 
       - name: Run unit tests with coverage
         run: npm run test:ci -- --coverage --watchAll=false
