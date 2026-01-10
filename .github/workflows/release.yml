@@ -14,14 +14,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout and setup
-        uses: ./.github/actions/checkout-and-setup
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Generate changelog
-        uses: ./.github/actions/generate-changelog
         id: changelog
+        run: |
+          # Generate changelog from git commits since last tag
+          echo "## Changes" > changelog.md
+          echo "" >> changelog.md
+
+          # Get commits since last tag (or all if no previous tags)
+          if git describe --tags --abbrev=0 HEAD~ 2>/dev/null; then
+            LAST_TAG=$(git describe --tags --abbrev=0 HEAD~)
+            git log --pretty=format:"- %s (%h)" ${LAST_TAG}..HEAD >> changelog.md
+          else
+            git log --pretty=format:"- %s (%h)" --oneline >> changelog.md
+          fi
+
+          # Set output for use in release body
+          {
+            echo 'changelog<<EOF'
+            cat changelog.md
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
+          rm changelog.md
 
       - name: Create Release
         id: create_release
