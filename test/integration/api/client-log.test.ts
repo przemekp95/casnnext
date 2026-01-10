@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+
 /** @jest-environment node */
 import { promises as fs } from 'fs';
 import path from 'path';

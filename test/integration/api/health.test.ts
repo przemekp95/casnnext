@@ -1,4 +1,6 @@
 /** @jest-environment node */
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+
 import { NextResponse } from 'next/server';
 
 let route: { GET: () => Promise<NextResponse> } | null = null;

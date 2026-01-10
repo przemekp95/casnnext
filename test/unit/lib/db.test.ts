@@ -1,4 +1,6 @@
 /** @jest-environment node */
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+
 import mysql from 'mysql2/promise';
 
 let dbModule: {

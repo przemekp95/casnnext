@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 const fs = require("fs");
 const path = require("path");
 const tmp = path.join(__dirname, "..", "tmp");
