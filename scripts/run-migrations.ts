@@ -1,11 +1,8 @@
 #!/usr/bin/env tsx
 
-// reflect-metadata must be imported BEFORE any entity imports
-import 'reflect-metadata';
-
 import { DataSource } from 'typeorm';
-import { Author } from '../lib/entities/Author';
-import { Analysis } from '../lib/entities/Analysis';
+import { AuthorSchema } from '../lib/entities/Author';
+import { AnalysisSchema } from '../lib/entities/Analysis';
 import { InitialSetup1736424470000 } from '../lib/migrations/1736424470000-InitialSetup';
 
 const AppDataSource = new DataSource({
@@ -17,7 +14,7 @@ const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'casn',
   synchronize: false, // Never synchronize in migrations
   logging: true,
-  entities: [Author, Analysis],
+  entities: [AuthorSchema, AnalysisSchema],
   migrations: [InitialSetup1736424470000],
 });
 
