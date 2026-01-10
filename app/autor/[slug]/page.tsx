@@ -9,8 +9,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-type AuthorRow = { id: number; slug: string; name: string; bio?: string | null; img?: string | null };
-type AnalysisRow = { id: number; title: string; slug: string };
+
 
 // celowo: props:any – omijamy wadliwy constraint z .next/types
 export default async function AuthorPage(props: any) {

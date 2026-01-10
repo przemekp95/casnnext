@@ -14,13 +14,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ——— Typy ——————————————————————————————————————————————————————————————
-type Row = {
-  id: number;
-  slug: string;
-  title: string;
-  author_name?: string | null;
-  author_bio?: string | null;
-};
 
 // ——— Utils ————————————————————————————————————————————————————————————
 function replacePlaceholders(str: string | undefined, placeholders: Record<string, string>) {
