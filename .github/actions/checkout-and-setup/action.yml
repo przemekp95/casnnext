@@ -1,0 +1,35 @@
+name: 'Checkout and Setup'
+description: 'Checkout repository and set up common environment'
+
+inputs:
+  fetch-depth:
+    description: 'Fetch depth for checkout'
+    required: false
+    default: '1'
+
+outputs:
+  registry:
+    description: 'Container registry URL'
+    value: ${{ steps.setup.outputs.registry }}
+  image-name:
+    description: 'Full image name with registry'
+    value: ${{ steps.setup.outputs.image-name }}
+  repository:
+    description: 'Repository name'
+    value: ${{ steps.setup.outputs.repository }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: ${{ inputs.fetch-depth }}
+
+    - name: Setup environment
+      id: setup
+      shell: bash
+      run: |
+        echo "registry=ghcr.io" >> $GITHUB_OUTPUT
+        echo "image-name=${{ github.repository }}" >> $GITHUB_OUTPUT
+        echo "repository=${{ github.repository }}" >> $GITHUB_OUTPUT

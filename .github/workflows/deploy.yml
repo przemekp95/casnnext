@@ -1,0 +1,93 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'production' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        if: env.DEPLOY_HOST
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
+
+            # Pull latest docker-compose configuration
+            git pull origin main
+
+            # Pull latest Docker image
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
+
+            # Deploy with docker-compose
+            docker-compose -f docker-compose.portainer.yml down
+            docker-compose -f docker-compose.portainer.yml up -d
+
+            # Clean up old images
+            docker image prune -f
+
+      - name: Deploy via Portainer API
+        if: env.PORTAINER_URL && !env.DEPLOY_HOST
+        run: |
+          echo "Deploying via Portainer API"
+          # Here you would add Portainer API calls
+          # Example:
+          # curl -X POST ${{ secrets.PORTAINER_URL }}/api/stacks/webhooks/${{ secrets.PORTAINER_WEBHOOK_ID }}
+
+      - name: Manual deployment notification
+        if: ${{ !env.DEPLOY_HOST && !env.PORTAINER_URL }}
+        run: |
+          echo "=€ Deployment Ready!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main"
+          echo ""
+          echo "Manual deployment steps:"
+          echo "1. Pull latest code: git pull origin main"
+          echo "2. Pull Docker image: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main"
+          echo "3. Deploy: docker-compose -f docker-compose.portainer.yml up -d"
+
+      - name: Health check
+        if: env.HEALTH_CHECK_URL
+        run: |
+          echo "Performing health check..."
+          for i in {1..30}; do
+            if curl -f -s ${{ secrets.HEALTH_CHECK_URL }} > /dev/null; then
+              echo " Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying in 10 seconds..."
+            sleep 10
+          done
+          echo "L Health check failed after 30 attempts"
+          exit 1
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          echo "Deployment finished with status: ${{ job.status }}"
+          # Here you could add notifications to Slack, Discord, etc.

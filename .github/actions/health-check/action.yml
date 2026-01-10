@@ -1,0 +1,45 @@
+name: 'Health Check'
+description: 'Perform health check on deployed application'
+
+inputs:
+  url:
+    description: 'Health check URL'
+    required: true
+  timeout:
+    description: 'Timeout in seconds'
+    required: false
+    default: '300'
+  interval:
+    description: 'Check interval in seconds'
+    required: false
+    default: '10'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Health check
+      shell: bash
+      run: |
+        URL="${{ inputs.url }}"
+        TIMEOUT="${{ inputs.timeout }}"
+        INTERVAL="${{ inputs.interval }}"
+
+        echo "Performing health check on: $URL"
+        echo "Timeout: ${TIMEOUT}s, Interval: ${INTERVAL}s"
+
+        ATTEMPTS=$((TIMEOUT / INTERVAL))
+
+        for i in $(seq 1 $ATTEMPTS); do
+          echo "Health check attempt $i/$ATTEMPTS..."
+          if curl -f -s --max-time 10 "$URL" > /dev/null 2>&1; then
+            echo "✅ Health check passed"
+            exit 0
+          fi
+          if [ $i -lt $ATTEMPTS ]; then
+            echo "Retrying in ${INTERVAL} seconds..."
+            sleep $INTERVAL
+          fi
+        done
+
+        echo "❌ Health check failed after $ATTEMPTS attempts"
+        exit 1
