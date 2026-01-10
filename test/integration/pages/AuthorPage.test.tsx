@@ -19,16 +19,24 @@ try {
   const mockNotFound = notFound as jest.MockedFunction<typeof notFound>;
 
   beforeAll(async () => {
-    // In CI environment, database should already be initialized by workflow
-    // In local development, initialize if needed
+    // Initialize TypeORM for tests
     if (!AppDataSource.isInitialized) {
+      console.log('Initializing AppDataSource for AuthorPage tests...');
       await AppDataSource.initialize();
+      console.log('AppDataSource initialized');
+
+      // In CI environment, database should already be set up by MySQL service
+      // In local development, we might need to synchronize
+      if (!process.env.CI) {
+        console.log('Running synchronize for local development...');
+        await AppDataSource.synchronize();
+        console.log('Schema synchronized for local AuthorPage tests');
+      }
     }
   });
 
   afterAll(async () => {
     // Don't destroy in CI - let the workflow handle cleanup
-    // Only destroy in local development
     if (AppDataSource.isInitialized && !process.env.CI) {
       await AppDataSource.destroy();
     }
@@ -36,13 +44,13 @@ try {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    // Clear all data before each test (only if database is initialized)
+    // Clear existing data before each test
     if (AppDataSource.isInitialized) {
       try {
-        await AppDataSource.getRepository('Author').delete({});
-        await AppDataSource.getRepository('Analysis').delete({});
+        await AppDataSource.getRepository('Author').clear();
+        await AppDataSource.getRepository('Analysis').clear();
       } catch (error) {
-        // If tables don't exist yet, that's ok - they'll be created by synchronize
+        // If tables don't exist yet, that's ok
         console.log('Database cleanup skipped - tables may not exist yet');
       }
     }
