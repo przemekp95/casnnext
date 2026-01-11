@@ -56,7 +56,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     // 1) DB — pobierz meta artykułu via API
     let analysis: any = null;
     try {
-      const response = await fetch(`http://localhost:3000/api/analyses/${slug}`, {
+      const response = await fetch(`/api/analyses/${slug}`, {
         cache: "no-store",
       });
 

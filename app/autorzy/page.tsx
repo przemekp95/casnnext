@@ -26,9 +26,16 @@ export default async function AuthorsPage() {
     );
   }
 
-  const authors = await fetch("http://localhost:3000/api/authors", {
+  const response = await fetch("/api/authors", {
     cache: "no-store",
-  }).then(res => res.json());
+  });
+
+  if (!response.ok) {
+    console.error('Failed to fetch authors:', response.status);
+    throw new Error('Failed to fetch authors');
+  }
+
+  const authors = await response.json();
 
   const normalizeSrc = (src?: string | null) =>
     src && (src.startsWith("/") || src.startsWith("http"))
