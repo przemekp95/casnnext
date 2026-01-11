@@ -81,6 +81,11 @@ jobs:
         run: npm run test:ci -- --coverage --watchAll=false
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          DB_HOST: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpassword
+          DB_NAME: casn_test
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
@@ -92,6 +97,11 @@ jobs:
         run: npm run build
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          DB_HOST: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpassword
+          DB_NAME: casn_test
 
       - name: Run E2E tests
         run: |
@@ -119,6 +129,11 @@ jobs:
           kill $SERVER_PID || true
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          DB_HOST: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpassword
+          DB_NAME: casn_test
           PORT: 3000
 
       - name: Upload test results
