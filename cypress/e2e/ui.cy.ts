@@ -9,6 +9,6 @@ describe('UI – elementy wspólne', () => {
     cy.visit('/');
     cy.get('main').should('exist');
     cy.get('section.bg-footer').should('exist');
-    cy.contains('Centrum Analiz').should('exist');
+    cy.contains('niepodległość').should('exist');
   });
 });
