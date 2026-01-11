@@ -72,7 +72,7 @@ export default async function AuthorPage(props: any) {
               <div className="team-details rounded p-4">
                 <h4 className="text-dark mb-2">{author.displayName}</h4>
                 <div className="team-details-border mt-3 mb-3"></div>
-                <p className="team-details-desc text-muted mb-4">{author.bio ?? ""}</p>
+                <p className="team-details-desc text-muted mb-4">{String(author.bio ?? "")}</p>
               </div>
             </div>
           </div>
