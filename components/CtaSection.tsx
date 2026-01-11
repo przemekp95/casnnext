@@ -4,7 +4,7 @@ export default function CtaSection() {
       <div className="container">
         <div className="row align-items-center">
           <div className="col-lg-8 text-white">
-            <h4 className="mb-3">Dołącz do drużyny Służby Niepodległej!</h4>
+            <h4 className="mb-3">Dołącz do drużyny Służby Niepodleglej!</h4>
             <p className="mb-0 mo-mb-20 cta-desc text-white">
               Każda złotówka przybliża nas do wydania kolejnych analiz.
             </p>

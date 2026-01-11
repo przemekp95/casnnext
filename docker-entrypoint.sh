@@ -1,19 +1,24 @@
 #!/bin/sh
 set -e
 
-if [ "${SKIP_TYPEORM_MIGRATE:-0}" != "1" ]; then
-  echo "🔄 Running TypeORM migrations..."
-
-  # Run TypeORM migrations
-  npm run migration:run || echo "Migrations failed, continuing anyway..."
+if [ "${SKIP_PRISMA_MIGRATE:-0}" != "1" ]; then
+  echo "🔄 Running Prisma migrations..."
+  
+  # Ensure Prisma client exists
+  if [ ! -d "./node_modules/@prisma/client" ]; then
+    echo "Generating Prisma client..."
+    npx --yes prisma generate
+  fi
+  
+  # Try migrations with fallback
+  npx --yes prisma migrate deploy --schema=prisma/schema.prisma \
+    || npx --yes prisma db push --schema=prisma/schema.prisma \
+    || echo "Migrations failed, continuing anyway..."
 
   # Run seed script to populate database with initial data
   echo "🌱 Running database seed..."
-  npm run seed || echo "Seed script failed, continuing..."
-
-  # Run Polish data fix to ensure proper character encoding
-  echo "🇵🇱 Running Polish data fix..."
-  RUN_POLISH_FIX=1 node scripts/fix-polish-data.js || echo "Polish data fix failed, continuing..."
+  # Use node directly since tsx may not be available
+  node --loader ts-node/esm prisma/seed.ts || echo "Seed script failed, continuing..."
 fi
 
 echo "✅ Migrations and seeding completed. Starting server..."

@@ -1,0 +1,15 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/analizy/[slug]/page": "app/analizy/[slug]/page.js",
+  "/api/articles/route": "app/api/articles/route.js",
+  "/api/client-log/route": "app/api/client-log/route.js",
+  "/api/revalidate/route": "app/api/revalidate/route.js",
+  "/autor/[slug]/page": "app/autor/[slug]/page.js",
+  "/autorzy/page": "app/autorzy/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/kontakt/page": "app/kontakt/page.js",
+  "/page": "app/page.js",
+  "/sitemap.xml/route": "app/sitemap.xml/route.js",
+  "/zbiory/page": "app/zbiory/page.js"
+}

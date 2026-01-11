@@ -2,7 +2,8 @@
   "root": true,
   "extends": ["next/core-web-vitals"],
   "ignorePatterns": [
-    "app/generated/**"
+    "app/generated/**",
+    "app/generated/prisma/**"
   ],
   "overrides": [
     {
@@ -25,3 +26,4 @@
     }
   ]
 }
+

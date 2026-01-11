@@ -1,11 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
-import { AppDataSource, isDatabaseConfigured } from "@/lib/db";
-import { initializeDatabase } from "@/lib/init-db";
-import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
+import { prisma } from "@/lib/prisma";
 
 // Typy danych
 type ArticleRow = {
@@ -41,45 +36,8 @@ function isBodyWithSlug(x: unknown): x is BodyWithSlug {
 // GET: pobiera wszystkie artykuły
 export async function GET() {
   try {
-    // Skip during build time - return empty array for build
-    if (process.env.NEXT_PHASE === 'phase-production-build') {
-      return NextResponse.json([], {
-        status: 200,
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'CDN-Cache-Control': 'max-age=300',
-        },
-      });
-    }
-
-    // Skip if database is not configured
-    if (!isDatabaseConfigured()) {
-      return NextResponse.json([], {
-        status: 200,
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'CDN-Cache-Control': 'max-age=300',
-        },
-      });
-    }
-
-    // Ensure database is initialized
-    try {
-      if (AppDataSource && !AppDataSource.isInitialized) {
-        await initializeDatabase();
-      }
-    } catch (error) {
-      console.error('Database initialization failed in GET:', error);
-      return NextResponse.json([], {
-        status: 200,
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'CDN-Cache-Control': 'max-age=300',
-        },
-      });
-    }
-
-    if (!AppDataSource || !AppDataSource.isInitialized) {
+    // Skip Prisma during build time - return empty array for build
+    if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
       return NextResponse.json([], {
         status: 200,
         headers: {
@@ -94,29 +52,29 @@ export async function GET() {
     if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
       const getArticlesCached = unstable_cache(
         async () => {
-          const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-          const data = await analysisRepository
-            .createQueryBuilder('analysis')
-            .leftJoin('Author', 'author', 'author.id = analysis.authorId')
-            .select([
-              'analysis.id',
-              'analysis.title',
-              'analysis.slug',
-              'analysis.authorId',
-              'author.name as author_name',
-              'author.slug as author_slug'
-            ])
-            .orderBy('analysis.id', 'DESC')
-            .getRawMany();
+          const data = await prisma!.analysis.findMany({
+            include: {
+              author: {
+                select: {
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+            orderBy: {
+              id: 'desc',
+            },
+          });
 
           // Transform to match existing API format
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return data.map((item: any) => ({
             id: item.id,
             title: item.title,
             slug: item.slug,
-            authorId: item.authorId as number,
-            author_name: item.author_name,
-            author_slug: item.author_slug,
+            authorId: item.authorId,
+            author_name: item.author.name,
+            author_slug: item.author.slug,
           }));
         },
         ['articles'],
@@ -128,28 +86,29 @@ export async function GET() {
       articles = await getArticlesCached();
     } else {
       // Direct query for tests or when caching unavailable
-      const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-      const data = await analysisRepository
-        .createQueryBuilder('analysis')
-        .leftJoin('Author', 'author', 'author.id = analysis.authorId')
-        .select([
-          'analysis.id',
-          'analysis.title',
-          'analysis.slug',
-          'analysis.authorId',
-          'author.name as author_name',
-          'author.slug as author_slug'
-        ])
-        .orderBy('analysis.id', 'DESC')
-        .getRawMany();
+      const data = await prisma.analysis.findMany({
+        include: {
+          author: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
+        },
+        orderBy: {
+          id: 'desc',
+        },
+      });
 
-      articles = data.map((item: any) => ({
+          // Transform to match existing API format
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          articles = data.map((item: any) => ({
         id: item.id,
         title: item.title,
         slug: item.slug,
-        authorId: item.authorId as number,
-        author_name: item.author_name,
-        author_slug: item.author_slug,
+        authorId: item.authorId,
+        author_name: item.author.name,
+        author_slug: item.author.slug,
       }));
     }
 
@@ -168,14 +127,9 @@ export async function GET() {
 
 // POST: dodaje nowy artykuł
 export async function POST(req: Request) {
-  // Skip during build time - return error for build
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  // Skip Prisma during build time - return error for build
+  if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
     return NextResponse.json({ error: "Build time - API unavailable" }, { status: 503 });
-  }
-
-  // Skip if database is not configured
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
 
   let body: unknown = null;
@@ -195,26 +149,11 @@ export async function POST(req: Request) {
   if (isBodyWithId(body)) {
     authorId = body.authorId;
   } else if (isBodyWithSlug(body)) {
-    // Ensure database is initialized
-    try {
-      if (AppDataSource && !AppDataSource.isInitialized) {
-        await initializeDatabase();
-      }
-    } catch (error) {
-      console.error('Database initialization failed in POST:', error);
-      return NextResponse.json({ error: "Database not available" }, { status: 503 });
-    }
-
-    if (!AppDataSource || !AppDataSource.isInitialized) {
-      return NextResponse.json({ error: "Database not available" }, { status: 503 });
-    }
-
-    const authorRepository = AppDataSource.getRepository(AuthorSchema);
-    const author = await authorRepository.findOne({
+    const author = await prisma.author.findUnique({
       where: { slug: body.authorSlug },
-      select: ['id'],
+      select: { id: true },
     });
-    if (author) authorId = author.id as number;
+    if (author) authorId = author.id;
   }
 
   if (!authorId) {
@@ -224,41 +163,21 @@ export async function POST(req: Request) {
     );
   }
 
-  // Ensure database is initialized for saving
-  try {
-    if (AppDataSource && !AppDataSource.isInitialized) {
-      await initializeDatabase();
-    }
-  } catch (error) {
-    console.error('Database initialization failed in POST save:', error);
-    return NextResponse.json({ error: "Database not available" }, { status: 503 });
-  }
-
-  if (!AppDataSource || !AppDataSource.isInitialized) {
-    return NextResponse.json({ error: "Database not available" }, { status: 503 });
-  }
-
-  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-  const newArticle = await analysisRepository.save({
-    title,
-    slug,
-    authorId,
+  const newArticle = await prisma.analysis.create({
+    data: {
+      title,
+      slug,
+      authorId,
+    },
+    include: {
+      author: {
+        select: {
+          name: true,
+          slug: true,
+        },
+      },
+    },
   });
-
-  // Load the author data for the response using query builder
-  const articleWithAuthor = await analysisRepository
-    .createQueryBuilder('analysis')
-    .leftJoin('Author', 'author', 'author.id = analysis.authorId')
-    .select([
-      'analysis.id',
-      'analysis.title',
-      'analysis.slug',
-      'analysis.authorId',
-      'author.name as author_name',
-      'author.slug as author_slug'
-    ])
-    .where('analysis.id = :id', { id: newArticle.id })
-    .getRawOne();
 
   // Invalidate cache when new article is added (only in production)
   if (typeof revalidateTag !== 'undefined' && process.env.NODE_ENV !== 'test') {
@@ -267,12 +186,12 @@ export async function POST(req: Request) {
 
   // Transform to match existing API format
   const article = {
-    id: articleWithAuthor.id,
-    title: articleWithAuthor.title,
-    slug: articleWithAuthor.slug,
-    authorId: articleWithAuthor.authorId as number,
-    author_name: articleWithAuthor.author_name,
-    author_slug: articleWithAuthor.author_slug,
+    id: newArticle.id,
+    title: newArticle.title,
+    slug: newArticle.slug,
+    authorId: newArticle.authorId,
+    author_name: newArticle.author.name,
+    author_slug: newArticle.author.slug,
   };
 
   return NextResponse.json(article, { status: 201 });
