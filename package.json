@@ -17,7 +17,7 @@
     "test": "jest",
     "test:ci": "jest --runInBand",
     "test:unit": "jest",
-    "test:integration:hydration": "jest --testPathPattern=HydrationAndDataIntegration --runInBand",
+    "test:integration:hydration": "jest --testPathPatterns=HydrationAndDataIntegration --runInBand",
     "test:e2e": "cypress run --headless",
     "test:e2e:hydration": "cypress run --spec 'cypress/e2e/hydration.cy.ts'",
     "check:posts": "bash scripts/check-posts.sh",
