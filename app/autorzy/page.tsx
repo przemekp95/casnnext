@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { getAuthors } from "@/lib/authors";
+import { AuthorRow } from "@/types/author";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,8 +10,6 @@ export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
-
-type AuthorRow = { slug: string; name: string; img?: string | null };
 
 export default async function AuthorsPage() {
   // Skip during build time

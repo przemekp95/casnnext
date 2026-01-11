@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getAnalyses } from "@/lib/analyses";
+import { AnalysisRow } from "@/types/analysis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

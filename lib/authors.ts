@@ -1,8 +1,9 @@
 import { AppDataSource } from "./db";
 import { initializeDatabase } from "./init-db";
 import { AuthorSchema, AnalysisSchema } from "./entities";
+import { AuthorRow, AuthorDetail } from "../types/author";
 
-export async function getAuthors() {
+export async function getAuthors(): Promise<AuthorRow[]> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return [];
@@ -22,10 +23,16 @@ export async function getAuthors() {
     order: { name: 'ASC' },
   });
 
-  return authors;
+  // Transform to UI-friendly format
+  return authors.map(author => ({
+    id: String(author.id),
+    slug: author.slug,
+    name: author.name,
+    img: author.img || undefined,
+  }));
 }
 
-export async function getAuthorBySlug(slug: string) {
+export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return null;
@@ -56,5 +63,19 @@ export async function getAuthorBySlug(slug: string) {
     select: ['id', 'title', 'slug'],
   });
 
-  return { author, analyses };
+  // Transform to UI-friendly format
+  return {
+    author: {
+      id: String(author.id),
+      slug: author.slug,
+      name: author.name,
+      img: author.img || undefined,
+      bio: author.bio || undefined,
+    },
+    analyses: analyses.map(analysis => ({
+      id: String(analysis.id),
+      title: analysis.title,
+      slug: analysis.slug,
+    })),
+  };
 }

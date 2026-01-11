@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthorBySlug } from "@/lib/authors";
+import { AuthorDetail } from "@/types/author";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,8 +1,9 @@
 import { AppDataSource } from "./db";
 import { initializeDatabase } from "./init-db";
 import { AnalysisSchema } from "./entities";
+import { AnalysisRow, AnalysisDetail } from "../types/analysis";
 
-export async function getAnalyses() {
+export async function getAnalyses(): Promise<AnalysisRow[]> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return [];
@@ -23,10 +24,20 @@ export async function getAnalyses() {
     order: { id: 'DESC' },
   });
 
-  return analyses;
+  // Transform to UI-friendly format
+  return analyses.map(analysis => ({
+    id: String(analysis.id),
+    title: analysis.title,
+    slug: analysis.slug,
+    authorId: String(analysis.authorId),
+    author: analysis.author ? {
+      id: String(analysis.author.id),
+      name: analysis.author.name,
+    } : undefined,
+  }));
 }
 
-export async function getAnalysisBySlug(slug: string) {
+export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | null> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return null;
@@ -59,16 +70,14 @@ export async function getAnalysisBySlug(slug: string) {
     return null;
   }
 
-  // Transform to match expected format
-  const result = {
-    id: analysis.id,
-    title: analysis.title,
-    slug: analysis.slug,
-    author: {
+  // Transform to UI-friendly format
+  return {
+    id: String(analysis.analysis_id || analysis.id),
+    title: analysis.analysis_title || analysis.title,
+    slug: analysis.analysis_slug || analysis.slug,
+    author: analysis.author_name ? {
       name: analysis.author_name,
-      bio: analysis.author_bio,
-    },
+      bio: analysis.author_bio || undefined,
+    } : undefined,
   };
-
-  return result;
 }
