@@ -27,6 +27,7 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
   });
 
   // Transform to UI-friendly format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return analyses.map((analysis: any) => ({
     id: String(analysis.id),
     title: String(analysis.title),
