@@ -1,14 +1,5 @@
 @import "bootstrap/dist/css/bootstrap.min.css";
 
-/* Legacy - CSS syntax errors fixed */
-@import "css/legacy/magnific-popup.css";
-@import "css/legacy/menu.css";
-@import "css/legacy/owl.carousel.css";
-@import "css/legacy/owl.theme.css";
-@import "css/legacy/owl.transitions.css";
-@import "css/legacy/style.css";
-@import "css/legacy/themify-icons.css";
-
 /* Reset & base */
 html,
 body {
