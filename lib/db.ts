@@ -1,5 +1,7 @@
 // lib/db.ts
 import mysql from "mysql2/promise";
+import "reflect-metadata";
+import { DataSource } from "typeorm";
 
 type QueryResult<T = unknown> = T[];
 
@@ -67,3 +69,21 @@ export async function query<T = unknown>(sql: string, values?: unknown[]): Promi
   const [rows] = await p.execute<mysql.RowDataPacket[]>(sql, values);
   return rows as QueryResult<T>;
 }
+
+// TypeORM DataSource configuration
+export const AppDataSource = new DataSource({
+  type: "mysql",
+  host: process.env.DB_HOST || "localhost",
+  port: 3306,
+  username: process.env.DB_USER,
+  password: process.env.DB_PASS || process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  synchronize: false, // Don't auto-sync in production
+  logging: process.env.NODE_ENV === "development",
+  entities: ["./lib/entities/*.ts"],
+  migrations: ["./lib/migrations/*.ts"],
+  subscribers: [],
+  extra: {
+    connectionLimit: parseInt(process.env.DB_CONN_LIMIT || "2", 10),
+  },
+});
