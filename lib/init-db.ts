@@ -12,13 +12,13 @@ import './entities/Analysis';
 export async function initializeDatabase() {
   // Check for database configuration
   const hasDatabaseConfig = !!(
-    process.env.DATABASE_URL ||
+    process.env.DATABASE_URL
     (process.env.DB_HOST && process.env.DB_USER && process.env.DB_NAME)
   );
 
   console.log('Database config check:', {
     hasDatabaseConfig,
-    DATABASE_URL: !!process.env.DATABASE_URL,
+    DATABASE_URL
     DB_HOST: !!process.env.DB_HOST,
     DB_USER: !!process.env.DB_USER,
     DB_NAME: !!process.env.DB_NAME,
@@ -32,8 +32,8 @@ export async function initializeDatabase() {
   }
 
   // Skip for unit tests without DATABASE_URL
-  if (process.env.NODE_ENV === 'test' && !process.env.DATABASE_URL) {
-    console.log('Skipping database initialization - unit test mode without DATABASE_URL');
+  if (process.env.NODE_ENV === 'test' && !process.env.DATABASE_URL
+    console.log('Skipping database initialization - unit test mode without DATABASE_URL
     return AppDataSource;
   }
 
@@ -46,10 +46,10 @@ export async function initializeDatabase() {
     try {
       console.log('Initializing database connection...');
       console.log('Connection config:', {
-        host: process.env.DB_HOST || 'from DATABASE_URL',
-        port: process.env.DB_PORT || 'from DATABASE_URL',
-        database: process.env.DB_NAME || 'from DATABASE_URL',
-        user: process.env.DB_USER || 'from DATABASE_URL'
+        host: process.env.DB_HOST || 'from DATABASE_URL
+        port: process.env.DB_PORT || 'from DATABASE_URL
+        database: process.env.DB_NAME || 'from DATABASE_URL
+        user: process.env.DB_USER || 'from DATABASE_URL
       });
 
       await AppDataSource.initialize();
