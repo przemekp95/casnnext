@@ -7,6 +7,11 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // Don't show error boundary for Next.js routing errors (like notFound)
+  if (error?.digest === 'NEXT_NOT_FOUND' || error?.message?.includes('notFound')) {
+    return null;
+  }
+
   return (
     <html>
       <body>
