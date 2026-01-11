@@ -4,7 +4,6 @@
 export const runtime = "nodejs";
 
 import { AppDataSource } from './db';
-import { AuthorSchema, AnalysisSchema } from './entities';
 
 // Import entities to ensure they're registered with TypeORM
 import './entities/Author';
