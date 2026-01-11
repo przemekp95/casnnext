@@ -62,7 +62,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pl" className={`${roboto.variable} ${rubik.variable}`} suppressHydrationWarning>
+    <html lang="pl" className={`${roboto.variable} ${rubik.variable}`}>
       <body className="bg-white text-black">
         <Header />
         <main className="w-full min-h-screen">{children}</main>
