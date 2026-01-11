@@ -15,22 +15,30 @@ export async function getAuthors(): Promise<AuthorRow[]> {
   }
 
   if (!AppDataSource || !AppDataSource.isInitialized) {
+    console.warn('Database not available for getAuthors()');
     return [];
   }
 
-  const authorRepository = AppDataSource.getRepository(AuthorSchema);
-  const authors = await authorRepository.find({
-    order: { name: 'ASC' },
-  });
+  try {
+    const authorRepository = AppDataSource.getRepository(AuthorSchema);
+    const authors = await authorRepository.find({
+      order: { name: 'ASC' },
+      // Ensure we load all required fields explicitly
+      select: ['id', 'slug', 'name', 'img', 'bio'],
+    });
 
-  // Transform to UI-friendly format with explicit string conversion
-  return authors.map(author => ({
-    id: String(author.id),
-    slug: String(author.slug),
-    name: String(author.name),
-    img: author.img ? String(author.img) : null,
-    bio: author.bio ? String(author.bio) : null,
-  }));
+    // Transform to UI-friendly format with explicit string conversion
+    return authors.map(author => ({
+      id: String(author.id),
+      slug: String(author.slug),
+      name: String(author.name),
+      img: author.img ? String(author.img) : null,
+      bio: author.bio ? String(author.bio) : null,
+    }));
+  } catch (error) {
+    console.error('Error in getAuthors():', error);
+    return [];
+  }
 }
 
 export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null> {
