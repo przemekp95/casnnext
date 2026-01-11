@@ -4,8 +4,10 @@ import { NextResponse } from "next/server";
 import { AppDataSource } from "@/lib/db";
 import { initializeDatabase } from "@/lib/init-db";
 
-export async function GET(request: Request, { params }: { params: { slug: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
+    const { slug } = await params;
+
     // Skip during build time
     if (process.env.NEXT_PHASE === 'phase-production-build') {
       return NextResponse.json({ error: "Build time - API unavailable" }, { status: 503 });
@@ -22,7 +24,7 @@ export async function GET(request: Request, { params }: { params: { slug: string
 
     const analysisRepository = AppDataSource.getRepository('Analysis');
     const analysis = await analysisRepository.findOne({
-      where: { slug: params.slug },
+      where: { slug },
       relations: ['author'],
       select: {
         id: true,
