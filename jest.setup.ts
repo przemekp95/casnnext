@@ -12,3 +12,9 @@ if (typeof global.TextEncoder === 'undefined') {
   global.TextEncoder = TextEncoder;
   global.TextDecoder = TextDecoder;
 }
+
+// Mock fetch for unit tests
+if (typeof global.fetch === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  global.fetch = jest.fn() as any;
+}

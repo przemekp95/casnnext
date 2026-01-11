@@ -15,6 +15,33 @@ const config = {
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/'],
   // Force exit to prevent hanging due to database connections
   forceExit: true,
+  // Coverage configuration
+  collectCoverageFrom: [
+    'app/**/*.{ts,tsx}',
+    'components/**/*.{ts,tsx}',
+    'lib/**/*.{ts,tsx}',
+    '!app/**/layout.tsx',
+    '!app/**/loading.tsx',
+    '!app/**/error.tsx',
+    '!app/**/not-found.tsx',
+    '!**/*.d.ts',
+    '!**/node_modules/**',
+    '!**/.next/**',
+    '!**/coverage/**',
+    '!**/test/**',
+    '!**/scripts/**',
+    '!**/docs/**',
+  ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text' as const, 'lcov' as const, 'json-summary' as const],
+  coverageThreshold: {
+    global: {
+      branches: 15,
+      functions: 30,
+      lines: 25,
+      statements: 25
+    }
+  },
   // Set test environment
   globals: {
     'ts-jest': {

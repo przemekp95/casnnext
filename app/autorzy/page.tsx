@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getAuthors } from "@/lib/authors";
@@ -10,47 +9,13 @@ export const revalidate = 3600; // ISR - odśwież co godzinę
 
 export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
 
-// Client component to handle database loading state
-function AuthorsContent() {
-  "use client";
-
-  const [authors, setAuthors] = React.useState<AuthorRow[]>([]);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    async function loadAuthors() {
-      try {
-        const data = await getAuthors();
-        setAuthors(data);
-      } catch (error) {
-        console.warn('Failed to load authors:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadAuthors();
-  }, []);
-
+// Build-time safe component - handles database gracefully
+function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
   // Bezpieczne funkcje pomocnicze - zawsze zwracają spójne wyniki
   const getAvatarSrc = (img?: string | null) =>
     img && (img.startsWith("/") || img.startsWith("http"))
       ? img
       : "/images/placeholder.png";
-
-  if (loading) {
-    return (
-      <section className="section">
-        <div className="container">
-          <div className="text-center py-5">
-            <div className="spinner-border text-primary" role="status">
-              <span className="sr-only">Ładowanie autorów...</span>
-            </div>
-            <p className="mt-3">Ładowanie listy autorów...</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   return (
     <section className="section">
@@ -107,7 +72,18 @@ function AuthorsContent() {
   );
 }
 
-export default function AuthorsPage() {
+export default async function AuthorsPage() {
+  // Skip during build time to avoid database connection issues
+  let authors: AuthorRow[] = [];
+  if (process.env.NEXT_PHASE !== 'phase-production-build') {
+    try {
+      authors = await getAuthors();
+    } catch (error) {
+      console.warn('Failed to load authors during build:', error);
+      // Return empty array for build time
+    }
+  }
+
   return (
     <main className="bg-gray-100 min-h-screen pb-12">
       {/* HERO */}
@@ -160,7 +136,7 @@ export default function AuthorsPage() {
       </section>
 
       {/* LISTA AUTORÓW */}
-      <AuthorsContent />
+      <AuthorsGrid authors={authors} />
     </main>
   );
 }

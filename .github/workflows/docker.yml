@@ -93,7 +93,7 @@ jobs:
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
 
-      - name: Run E2E tests
+      - name: Run comprehensive integration tests
         run: |
           # Start Next.js server in background
           npm run start &
@@ -110,8 +110,12 @@ jobs:
           # Verify server is still responding
           curl -f http://localhost:3000/api/health || (echo "Server health check failed" && exit 1)
 
-          # Run E2E tests
-          echo "Starting E2E tests..."
+          # Run hydration and data integration tests
+          echo "Running hydration and data integration tests..."
+          npm run test:integration:hydration
+
+          # Run E2E tests including hydration tests
+          echo "Starting E2E tests with hydration..."
           npm run test:e2e
 
           # Clean up server
