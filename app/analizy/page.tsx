@@ -2,12 +2,15 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
 import { getAnalyses } from "@/lib/analyses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
+
+export const metadata: Metadata = { title: "Analizy - Centrum Analiz Służby Niepodległej" };
 
 export default async function AnalysesPage() {
   // Skip during build time
