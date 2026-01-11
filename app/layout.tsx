@@ -1,9 +1,6 @@
 // app/layout.tsx
 import "./globals.css";
-import "./legacy.css";
 import Script from "next/script";
-
-import "@mdi/font/css/materialdesignicons.min.css";
 
 
 import Header from "@/components/Header";
