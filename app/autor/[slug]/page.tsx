@@ -56,12 +56,12 @@ export default async function AuthorPage(props: any) {
                 <div className="row justify-content-center">
                   <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
                     <div className="home-page-title text-center">
-                      <h1 className="text-white mb-2" suppressHydrationWarning>{displayName}</h1>
+                      <h1 className="text-white mb-2">{displayName}</h1>
                       <nav aria-label="breadcrumb">
                         <ol className="breadcrumb justify-content-center bg-transparent">
                           <li className="breadcrumb-item text-white"><Link href="/" className="text-white">Strona główna</Link></li>
                           <li className="breadcrumb-item"><Link href="/autorzy" className="text-custom">Nasi autorzy</Link></li>
-                          <li className="breadcrumb-item active" aria-current="page" suppressHydrationWarning>{displayName}</li>
+                          <li className="breadcrumb-item active" aria-current="page">{displayName}</li>
                         </ol>
                       </nav>
                     </div>
