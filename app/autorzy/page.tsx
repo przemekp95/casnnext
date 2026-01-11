@@ -7,7 +7,7 @@ import { AuthorRow } from "@/types/author";
 export const runtime = "nodejs";
 export const revalidate = 3600; // ISR - odśwież co godzinę
 
-export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
+export const metadata: Metadata = { title: "Nasi autorzy - Centrum Analiz Służby Niepodległej" };
 
 // Build-time safe component - handles database gracefully
 function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
