@@ -5,7 +5,9 @@
  * This script verifies all author image paths and ensures consistency
  */
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require('fs');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const path = require('path');
 
 console.log('🔍 Checking author image paths...\n');

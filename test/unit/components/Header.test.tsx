@@ -1,11 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { ComponentType } from 'react';
 
-let Header: any;
+let Header: ComponentType<Record<string, unknown>> | null = null;
 let hasComp = false;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   Header = require('@/components/Header').default;
   hasComp = !!Header;
-} catch (_) {}
+} catch (_unused) {}
 
 (hasComp ? describe : describe.skip)('Header', () => {
   it('renderuje nawigację i link do strony głównej', () => {

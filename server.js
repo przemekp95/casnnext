@@ -1,5 +1,7 @@
 // server.js — stały entrypoint (Passenger odpala TYLKO ten plik)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require("fs");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const path = require("path");
 
 // ENV + katalogi
@@ -25,8 +27,10 @@ process.on("unhandledRejection", r => append("UNHANDLED", r));
 
 // shim: wyłącz TTY i zstubuj stdin (fix dla "open EEXIST" przy new Socket(stdin))
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const tty = require("tty");
   if (tty && typeof tty.isatty === "function") { tty.isatty = () => false; append("INFO","tty.isatty -> false"); }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Readable } = require("stream");
   const nullIn = new Readable({ read(){ this.push(null); } });
   Object.defineProperty(process, "stdin", { get(){ return nullIn; }, configurable: true });
@@ -34,4 +38,5 @@ try {
 } catch (e) { append("WARN","stdin shim failed", e); }
 
 // uruchom prawdziwy serwer Next (standalone)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require("./.next/standalone/server.js");
