@@ -12,7 +12,7 @@ export class FixAnalysesData1768119419753 implements MigrationInterface {
         `);
 
         const authorMap = new Map();
-        validAuthors.forEach((author: any) => {
+        validAuthors.forEach((author: { slug: string; id: number }) => {
             authorMap.set(author.slug, author.id);
         });
 
