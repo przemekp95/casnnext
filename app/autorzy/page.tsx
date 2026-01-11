@@ -109,7 +109,7 @@ export default async function AuthorsPage() {
               const avatarSrc = getAvatarSrc(a.img);
 
               return (
-                <div className="col-lg-3 col-md-6" key={a.slug}>
+                <div className="col-lg-3 col-md-6" key={a.id}>
                   <div className="our-team-box mt-2 mb-4">
                     <div className="team-img">
                       <Image
