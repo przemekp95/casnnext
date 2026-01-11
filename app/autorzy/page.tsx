@@ -117,13 +117,15 @@ export default async function AuthorsPage() {
                         unoptimized
                       />
                       <div className="our-team-name text-center">
-                        <h6 className="mb-0 text-white">{displayName}</h6>
+                        <h6 className="mb-0 text-white" suppressHydrationWarning>
+                          {displayName}
+                        </h6>
                       </div>
                     </div>
                     <div className="our-team-overlay">
                       <div className="item-content text-white text-center p-2">
                         <div className="item-desc">
-                          <h5 className="text-white mb-0">
+                          <h5 className="text-white mb-0" suppressHydrationWarning>
                             <Link
                               href={`/autor/${a.slug}`}
                               style={{ color: "inherit", textDecoration: "none" }}
