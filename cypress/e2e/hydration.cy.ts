@@ -56,6 +56,7 @@ describe('Hydration Tests', () => {
     cy.visit('/autorzy');
 
     // Wait for page to load
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     void cy.contains('Nasi autorzy').should('be.visible');
 
     // Check for hydration errors
@@ -87,6 +88,7 @@ describe('Hydration Tests', () => {
     cy.visit('/zbiory');
 
     // Wait for page to load
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     void cy.contains('Zbiory analiz').should('be.visible');
 
     // Check for hydration errors
