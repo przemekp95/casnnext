@@ -21,52 +21,52 @@ function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
     <section className="section">
       <div className="container">
         <div className="row">
-          {authors.length > 0
-            ? authors.map((a: AuthorRow) => {
-                const avatarSrc = getAvatarSrc(a.img);
+          {authors.length > 0 ? (
+            authors.map((a: AuthorRow) => {
+              const avatarSrc = getAvatarSrc(a.img);
 
-                return (
-                  <div className="col-lg-3 col-md-6" key={String(a.id)}>
-                    <div className="our-team-box mt-2 mb-4">
-                      <div className="team-img">
-                        <Image
-                          src={String(avatarSrc)}
-                          alt={String(a.displayName)}
-                          className="img-fluid d-block rounded"
-                          width={600}
-                          height={600}
-                          unoptimized
-                        />
-                        <div className="our-team-name text-center">
-                          <h6 className="mb-0 text-white">
-                            {String(a.displayName)}
-                          </h6>
-                        </div>
+              return (
+                <div className="col-lg-3 col-md-6" key={String(a.id)}>
+                  <div className="our-team-box mt-2 mb-4">
+                    <div className="team-img">
+                      <Image
+                        src={String(avatarSrc)}
+                        alt={String(a.displayName)}
+                        className="img-fluid d-block rounded"
+                        width={600}
+                        height={600}
+                        unoptimized
+                      />
+                      <div className="our-team-name text-center">
+                        <h6 className="mb-0 text-white">
+                          {String(a.displayName)}
+                        </h6>
                       </div>
-                      <div className="our-team-overlay">
-                        <div className="item-content text-white text-center p-2">
-                          <div className="item-desc">
-                            <h5 className="text-white mb-0">
-                              <Link
-                                href={`/autor/${String(a.slug)}`}
-                                style={{ color: "inherit", textDecoration: "none" }}
-                              >
-                                {String(a.displayName)}
-                              </Link>
-                            </h5>
-                            <div className="our-team-box-border mt-3 mb-3" />
-                          </div>
+                    </div>
+                    <div className="our-team-overlay">
+                      <div className="item-content text-white text-center p-2">
+                        <div className="item-desc">
+                          <h5 className="text-white mb-0">
+                            <Link
+                              href={`/autor/${String(a.slug)}`}
+                              style={{ color: "inherit", textDecoration: "none" }}
+                            >
+                              {String(a.displayName)}
+                            </Link>
+                          </h5>
+                          <div className="our-team-box-border mt-3 mb-3" />
                         </div>
                       </div>
                     </div>
                   </div>
-                );
-              })
-            : (
-              <div className="col-12 text-center py-5">
-                <p className="text-muted">Autorzy będą wkrótce dodani.</p>
-              </div>
-            )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-12 text-center py-5">
+              <p className="text-muted">Autorzy będą wkrótce dodani.</p>
+            </div>
+          )}
         </div>
       </div>
     </section>
