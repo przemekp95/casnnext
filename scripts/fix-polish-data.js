@@ -4,9 +4,13 @@
 // Can be run manually: node scripts/fix-polish-data.js
 // Or automatically in Docker: runs during container startup
 
-const mysql = require('mysql2/promise');
-const fs = require('fs');
-const path = require('path');
+import mysql from 'mysql2/promise';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Check if we should run automatically
 const shouldRunAutomatically = process.argv.includes('--auto') ||
