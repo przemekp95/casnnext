@@ -5,7 +5,6 @@ import Script from "next/script";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CtaSection from "@/components/CtaSection";
-import LegacyScripts from "@/app/_components/LegacyScripts";
 
 import { Roboto, Rubik } from "next/font/google";
 
@@ -61,7 +60,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pl" className={`${roboto.variable} ${rubik.variable}`} suppressHydrationWarning>
+    <html lang="pl" className={`${roboto.variable} ${rubik.variable}`}>
       <body className="bg-white text-black">
         <Header />
         <main className="w-full min-h-screen">{children}</main>
