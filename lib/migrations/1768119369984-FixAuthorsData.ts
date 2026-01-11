@@ -42,7 +42,7 @@ export class FixAuthorsData1768119369984 implements MigrationInterface {
                 WHEN \`slug\` = 'szymanski' THEN 'MichaB SzymaDski'
                 WHEN \`slug\` = 'masior' THEN 'dr MichaB Masior'
                 WHEN \`slug\` = 'pietrzak' THEN 'PrzemysBaw Pietrzak LL.M.'
-                ELSE INITCAP(REPLACE(\`slug\`, '-', ' '))
+                ELSE \`name\`
             END
             WHERE \`name\` IS NULL OR \`name\` = ''
         `);
