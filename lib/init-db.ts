@@ -12,7 +12,7 @@ import './entities/Analysis';
 export async function initializeDatabase() {
   // Check for database configuration
   const hasDatabaseConfig = !!(
-    process.env.DATABASE_UR❌ ||
+    process.env.DATABASE_URL ||
     (process.env.DB_HOST && process.env.DB_USER && process.env.DB_NAME)
   );
 
@@ -53,21 +53,47 @@ export async function initializeDatabase() {
       });
 
       await AppDataSource.initialize();
-      console.log('✅ Database connection established successfully');
+      console.log('Database connection established successfully');
 
       // Always run migrations (never synchronize) - this ensures schema + data consistency
       console.log('Checking SKIP_TYPEORM_MIGRATE:', process.env.SKIP_TYPEORM_MIGRATE);
       if (process.env.SKIP_TYPEORM_MIGRATE !== '1') {
-        console.log('=� Running database migrations...');
+        console.log('Running database migrations...');
         await AppDataSource.runMigrations();
-        console.log('✅ Database migrations completed successfully');
+        console.log('Database migrations completed successfully');
+
+        // Verify migrations actually worked by checking database content
+        console.log('Verifying migration success...');
+        try {
+          const authorCount = await AppDataSource.getRepository('Author').count();
+          const analysisCount = await AppDataSource.getRepository('Analysis').count();
+
+          console.log(`Verification results: ${authorCount} authors, ${analysisCount} analyses`);
+
+          if (authorCount === 0 || analysisCount === 0) {
+            console.warn('Migration verification failed: Expected data not found in database');
+            console.warn('This may indicate migration data was not inserted properly');
+          } else {
+            console.log('Migration verification successful: Data found in database');
+          }
+        } catch (verificationError) {
+          console.error('Migration verification failed:', verificationError.message);
+          console.warn('Migrations may have completed but verification failed');
+        }
       } else {
-        console.log('� Skipping database migrations (SKIP_TYPEORM_MIGRATE set)');
+        console.log('Skipping database migrations (SKIP_TYPEORM_MIGRATE set)');
       }
 
-      console.log('✅ Database initialization completed');
+      console.log('Database initialization completed');
     } catch (error) {
-      console.error('❌ Database initialization failed:', error);
+      console.error('Database initialization failed:', error);
+
+      // Handle specific encoding errors
+      if (error.message && error.message.includes('Encoding not recognized')) {
+        console.error('Encoding error detected - this may be resolved by removing charset/collation settings');
+        console.error('Try: Remove charset and collation from database config');
+      }
+
       console.error('Error details:', {
         message: error.message,
         code: error.code,
@@ -76,11 +102,11 @@ export async function initializeDatabase() {
       });
 
       // Don't throw in production - just log and continue
-      console.log('� Continuing without database connection');
+      console.log('Continuing without database connection');
       return AppDataSource;
     }
   } else {
-    console.log('ℹ️ Database already initialized');
+    console.log('Database already initialized');
   }
 
   return AppDataSource;
