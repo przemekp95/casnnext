@@ -55,7 +55,7 @@ describe('Hydration Tests', () => {
     cy.visit('/autorzy');
 
     // Wait for page to load
-    cy.contains('Nasi autorzy').should('be.visible');
+    void cy.contains('Nasi autorzy').should('be.visible');
 
     // Check for hydration errors
     cy.window().then((win) => {
@@ -86,7 +86,7 @@ describe('Hydration Tests', () => {
     cy.visit('/zbiory');
 
     // Wait for page to load
-    cy.contains('Zbiory analiz').should('be.visible');
+    void cy.contains('Zbiory analiz').should('be.visible');
 
     // Check for hydration errors
     cy.window().then((win) => {
