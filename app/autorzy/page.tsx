@@ -28,14 +28,6 @@ export default async function AuthorsPage() {
 
   const authors = await getAuthors();
 
-  // Debug: log authors data
-  console.log('Authors data:', authors.map(a => ({
-    id: a.id,
-    name: a.name,
-    slug: a.slug,
-    img: a.img
-  })));
-
   const normalizeSrc = (src?: string | null) =>
     src && (src.startsWith("/") || src.startsWith("http"))
       ? src

@@ -41,13 +41,6 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
     } : undefined,
   }));
 
-  // Debug: log author images
-  console.log('Author images in analyses:', result.map(a => ({
-    title: a.title,
-    authorImg: a.author?.img,
-    authorName: a.author?.name
-  })));
-
   return result;
 }
 
