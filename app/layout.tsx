@@ -34,9 +34,8 @@ export const metadata = {
   keywords: "centrum analiz, fundacja służba niepodległej, ngo, analizy polityczne",
   authors: [{ name: "Zoyothemes" }],
   icons: {
-    icon: "/images/favicon.ico",
-    shortcut: "/images/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
   },
   verification: {
     google: "m2YyW7pzg0z3nL2idpMZ2finxS8sCwvYKOe4whiY3kA",
@@ -66,7 +65,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pl" className={`${roboto.variable} ${rubik.variable}`}>
+    <html lang="pl" className={`${roboto.variable} ${rubik.variable}`} suppressHydrationWarning>
       <body className="bg-white text-black">
         <Header />
         <main className="w-full min-h-screen">{children}</main>
