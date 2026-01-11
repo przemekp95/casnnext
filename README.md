@@ -392,3 +392,4 @@ Copy `docker-compose.env.example` to `.env` and configure:
 - Check service health: `docker-compose ps`
 - View specific service logs: `docker-compose logs mysql`
 - Restart problematic service: `docker-compose restart app`
+# Trigger Docker build workflow
