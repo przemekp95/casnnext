@@ -15,10 +15,5 @@ if (typeof global.TextEncoder === 'undefined') {
 
 // Mock fetch for unit tests
 if (typeof global.fetch === 'undefined') {
-  global.fetch = jest.fn(() => Promise.resolve({
-    ok: true,
-    status: 200,
-    json: () => Promise.resolve([]),
-    text: () => Promise.resolve('')
-  })) as jest.MockedFunction<typeof fetch>;
+  global.fetch = jest.fn() as any;
 }
