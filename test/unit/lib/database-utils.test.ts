@@ -116,7 +116,7 @@ describe('Database Utilities - Coverage Enhancement', () => {
     });
 
     it('returns array of authors or empty array', async () => {
-      if (!getAuthors) return;
+      if (!getAuthors || !isDatabaseAvailable) return;
 
       const result = await getAuthors();
       expect(Array.isArray(result)).toBe(true);
