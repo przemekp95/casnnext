@@ -114,9 +114,9 @@ export async function GET() {
             id: item.id,
             title: item.title,
             slug: item.slug,
-            authorId: item.authorId,
-            author_name: item.author.name,
-            author_slug: item.author.slug,
+            authorId: item.authorId as number,
+            author_name: item.author_name,
+            author_slug: item.author_slug,
           }));
         },
         ['articles'],
@@ -147,7 +147,7 @@ export async function GET() {
         id: item.id,
         title: item.title,
         slug: item.slug,
-        authorId: item.authorId,
+        authorId: item.authorId as number,
         author_name: item.author_name,
         author_slug: item.author_slug,
       }));
@@ -214,7 +214,7 @@ export async function POST(req: Request) {
       where: { slug: body.authorSlug },
       select: ['id'],
     });
-    if (author) authorId = author.id;
+    if (author) authorId = author.id as number;
   }
 
   if (!authorId) {
@@ -270,7 +270,7 @@ export async function POST(req: Request) {
     id: articleWithAuthor.id,
     title: articleWithAuthor.title,
     slug: articleWithAuthor.slug,
-    authorId: articleWithAuthor.authorId,
+    authorId: articleWithAuthor.authorId as number,
     author_name: articleWithAuthor.author_name,
     author_slug: articleWithAuthor.author_slug,
   };

@@ -24,25 +24,35 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     }
 
     const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-    const analysis = await analysisRepository.findOne({
-      where: { slug },
-      relations: ['author'],
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        author: {
-          name: true,
-          bio: true,
-        },
-      },
-    });
+    const analysis = await analysisRepository
+      .createQueryBuilder('analysis')
+      .leftJoin('Author', 'author', 'author.id = analysis.authorId')
+      .select([
+        'analysis.id',
+        'analysis.title',
+        'analysis.slug',
+        'author.name as author_name',
+        'author.bio as author_bio'
+      ])
+      .where('analysis.slug = :slug', { slug })
+      .getRawOne();
 
     if (!analysis) {
       return NextResponse.json({ error: "Analysis not found" }, { status: 404 });
     }
 
-    return NextResponse.json(analysis);
+    // Transform to match expected format
+    const result = {
+      id: analysis.id,
+      title: analysis.title,
+      slug: analysis.slug,
+      author: {
+        name: analysis.author_name,
+        bio: analysis.author_bio,
+      },
+    };
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Analysis API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
