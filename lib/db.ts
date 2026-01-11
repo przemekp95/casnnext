@@ -18,6 +18,8 @@ interface DatabaseConfig {
   synchronize: boolean;
   logging: boolean;
   dropSchema?: boolean;
+  charset?: string;
+  collation?: string;
 }
 
 // Support for DATABASE_URL environment variable (used in CI/testing)
@@ -36,6 +38,8 @@ if (databaseUrl) {
     database: url.pathname.slice(1), // Remove leading slash
     synchronize: false, // Never synchronize - use migrations
     logging: !isProduction && !isTest,
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci',
   };
 } else if (isTest) {
   // Use MySQL for testing with test database
@@ -49,6 +53,8 @@ if (databaseUrl) {
     synchronize: false, // Don't synchronize in tests - use migrations
     logging: false,
     dropSchema: false,
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci',
   };
 } else {
   // Fallback to individual environment variables
@@ -61,6 +67,8 @@ if (databaseUrl) {
     database: process.env.DB_NAME || 'casn',
     synchronize: false, // Never synchronize - use migrations
     logging: !isProduction,
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci',
   };
 }
 

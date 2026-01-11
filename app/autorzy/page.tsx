@@ -26,20 +26,24 @@ export default async function AuthorsPage() {
     );
   }
 
-  const authors = await getAuthors();
+  // Pobierz dane - jeśli baza niedostępna, zwróć fallback
+  let authors: AuthorRow[] = [];
+  try {
+    authors = await getAuthors();
+  } catch (error) {
+    console.warn('Failed to load authors, showing empty list:', error);
+    // Fallback: pusta lista zamiast błędów
+  }
 
-  // Bezpieczne funkcje pomocnicze
+  // Bezpieczne funkcje pomocnicze - zawsze zwracają spójne wyniki
   const getAvatarSrc = (img?: string | null) =>
     img && (img.startsWith("/") || img.startsWith("http"))
       ? img
       : "/images/placeholder.png";
 
   const getDisplayName = (name: string, slug: string) => {
-    if (name?.trim()) {
-      return name;
-    }
-    // Generuj nazwę z slug jeśli name jest puste
-    return slug
+    // ZAWSZE zwracaj tę samą wartość - nie używaj fallback jeśli name istnieje
+    return name?.trim() || slug
       .split('-')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
@@ -117,13 +121,15 @@ export default async function AuthorsPage() {
                         unoptimized
                       />
                       <div className="our-team-name text-center">
-                        <h6 className="mb-0 text-white">{displayName}</h6>
+                        <h6 className="mb-0 text-white" suppressHydrationWarning>
+                          {displayName}
+                        </h6>
                       </div>
                     </div>
                     <div className="our-team-overlay">
                       <div className="item-content text-white text-center p-2">
                         <div className="item-desc">
-                          <h5 className="text-white mb-0">
+                          <h5 className="text-white mb-0" suppressHydrationWarning>
                             <Link
                               href={`/autor/${a.slug}`}
                               style={{ color: "inherit", textDecoration: "none" }}
