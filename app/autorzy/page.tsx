@@ -22,9 +22,8 @@ function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
       <div className="container">
         <div className="row">
           {authors.length > 0 ? (
-            <>
-              {authors.map((a: AuthorRow) => {
-                const avatarSrc = getAvatarSrc(a.img);
+          authors.map((a: AuthorRow) => {
+            const avatarSrc = getAvatarSrc(a.img);
 
                 return (
                   <div className="col-lg-3 col-md-6" key={String(a.id)}>
@@ -61,14 +60,15 @@ function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </>
-          ) : (
-            <div className="col-12 text-center py-5">
-              <p className="text-muted">Autorzy będą wkrótce dodani.</p>
-            </div>
-          )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="col-12 text-center py-5">
+            <p className="text-muted">Autorzy będą wkrótce dodani.</p>
+          </div>
+        )}
         </div>
       </div>
     </section>
