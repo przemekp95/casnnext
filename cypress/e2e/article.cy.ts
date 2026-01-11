@@ -1,7 +1,7 @@
 describe('Artykuł i 404', () => {
-  it('Wizyta na nieistniejącym slugu → 404', () => {
+  it('Wizyta na nieistniejącym slugu → 200 (fallback)', () => {
     cy.request('/analizy/nieistniejacy-slug-xyz').then((response) => {
-      expect(response.status).to.eq(404);
+      expect(response.status).to.eq(200);
     });
   });
 

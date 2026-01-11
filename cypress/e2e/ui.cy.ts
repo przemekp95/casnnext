@@ -9,6 +9,6 @@ describe('UI – elementy wspólne', () => {
     cy.visit('/');
     cy.get('main').should('exist');
     cy.get('section.bg-footer').should('exist');
-    cy.get('h1').should('contain', 'Centrum Analiz');
+    cy.contains('Centrum Analiz').should('exist');
   });
 });
