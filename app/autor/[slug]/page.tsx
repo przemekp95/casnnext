@@ -64,7 +64,7 @@ export default async function AuthorPage(props: any) {
           <div className="row align-items-center">
             <div className="col-lg-4">
               <div className="team-details-img mo-mb-20">
-                <Image src={imgSrc} alt={`Zdjęcie ${author.displayName}`}
+                <Image src={getAvatarSrc(author.img)} alt={`Zdjęcie ${author.displayName}`}
                        className="img-fluid d-block mx-auto rounded" width={600} height={600} unoptimized />
               </div>
             </div>
