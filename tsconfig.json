@@ -46,6 +46,8 @@
     "cypress.config.ts",
     "cypress/tsconfig.json",
     "test",
+    "jest.setup.ts",
+    "jest.config.ts",
     ".next/cache",
     "dist"
   ]
