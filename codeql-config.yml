@@ -1,0 +1,31 @@
+name: "CodeQL Configuration"
+
+disable-default-queries: false
+
+queries:
+  - exclude:
+      - "**/node_modules/**"
+      - "**/prisma/**"
+      - "**/.next/**"
+      - "**/cypress/**"
+      - "**/*.cy.ts"
+      - "**/*.cy.tsx"
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
+      - "**/*.spec.ts"
+      - "**/*.spec.tsx"
+
+paths:
+  - src
+  - app
+  - lib
+  - scripts
+  - types
+
+paths-ignore:
+  - node_modules
+  - .next
+  - cypress
+  - prisma
+  - "**/*.config.*"
+  - "**/*.setup.*"
