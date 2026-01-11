@@ -1,3 +1,8 @@
 export default function NotFound() {
-  return <div className="mx-auto max-w-prose p-6">Nie znaleziono artykułu.</div>;
+  return (
+    <main data-testid="not-found">
+      <h1>Artykuł nie znaleziony</h1>
+      <p>Przepraszamy, artykuł którego szukasz nie istnieje.</p>
+    </main>
+  );
 }
