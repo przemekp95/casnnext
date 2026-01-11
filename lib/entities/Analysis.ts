@@ -22,4 +22,11 @@ export const AnalysisSchema = new EntitySchema({
       type: 'int',
     },
   },
-});
+  relations: {
+    author: {
+      type: 'many-to-one',
+      target: 'Author',
+      joinColumn: { name: 'authorId' },
+    },
+  },
+} as const);
