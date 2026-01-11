@@ -33,7 +33,7 @@ const config = {
     '!**/docs/**',
   ],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'json-summary'],
+  coverageReporters: ['text' as const, 'lcov' as const, 'json-summary' as const],
   coverageThreshold: {
     global: {
       branches: 70,
