@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 describe('Hydration Tests', () => {
   it('should hydrate without errors on all pages', () => {
     // Visit homepage
