@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db";
 import { initializeDatabase } from "@/lib/init-db";
+import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
 
 // Typy danych
 type ArticleRow = {
@@ -93,7 +94,7 @@ export async function GET() {
     if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
       const getArticlesCached = unstable_cache(
         async () => {
-          const analysisRepository = AppDataSource.getRepository('Analysis');
+          const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
           const data = await analysisRepository
             .createQueryBuilder('analysis')
             .leftJoin('Author', 'author', 'author.id = analysis.authorId')
@@ -113,9 +114,9 @@ export async function GET() {
             id: item.id,
             title: item.title,
             slug: item.slug,
-            authorId: item.authorId,
-            author_name: item.author.name,
-            author_slug: item.author.slug,
+            authorId: item.authorId as number,
+            author_name: item.author_name,
+            author_slug: item.author_slug,
           }));
         },
         ['articles'],
@@ -127,7 +128,7 @@ export async function GET() {
       articles = await getArticlesCached();
     } else {
       // Direct query for tests or when caching unavailable
-      const analysisRepository = AppDataSource.getRepository('Analysis');
+      const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
       const data = await analysisRepository
         .createQueryBuilder('analysis')
         .leftJoin('Author', 'author', 'author.id = analysis.authorId')
@@ -146,7 +147,7 @@ export async function GET() {
         id: item.id,
         title: item.title,
         slug: item.slug,
-        authorId: item.authorId,
+        authorId: item.authorId as number,
         author_name: item.author_name,
         author_slug: item.author_slug,
       }));
@@ -208,12 +209,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Database not available" }, { status: 503 });
     }
 
-    const authorRepository = AppDataSource.getRepository('Author');
+    const authorRepository = AppDataSource.getRepository(AuthorSchema);
     const author = await authorRepository.findOne({
       where: { slug: body.authorSlug },
       select: ['id'],
     });
-    if (author) authorId = author.id;
+    if (author) authorId = author.id as number;
   }
 
   if (!authorId) {
@@ -237,7 +238,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Database not available" }, { status: 503 });
   }
 
-  const analysisRepository = AppDataSource.getRepository('Analysis');
+  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
   const newArticle = await analysisRepository.save({
     title,
     slug,
@@ -269,7 +270,7 @@ export async function POST(req: Request) {
     id: articleWithAuthor.id,
     title: articleWithAuthor.title,
     slug: articleWithAuthor.slug,
-    authorId: articleWithAuthor.authorId,
+    authorId: articleWithAuthor.authorId as number,
     author_name: articleWithAuthor.author_name,
     author_slug: articleWithAuthor.author_slug,
   };

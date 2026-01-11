@@ -5,7 +5,7 @@ import matter from "gray-matter";
 import ArticleLayout from "@/components/ArticleLayout";
 import Header from "@/components/Header";
 import { notFound } from "next/navigation";
-import { AppDataSource } from "@/lib/db";
+
 import MDXContent from "@/components/mdx/MDXContent";
 
 // ——— RUNTIME / CACHE ————————————————————————————————————————————————
@@ -53,26 +53,22 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
     logDbg("STEP", "slug", slug);
 
-    // 1) DB — pobierz meta artykułu (bezpiecznik: nie wywal 500 przy problemie DB)
+    // 1) DB — pobierz meta artykułu via API
     let analysis: any = null;
     try {
-      const analysisRepository = AppDataSource.getRepository('Analysis');
-      analysis = await analysisRepository.findOne({
-        where: { slug },
-        relations: ['author'],
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          author: {
-            name: true,
-            bio: true,
-          },
-        },
+      const response = await fetch(`http://localhost:3000/api/analyses/${slug}`, {
+        cache: "no-store",
       });
+
+      if (!response.ok) {
+        logDbg("STEP", "notFound_api", slug, response.status);
+        return notFound();
+      }
+
+      analysis = await response.json();
     } catch (e: any) {
-      console.error("DB_ERROR", e?.message || e);
-      // zamiast 500 — 404 (jeśli DB padnie, wolimy "nie znaleziono" niż crash SSR)
+      console.error("API_ERROR", e?.message || e);
+      // zamiast 500 — 404 (jeśli API padnie, wolimy "nie znaleziono" niż crash SSR)
       return notFound();
     }
 

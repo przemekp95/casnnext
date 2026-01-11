@@ -2,8 +2,6 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { AppDataSource } from "@/lib/db";
-import { initializeDatabase } from "@/lib/init-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,21 +24,10 @@ export default async function AnalysesPage() {
   }
 
   try {
-    // Ensure database is initialized
-    if (AppDataSource && !AppDataSource.isInitialized) {
-      await initializeDatabase();
-    }
-
-    if (!AppDataSource || !AppDataSource.isInitialized) {
-      throw new Error('Database not available');
-    }
-
     // Fetch all analyses with author data
-    const analysisRepository = AppDataSource.getRepository('Analysis');
-    const analyses = await analysisRepository.find({
-      relations: ['author'],
-      order: { id: 'DESC' },
-    });
+    const analyses = await fetch("http://localhost:3000/api/analyses", {
+      cache: "no-store",
+    }).then(res => res.json());
 
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
@@ -105,7 +92,7 @@ export default async function AnalysesPage() {
                 </div>
               </div>
             </div>
-            
+
             {analyses.length === 0 ? (
               <div className="row">
                 <div className="col-12 text-center">

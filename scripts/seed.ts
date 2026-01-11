@@ -1,5 +1,6 @@
 // scripts/seed.ts
 import { AppDataSource } from '@/lib/db';
+import { AuthorSchema, AnalysisSchema } from '@/lib/entities';
 
 async function main() {
   console.log("Starting seed script...");
@@ -10,8 +11,8 @@ async function main() {
     console.log("TypeORM initialized.");
   }
 
-  const authorRepository = AppDataSource.getRepository('Author');
-  const analysisRepository = AppDataSource.getRepository('Analysis');
+  const authorRepository = AppDataSource.getRepository(AuthorSchema);
+  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
 
   // Check if data already exists
   const authorCount = await authorRepository.count();

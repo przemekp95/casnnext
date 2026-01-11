@@ -2,8 +2,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppDataSource } from "@/lib/db";
-import { initializeDatabase } from "@/lib/init-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,27 +15,13 @@ export default async function AuthorPage(props: any) {
   const { slug }: { slug: string } = await props.params;
   if (!slug) return notFound();
 
-  // Ensure database is initialized
-  if (AppDataSource && !AppDataSource.isInitialized) {
-    await initializeDatabase();
-  }
-
-  if (!AppDataSource || !AppDataSource.isInitialized) {
-    throw new Error('Database not available');
-  }
-
-  const authorRepository = AppDataSource.getRepository('Author');
-  const author = await authorRepository.findOne({
-    where: { slug },
+  const response = await fetch(`http://localhost:3000/api/authors/${slug}`, {
+    cache: "no-store",
   });
-  if (!author) return notFound();
 
-  const analysisRepository = AppDataSource.getRepository('Analysis');
-  const analyses = await analysisRepository.find({
-    where: { authorId: author.id },
-    order: { id: 'DESC' },
-    select: ['id', 'title', 'slug'],
-  });
+  if (!response.ok) return notFound();
+
+  const { author, analyses } = await response.json();
 
   const imgSrc =
     author.img && (author.img.startsWith("/") || author.img.startsWith("http"))

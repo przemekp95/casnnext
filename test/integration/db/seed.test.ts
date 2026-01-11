@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { AppDataSource } from '@/lib/db';
 import { initializeDatabase } from '@/lib/init-db';
+import { AuthorSchema, AnalysisSchema } from '@/lib/entities';
 
 // Ten plik robi prawdziwe I/O (DB + seed), więc musi mieć większy timeout niż domyślne 5s.
 const FILE_TIMEOUT_MS = Number(process.env.JEST_INTEGRATION_TIMEOUT_MS ?? 120_000);
@@ -9,8 +10,8 @@ const TEST_TIMEOUT_MS = Number(process.env.JEST_INTEGRATION_TEST_TIMEOUT_MS ?? 6
 jest.setTimeout(FILE_TIMEOUT_MS);
 
 async function runSeed() {
-  const authorRepository = AppDataSource.getRepository('Author');
-  const analysisRepository = AppDataSource.getRepository('Analysis');
+  const authorRepository = AppDataSource.getRepository(AuthorSchema);
+  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
 
   // Check if data already exists
   const authorCount = await authorRepository.count();
@@ -68,8 +69,8 @@ describe('Database Seeding', () => {
     'database has proper structure and data after initialization',
     async () => {
       // Database should be initialized and potentially seeded from beforeAll
-      const authorRepository = AppDataSource.getRepository('Author');
-      const analysisRepository = AppDataSource.getRepository('Analysis');
+      const authorRepository = AppDataSource.getRepository(AuthorSchema);
+      const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
 
       // Verify that authors exist
       const authors = await authorRepository.find();
@@ -112,7 +113,7 @@ describe('Database Seeding', () => {
   it(
     'seed script only runs once (idempotent)',
     async () => {
-      const articleRepository = AppDataSource.getRepository('Analysis');
+      const articleRepository = AppDataSource.getRepository(AnalysisSchema);
 
       // Count articles before second seed attempt
       const countBefore = await articleRepository.count();
