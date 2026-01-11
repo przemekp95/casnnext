@@ -6,7 +6,6 @@ import ArticleLayout from "@/components/ArticleLayout";
 import Header from "@/components/Header";
 import { notFound } from "next/navigation";
 import { getAnalysisBySlug } from "@/lib/analyses";
-import { AnalysisDetail } from "@/types/analysis";
 
 import MDXContent from "@/components/mdx/MDXContent";
 

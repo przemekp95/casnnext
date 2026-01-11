@@ -5,7 +5,7 @@ export interface AnalysisEntity {
   title: string;
   slug: string;
   authorId: number;
-  author?: any;
+  author?: unknown;
 }
 
 export const AnalysisSchema = new EntitySchema<AnalysisEntity>({
