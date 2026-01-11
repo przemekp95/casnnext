@@ -59,7 +59,7 @@ if (databaseUrl) {
     username: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'casn',
-    synchronize: !isProduction,
+    synchronize: false, // Never synchronize - use migrations
     logging: !isProduction,
   };
 }

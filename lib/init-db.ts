@@ -29,22 +29,17 @@ export async function initializeDatabase() {
       await AppDataSource.initialize();
       console.log('Database connection established successfully');
 
-      // In production, ensure schema is synchronized if needed
-      // Skip if SKIP_PRISMA_MIGRATE is set (for backward compatibility) or SKIP_TYPEORM_MIGRATE
-      if (process.env.NODE_ENV === 'production' &&
-          process.env.SKIP_PRISMA_MIGRATE !== '1' &&
-          process.env.SKIP_TYPEORM_MIGRATE !== '1') {
-        console.log('Running database synchronization for production...');
-        await AppDataSource.synchronize(false);
-        console.log('Database schema synchronized');
+      // Always run migrations (never synchronize) - this ensures schema + data consistency
+      if (process.env.SKIP_TYPEORM_MIGRATE !== '1') {
+        console.log('Running database migrations...');
+        await AppDataSource.runMigrations();
+        console.log('Database migrations completed successfully');
       } else {
-        console.log('Skipping database synchronization (SKIP_PRISMA_MIGRATE or SKIP_TYPEORM_MIGRATE set)');
+        console.log('Skipping database migrations (SKIP_TYPEORM_MIGRATE set)');
       }
 
-      // Seed database if empty (only in development/test, not production)
-      if (process.env.NODE_ENV !== 'production') {
-        await seedDatabaseIfEmpty();
-      }
+      // No more conditional seeding - data should be in migrations
+      console.log('Database initialization completed');
     } catch (error) {
       console.error('Database initialization failed:', error);
       // In build time, don't throw - just log and continue
