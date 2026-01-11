@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class FixAuthorsData1768119369984 implements MigrationInterface {
@@ -38,7 +39,7 @@ export class FixAuthorsData1768119369984 implements MigrationInterface {
                 WHEN \`slug\` = 'rowinski' THEN 'Tomasz RowiDski'
                 WHEN \`slug\` = 'siemiatkowski' THEN 'dr Jakub Siemitkowski'
                 WHEN \`slug\` = 'musial' THEN 'dr Adrian MusiaB'
-                WHEN \`slug\` = 'gorka' THEN 'adw. Grzegorz Górka'
+                WHEN \`slug\` = 'gorka' THEN 'adw. Grzegorz Gï¿½rka'
                 WHEN \`slug\` = 'szymanski' THEN 'MichaB SzymaDski'
                 WHEN \`slug\` = 'masior' THEN 'dr MichaB Masior'
                 WHEN \`slug\` = 'pietrzak' THEN 'PrzemysBaw Pietrzak LL.M.'
@@ -62,9 +63,9 @@ export class FixAuthorsData1768119369984 implements MigrationInterface {
                 WHEN \`slug\` = 'kochman' THEN 'Absolwent WydziaBu Prawa i Administracji Uniwersytetu Warszawskiego. Adwokat  czBonek Izby Adwokackiej w Warszawie. Autor analiz i publikacji prawnych i ekonomicznych.'
                 WHEN \`slug\` = 'rosolowski' THEN 'Absolwent WydziaBu Prawa i Administracji Uniwersytetu Warszawskiego; w latach 2006-2008 zastpca dyrektora Biura Prasowego Kancelarii Prezydenta RP.'
                 WHEN \`slug\` = 'luczuk' THEN 'Medioznawca; publicysta; ekspert ds. cyberbezpieczeDstwa. Adiunkt w Katedrze Internetu i Komunikacji Cyfrowej Instytutu Edukacji Medialnej i Dziennikarstwa UKSW.'
-                WHEN \`slug\` = 'domanska' THEN 'Prezes Instytutu Staszica; adiunkt Instytutu Studiów Midzynarodowych SzkoBy GBównej Handlowej w Warszawie; doktor habilitowany nauk ekonomicznych.'
+                WHEN \`slug\` = 'domanska' THEN 'Prezes Instytutu Staszica; adiunkt Instytutu Studiï¿½w Midzynarodowych SzkoBy GBï¿½wnej Handlowej w Warszawie; doktor habilitowany nauk ekonomicznych.'
                 WHEN \`slug\` = 'lewandowski' THEN 'Adwokat; doktor nauk prawnych; Dyrektor Centrum Interwencji Procesowej Ordo Iuris.'
-                WHEN \`slug\` = 'kochan' THEN 'Jzykoznawca; medioznawca. Naukowo zajmuje si jzykiem komunikacji publicznej; wizerunkiem osób i instytucji.'
+                WHEN \`slug\` = 'kochan' THEN 'Jzykoznawca; medioznawca. Naukowo zajmuje si jzykiem komunikacji publicznej; wizerunkiem osï¿½b i instytucji.'
                 WHEN \`slug\` = 'wos' THEN 'Dziennikarz i analityk ekonomiczny publikujcy m.in. w Salonie24 i Dzienniku Gazeta Prawna.'
                 WHEN \`slug\` = 'gursztyn' THEN 'Dziennikarz; publicysta; historyk. PracowaB m.in. w Radiu Plus; Telewizji Puls; telewizji Polsat.'
                 WHEN \`slug\` = 'kita' THEN 'Katolik; m|; analityk; publicysta. Obserwator polityki midzynarodowej i kultury.'
