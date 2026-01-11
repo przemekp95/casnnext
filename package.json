@@ -32,7 +32,6 @@
     "@next/mdx": "^15.5.0",
     "@popperjs/core": "^2.11.8",
     "bcrypt": "^6.0.0",
-    "bootstrap": "^5.3.7",
     "gray-matter": "^4.0.3",
     "mdx": "^0.3.1",
     "mysql2": "^3.15.3",
