@@ -1,29 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDatabase } from '@/lib/init-db';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export async function middleware(request: NextRequest) {
-  // Skip database initialization during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
-    return NextResponse.next();
-  }
-
-  // Only initialize database for API routes that need it, not for static pages
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api/') && !request.nextUrl.pathname.startsWith('/api/health');
-
-  // Skip middleware entirely if no database is configured
-  if (!process.env.DB_HOST && !process.env.DATABASE_URL) {
-    return NextResponse.next();
-  }
-
-  if (isApiRoute) {
-    try {
-      await initializeDatabase();
-    } catch (error) {
-      console.error('Database initialization failed in middleware:', error);
-      // Continue anyway - let the application handle database errors gracefully
-    }
-  }
+  // Database initialization has been moved to API routes that actually need it
+  // This prevents TypeORM from being bundled into the Edge runtime
 
   return NextResponse.next();
 }
