@@ -79,7 +79,7 @@ export default async function AuthorPage(props: any) {
         </div>
       </section>
 
-      {!!analyses.length && (
+      {analyses.length > 0 ? (
         <section className="section bg-light">
           <div className="container">
             <div className="row">
@@ -98,7 +98,7 @@ export default async function AuthorPage(props: any) {
             </div>
           </div>
         </section>
-      )}
+      ) : null}
     </main>
   );
 }
