@@ -31,7 +31,7 @@ services:
       - casn-network
 
   app:
-    image: ghcr.io/przemekp95/casnnext:main
+    image: ghcr.io/przemekp95/casnnext:dev
     container_name: casn-app
     restart: unless-stopped
     depends_on:
