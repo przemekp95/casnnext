@@ -134,8 +134,9 @@ describe('Database Utilities - Coverage Enhancement', () => {
       if (!getAuthors) return;
 
       // Mock database unavailability by temporarily making pool unavailable
-      const originalGetPool = require('@/lib/db').getPool;
-      require('@/lib/db').getPool = jest.fn(() => null);
+      const dbModule = require('@/lib/db');
+      const originalGetPool = dbModule.getPool;
+      dbModule.getPool = jest.fn(() => null);
 
       try {
         // Should not throw, should return empty array or handle gracefully
@@ -143,7 +144,7 @@ describe('Database Utilities - Coverage Enhancement', () => {
         expect(Array.isArray(result)).toBe(true);
       } finally {
         // Restore original function
-        require('@/lib/db').getPool = originalGetPool;
+        dbModule.getPool = originalGetPool;
       }
     });
   });
