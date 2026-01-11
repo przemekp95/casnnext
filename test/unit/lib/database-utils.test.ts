@@ -130,12 +130,21 @@ describe('Database Utilities - Coverage Enhancement', () => {
       }
     });
 
-    it('handles database unavailability', async () => {
+    it('handles database unavailability gracefully', async () => {
       if (!getAuthors) return;
 
-      // Should not throw, should return empty array
-      const result = await getAuthors();
-      expect(Array.isArray(result)).toBe(true);
+      // Mock database unavailability by temporarily making pool unavailable
+      const originalGetPool = require('@/lib/db').getPool;
+      require('@/lib/db').getPool = jest.fn(() => null);
+
+      try {
+        // Should not throw, should return empty array or handle gracefully
+        const result = await getAuthors();
+        expect(Array.isArray(result)).toBe(true);
+      } finally {
+        // Restore original function
+        require('@/lib/db').getPool = originalGetPool;
+      }
     });
   });
 
