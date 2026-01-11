@@ -188,16 +188,16 @@ describe('Hydration Tests', () => {
 
     // Navigate to authors
     cy.contains('Nasi autorzy').click();
-    cy.url().should('include', '/autorzy');
-    cy.contains('Nasi autorzy').should('be.visible');
+    void cy.url().should('include', '/autorzy');
+    void cy.contains('Nasi autorzy').should('be.visible');
 
     // Navigate to zbiory
     cy.contains('Zbiory analiz').click();
-    cy.url().should('include', '/zbiory');
-    cy.contains('Zbiory analiz').should('be.visible');
+    void cy.url().should('include', '/zbiory');
+    void cy.contains('Zbiory analiz').should('be.visible');
 
     // Navigate back to home
     cy.contains('Strona główna').click();
-    cy.url().should('not.include', '/autorzy').and('not.include', '/zbiory');
+    void cy.url().should('not.include', '/autorzy').and('not.include', '/zbiory');
   });
 });

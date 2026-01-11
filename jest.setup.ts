@@ -14,6 +14,7 @@ if (typeof global.TextEncoder === 'undefined') {
 }
 
 // Mock fetch for unit tests
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 if (typeof global.fetch === 'undefined') {
   global.fetch = jest.fn() as any;
 }
