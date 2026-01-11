@@ -28,7 +28,7 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
 
   // Transform to UI-friendly format
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return analyses.map((analysis: any) => ({
+  const result = analyses.map((analysis: any) => ({
     id: String(analysis.id),
     title: String(analysis.title),
     slug: String(analysis.slug),
@@ -40,6 +40,15 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
       img: analysis.author.img ?? null,
     } : undefined,
   }));
+
+  // Debug: log author images
+  console.log('Author images in analyses:', result.map(a => ({
+    title: a.title,
+    authorImg: a.author?.img,
+    authorName: a.author?.name
+  })));
+
+  return result;
 }
 
 export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | null> {
