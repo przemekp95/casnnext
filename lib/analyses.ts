@@ -19,22 +19,35 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
   }
 
   const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-  const analyses = await analysisRepository.find({
-    relations: ['author'],
-    order: { id: 'DESC' },
-  });
+
+  // Use raw query with join since relations don't work with EntitySchema
+  const analyses = await analysisRepository
+    .createQueryBuilder('analysis')
+    .leftJoin('Author', 'author', 'author.id = analysis.authorId')
+    .select([
+      'analysis.id as analysis_id',
+      'analysis.title as analysis_title',
+      'analysis.slug as analysis_slug',
+      'analysis.authorId as analysis_authorId',
+      'author.id as author_id',
+      'author.slug as author_slug',
+      'author.name as author_name',
+      'author.img as author_img'
+    ])
+    .orderBy('analysis.id', 'DESC')
+    .getRawMany();
 
   // Transform to UI-friendly format
   return analyses.map(analysis => ({
-    id: String(analysis.id),
-    title: String(analysis.title),
-    slug: String(analysis.slug),
-    authorId: String(analysis.authorId),
-    author: analysis.author ? {
-      id: String(analysis.author.id),
-      slug: String(analysis.author.slug),
-      name: String(analysis.author.name),
-      img: analysis.author.img ?? null,
+    id: String(analysis.analysis_id),
+    title: String(analysis.analysis_title),
+    slug: String(analysis.analysis_slug),
+    authorId: String(analysis.analysis_authorId),
+    author: analysis.author_id ? {
+      id: String(analysis.author_id),
+      slug: String(analysis.author_slug),
+      name: String(analysis.author_name),
+      img: analysis.author_img ?? null,
     } : undefined,
   }));
 }

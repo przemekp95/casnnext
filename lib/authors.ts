@@ -23,13 +23,13 @@ export async function getAuthors(): Promise<AuthorRow[]> {
     order: { name: 'ASC' },
   });
 
-  // Transform to UI-friendly format
+  // Transform to UI-friendly format with explicit string conversion
   return authors.map(author => ({
     id: String(author.id),
     slug: String(author.slug),
     name: String(author.name),
-    img: author.img ?? null,
-    bio: author.bio ?? null,
+    img: author.img ? String(author.img) : null,
+    bio: author.bio ? String(author.bio) : null,
   }));
 }
 
