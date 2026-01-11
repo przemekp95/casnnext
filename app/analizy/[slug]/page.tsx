@@ -5,6 +5,7 @@ import matter from "gray-matter";
 import ArticleLayout from "@/components/ArticleLayout";
 import Header from "@/components/Header";
 import { notFound } from "next/navigation";
+import { getAnalysisBySlug } from "@/lib/analyses";
 
 import MDXContent from "@/components/mdx/MDXContent";
 
@@ -53,24 +54,8 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
     logDbg("STEP", "slug", slug);
 
-    // 1) DB — pobierz meta artykułu via API
-    let analysis: any = null;
-    try {
-      const response = await fetch(`/api/analyses/${slug}`, {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        logDbg("STEP", "notFound_api", slug, response.status);
-        return notFound();
-      }
-
-      analysis = await response.json();
-    } catch (e: any) {
-      console.error("API_ERROR", e?.message || e);
-      // zamiast 500 — 404 (jeśli API padnie, wolimy "nie znaleziono" niż crash SSR)
-      return notFound();
-    }
+    // 1) DB — pobierz meta artykułu
+    const analysis = await getAnalysisBySlug(slug);
 
     if (!analysis) {
       logDbg("STEP", "notFound_db", slug);

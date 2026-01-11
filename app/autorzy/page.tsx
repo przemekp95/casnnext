@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { getAuthors } from "@/lib/authors";
+import { AuthorRow } from "@/types/author";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,8 +10,6 @@ export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
-
-type AuthorRow = { slug: string; name: string; img?: string | null };
 
 export default async function AuthorsPage() {
   // Skip during build time
@@ -26,16 +26,7 @@ export default async function AuthorsPage() {
     );
   }
 
-  const response = await fetch("/api/authors", {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    console.error('Failed to fetch authors:', response.status);
-    throw new Error('Failed to fetch authors');
-  }
-
-  const authors = await response.json();
+  const authors = await getAuthors();
 
   const normalizeSrc = (src?: string | null) =>
     src && (src.startsWith("/") || src.startsWith("http"))
