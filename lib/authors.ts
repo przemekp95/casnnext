@@ -24,25 +24,13 @@ export async function getAuthors(): Promise<AuthorRow[]> {
   });
 
   // Transform to UI-friendly format with explicit string conversion
-  const result = authors.map(author => ({
+  return authors.map(author => ({
     id: String(author.id),
     slug: String(author.slug),
     name: String(author.name),
     img: author.img ? String(author.img) : null,
     bio: author.bio ? String(author.bio) : null,
   }));
-
-  // Debug: log author data
-  console.log('Authors from DB:', authors.map(a => ({
-    id: a.id,
-    name: a.name,
-    slug: a.slug,
-    img: a.img,
-    bio: a.bio
-  })));
-  console.log('Authors transformed:', result);
-
-  return result;
 }
 
 export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null> {

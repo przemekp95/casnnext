@@ -27,13 +27,6 @@ export default async function AnalysesPage() {
   try {
     const analyses = await getAnalyses();
 
-    // Debug: log first few analyses to check author data
-    console.log('Analyses data:', analyses.slice(0, 3).map(a => ({
-      id: a.id,
-      title: a.title,
-      author: a.author
-    })));
-
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
         {/* HEADER START */}
