@@ -1,29 +1,47 @@
 import { EntitySchema } from 'typeorm';
 
-export const AuthorSchema = new EntitySchema({
+export interface AuthorEntity {
+  id: number;
+  slug: string;
+  name: string;
+  img?: string | null;
+  bio?: string | null;
+  analyses?: unknown[];
+}
+
+export const AuthorSchema = new EntitySchema<AuthorEntity>({
   name: 'Author',
   tableName: 'Author',
   columns: {
     id: {
-      type: 'int',
+      type: Number,
       primary: true,
       generated: true,
     },
     slug: {
-      type: 'varchar',
+      type: String,
       length: 191,
       unique: true,
     },
     name: {
-      type: 'varchar',
+      type: String,
       length: 255,
     },
     img: {
-      type: 'varchar',
+      type: String,
       length: 255,
+      nullable: true,
     },
     bio: {
-      type: 'text',
+      type: String,
+      nullable: true,
+    },
+  },
+  relations: {
+    analyses: {
+      type: 'one-to-many',
+      target: 'Analysis',
+      inverseSide: 'author',
     },
   },
 });
