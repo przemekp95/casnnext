@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { AppDataSource } from "@/lib/db";
 import { initializeDatabase } from "@/lib/init-db";
+import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       return NextResponse.json({ error: "Database not available" }, { status: 503 });
     }
 
-    const authorRepository = AppDataSource.getRepository('Author');
+    const authorRepository = AppDataSource.getRepository(AuthorSchema);
     const author = await authorRepository.findOne({
       where: { slug },
     });
@@ -31,7 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       return NextResponse.json({ error: "Author not found" }, { status: 404 });
     }
 
-    const analysisRepository = AppDataSource.getRepository('Analysis');
+    const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
     const analyses = await analysisRepository.find({
       where: { authorId: author.id },
       order: { id: 'DESC' },

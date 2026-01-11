@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db";
 import { initializeDatabase } from "@/lib/init-db";
+import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
 
 // Typy danych
 type ArticleRow = {
@@ -93,7 +94,7 @@ export async function GET() {
     if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
       const getArticlesCached = unstable_cache(
         async () => {
-          const analysisRepository = AppDataSource.getRepository('Analysis');
+          const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
           const data = await analysisRepository
             .createQueryBuilder('analysis')
             .leftJoin('Author', 'author', 'author.id = analysis.authorId')
@@ -127,7 +128,7 @@ export async function GET() {
       articles = await getArticlesCached();
     } else {
       // Direct query for tests or when caching unavailable
-      const analysisRepository = AppDataSource.getRepository('Analysis');
+      const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
       const data = await analysisRepository
         .createQueryBuilder('analysis')
         .leftJoin('Author', 'author', 'author.id = analysis.authorId')
@@ -208,7 +209,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Database not available" }, { status: 503 });
     }
 
-    const authorRepository = AppDataSource.getRepository('Author');
+    const authorRepository = AppDataSource.getRepository(AuthorSchema);
     const author = await authorRepository.findOne({
       where: { slug: body.authorSlug },
       select: ['id'],
@@ -237,7 +238,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Database not available" }, { status: 503 });
   }
 
-  const analysisRepository = AppDataSource.getRepository('Analysis');
+  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
   const newArticle = await analysisRepository.save({
     title,
     slug,

@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { AppDataSource } from "@/lib/db";
 import { initializeDatabase } from "@/lib/init-db";
+import { AnalysisSchema } from "@/lib/entities";
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       return NextResponse.json({ error: "Database not available" }, { status: 503 });
     }
 
-    const analysisRepository = AppDataSource.getRepository('Analysis');
+    const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
     const analysis = await analysisRepository.findOne({
       where: { slug },
       relations: ['author'],

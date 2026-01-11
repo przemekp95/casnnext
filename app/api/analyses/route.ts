@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { AppDataSource } from "@/lib/db";
 import { initializeDatabase } from "@/lib/init-db";
+import { AnalysisSchema } from "@/lib/entities";
 
 export async function GET() {
   try {
@@ -20,7 +21,7 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    const analysisRepository = AppDataSource.getRepository('Analysis');
+    const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
     const analyses = await analysisRepository.find({
       relations: ['author'],
       order: { id: 'DESC' },

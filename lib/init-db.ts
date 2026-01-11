@@ -4,6 +4,7 @@
 export const runtime = "nodejs";
 
 import { AppDataSource } from './db';
+import { AuthorSchema, AnalysisSchema } from './entities';
 
 // Import entities to ensure they're registered with TypeORM
 import './entities/Author';
@@ -65,8 +66,8 @@ export { AppDataSource };
 
 async function seedDatabaseIfEmpty() {
   try {
-    const authorRepository = AppDataSource.getRepository('Author');
-    const analysisRepository = AppDataSource.getRepository('Analysis');
+    const authorRepository = AppDataSource.getRepository(AuthorSchema);
+    const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
 
     // Check if data already exists
     const authorCount = await authorRepository.count();
