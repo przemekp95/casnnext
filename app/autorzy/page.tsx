@@ -21,7 +21,8 @@ function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
     <section className="section">
       <div className="container">
         <div className="row">
-          {authors.map((a: AuthorRow) => {
+          {authors.length > 0 ? (
+          authors.map((a: AuthorRow) => {
             const avatarSrc = getAvatarSrc(a.img);
 
             return (
@@ -60,12 +61,12 @@ function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
                 </div>
               </div>
             );
-          })}
-          {authors.length === 0 && (
-            <div className="col-12 text-center py-5">
-              <p className="text-muted">Autorzy będą wkrótce dodani.</p>
-            </div>
-          )}
+          })
+        ) : (
+          <div className="col-12 text-center py-5">
+            <p className="text-muted">Autorzy będą wkrótce dodani.</p>
+          </div>
+        )}
         </div>
       </div>
     </section>
