@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { AppDataSource } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,10 +26,9 @@ export default async function AuthorsPage() {
     );
   }
 
-  const authorRepository = AppDataSource.getRepository('Author');
-  const authors = await authorRepository.find({
-    order: { name: 'ASC' },
-  });
+  const authors = await fetch("http://localhost:3000/api/authors", {
+    cache: "no-store",
+  }).then(res => res.json());
 
   const normalizeSrc = (src?: string | null) =>
     src && (src.startsWith("/") || src.startsWith("http"))
