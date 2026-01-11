@@ -12,3 +12,13 @@ if (typeof global.TextEncoder === 'undefined') {
   global.TextEncoder = TextEncoder;
   global.TextDecoder = TextDecoder;
 }
+
+// Mock fetch for unit tests
+if (typeof global.fetch === 'undefined') {
+  global.fetch = jest.fn(() => Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve([]),
+    text: () => Promise.resolve('')
+  })) as any;
+}
