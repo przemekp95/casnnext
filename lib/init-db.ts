@@ -10,8 +10,23 @@ import './entities/Author';
 import './entities/Analysis';
 
 export async function initializeDatabase() {
-  // Skip initialization during build/static generation if no database is configured
-  if (!process.env.DB_HOST && !process.env.DATABASE_URL) {
+  // Check for database configuration
+  const hasDatabaseConfig = !!(
+    process.env.DATABASE_URL ||
+    (process.env.DB_HOST && process.env.DB_USER && process.env.DB_NAME)
+  );
+
+  console.log('Database config check:', {
+    hasDatabaseConfig,
+    DATABASE_URL: !!process.env.DATABASE_URL,
+    DB_HOST: !!process.env.DB_HOST,
+    DB_USER: !!process.env.DB_USER,
+    DB_NAME: !!process.env.DB_NAME,
+    NODE_ENV: process.env.NODE_ENV,
+    NEXT_PHASE: process.env.NEXT_PHASE
+  });
+
+  if (!hasDatabaseConfig) {
     console.log('Skipping database initialization - no database configured');
     return AppDataSource;
   }
@@ -22,34 +37,50 @@ export async function initializeDatabase() {
     return AppDataSource;
   }
 
+  if (!AppDataSource) {
+    console.log('AppDataSource is null - database configuration failed');
+    return null;
+  }
+
   if (!AppDataSource.isInitialized) {
     try {
       console.log('Initializing database connection...');
+      console.log('Connection config:', {
+        host: process.env.DB_HOST || 'from DATABASE_URL',
+        port: process.env.DB_PORT || 'from DATABASE_URL',
+        database: process.env.DB_NAME || 'from DATABASE_URL',
+        user: process.env.DB_USER || 'from DATABASE_URL'
+      });
+
       await AppDataSource.initialize();
-      console.log('Database connection established successfully');
+      console.log(' Database connection established successfully');
 
       // Always run migrations (never synchronize) - this ensures schema + data consistency
+      console.log('Checking SKIP_TYPEORM_MIGRATE:', process.env.SKIP_TYPEORM_MIGRATE);
       if (process.env.SKIP_TYPEORM_MIGRATE !== '1') {
-        console.log('Running database migrations...');
+        console.log('=Ä Running database migrations...');
         await AppDataSource.runMigrations();
-        console.log('Database migrations completed successfully');
+        console.log(' Database migrations completed successfully');
       } else {
-        console.log('Skipping database migrations (SKIP_TYPEORM_MIGRATE set)');
+        console.log('í Skipping database migrations (SKIP_TYPEORM_MIGRATE set)');
       }
 
-      // No more conditional seeding - data should be in migrations
-      console.log('Database initialization completed');
+      console.log(' Database initialization completed');
     } catch (error) {
-      console.error('Database initialization failed:', error);
-      // In build time, don't throw - just log and continue
-      if (process.env.NODE_ENV === 'development' && process.env.NEXT_PHASE === 'phase-production-build') {
-        console.log('Build time detected - continuing without database');
-        return AppDataSource;
-      }
-      throw error;
+      console.error('L Database initialization failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        errno: error.errno,
+        sqlState: error.sqlState
+      });
+
+      // Don't throw in production - just log and continue
+      console.log('  Continuing without database connection');
+      return AppDataSource;
     }
   } else {
-    console.log('Database already initialized');
+    console.log('9 Database already initialized');
   }
 
   return AppDataSource;
