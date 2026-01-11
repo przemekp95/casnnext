@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { AppDataSource } from '@/lib/db';
 import { initializeDatabase } from '@/lib/init-db';
 import { AuthorSchema, AnalysisSchema } from '@/lib/entities';
