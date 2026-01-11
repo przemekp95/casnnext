@@ -52,6 +52,9 @@ jobs:
             npm install
           fi
 
+      - name: Clear TypeScript cache
+        run: rm -rf node_modules/.cache tsconfig.tsbuildinfo tsconfig.ci.tsbuildinfo
+
       - name: Wait for MySQL
         run: |
           while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
