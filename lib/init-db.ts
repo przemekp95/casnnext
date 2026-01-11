@@ -63,22 +63,47 @@ export async function initializeDatabase() {
         console.log('Database migrations completed successfully');
 
         // Verify migrations actually worked by checking database content
-        console.log('Verifying migration success...');
+        console.log('= Verifying migration success...');
         try {
+          // Check if tables exist first
+          const queryRunner = AppDataSource.createQueryRunner();
+          const tables = await queryRunner.query('SHOW TABLES');
+          const tableNames = tables.map((row: any) => Object.values(row)[0]);
+
+          console.log('=Ë Available tables:', tableNames);
+
+          if (!tableNames.includes('Author') || !tableNames.includes('Analysis')) {
+            console.error('L Migration verification failed: Required tables do not exist');
+            console.error('This indicates migrations did not run successfully');
+            return AppDataSource;
+          }
+
+          // Check actual data counts
           const authorCount = await AppDataSource.getRepository('Author').count();
           const analysisCount = await AppDataSource.getRepository('Analysis').count();
 
-          console.log(`Verification results: ${authorCount} authors, ${analysisCount} analyses`);
+          console.log(`=Ê Verification results: ${authorCount} authors, ${analysisCount} analyses`);
 
-          if (authorCount === 0 || analysisCount === 0) {
-            console.warn('Migration verification failed: Expected data not found in database');
-            console.warn('This may indicate migration data was not inserted properly');
+          // Check for specific known data
+          const knownAuthor = await AppDataSource.getRepository('Author').findOne({
+            where: { slug: 'balcerowski' }
+          });
+
+          if (authorCount === 0 || analysisCount === 0 || !knownAuthor) {
+            console.error('L Migration verification failed: Expected data not found in database');
+            console.error('Migration may have run but data was not inserted properly');
+            console.error(`Expected: 34+ authors, 39+ analyses, author 'balcerowski' exists`);
+            console.error(`Found: ${authorCount} authors, ${analysisCount} analyses, known author: ${!!knownAuthor}`);
           } else {
-            console.log('Migration verification successful: Data found in database');
+            console.log(' Migration verification successful: All expected data found in database');
+            console.log(`=È Database contains ${authorCount} authors and ${analysisCount} analyses`);
           }
+
+          await queryRunner.release();
         } catch (verificationError) {
-          console.error('Migration verification failed:', verificationError.message);
-          console.warn('Migrations may have completed but verification failed');
+          console.error('L Migration verification failed:', verificationError.message);
+          console.warn('  Migrations may have completed but verification failed');
+          console.warn('Check database connection and table structure');
         }
       } else {
         console.log('Skipping database migrations (SKIP_TYPEORM_MIGRATE set)');
