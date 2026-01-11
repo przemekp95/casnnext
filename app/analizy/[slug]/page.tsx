@@ -5,14 +5,29 @@ import matter from "gray-matter";
 import ArticleLayout from "@/components/ArticleLayout";
 import Header from "@/components/Header";
 import { notFound } from "next/navigation";
-import { getAnalysisBySlug } from "@/lib/analyses";
+import { getAnalyses, getAnalysisBySlug } from "@/lib/analyses";
 
 import MDXContent from "@/components/mdx/MDXContent";
 
 // ——— RUNTIME / CACHE ————————————————————————————————————————————————
 export const runtime = "nodejs";
-// Tymczasowo zostaw; po stabilizacji zamień na: export const revalidate = 300;
-export const dynamic = "force-dynamic";
+// Generuj statycznie dla lepszej wydajności i SEO
+export const dynamicParams = true; // Allow dynamic params for new content
+export const revalidate = 3600; // Revalidate every hour
+
+// Generuj statyczne ścieżki dla istniejących analiz
+export async function generateStaticParams() {
+  try {
+    const analyses = await getAnalyses();
+    return analyses.map((analysis) => ({
+      slug: analysis.slug,
+    }));
+  } catch (error) {
+    // W przypadku błędu DB, zwróć pustą tablicę (fallback do SSR)
+    console.warn('generateStaticParams failed:', error);
+    return [];
+  }
+}
 
 // ——— Typy ——————————————————————————————————————————————————————————————
 
