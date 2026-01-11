@@ -133,10 +133,9 @@ describe('Database Utilities - Coverage Enhancement', () => {
     it('handles database unavailability gracefully', async () => {
       if (!getAuthors) return;
 
-      // Mock database unavailability by temporarily making pool unavailable
+      // Mock database unavailability using spyOn
       const dbModule = require('@/lib/db');
-      const originalGetPool = dbModule.getPool;
-      dbModule.getPool = jest.fn(() => null);
+      const spy = jest.spyOn(dbModule, 'getPool').mockReturnValue(null);
 
       try {
         // Should not throw, should return empty array or handle gracefully
@@ -144,7 +143,7 @@ describe('Database Utilities - Coverage Enhancement', () => {
         expect(Array.isArray(result)).toBe(true);
       } finally {
         // Restore original function
-        dbModule.getPool = originalGetPool;
+        spy.mockRestore();
       }
     });
   });
