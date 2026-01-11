@@ -1,5 +1,8 @@
 @import "bootstrap/dist/css/bootstrap.min.css";
 
+/* Essential legacy styles - cleaned for hydration compatibility */
+@import "css/legacy/style.css";
+
 /* CSS Reset to normalize browser differences and prevent hydration mismatches */
 *,
 *::before,
@@ -36,9 +39,6 @@ textarea:focus-visible {
   outline: 2px solid #FF0000;
   outline-offset: 2px;
 }
-
-/* Essential legacy styles - cleaned for hydration compatibility */
-@import "css/legacy/style.css";
 
 /* Reset & base */
 html,
