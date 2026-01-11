@@ -16,7 +16,7 @@ const issues = [
   { year: 2025, file: "/wszystkie_teksty_druk_3mm_spad_04_12.pdf", title: "Zeszyt Analiz 2025" },
 ];
 
-export default async function AnnualReportsPage() {
+export default function AnnualReportsPage() {
   return (
     <main className="bg-gray-100 min-h-screen pb-12">
       {/* CASES HOME START */}
