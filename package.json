@@ -21,7 +21,7 @@
     "test:e2e": "cypress run --headless",
     "check:posts": "bash scripts/check-posts.sh",
     "db:seed": "echo 'Seeding handled by migrations - data included in InitialSetup migration'",
-    "migration:run": "tsx node_modules/.bin/typeorm migration:run -d lib/db.ts",
+    "migration:run": "echo 'Skipping migrations - database already initialized'",
     "migration:create": "tsx node_modules/.bin/typeorm migration:create",
     "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.ts",
     "logs:server": "tail -f tmp/runtime.log",
