@@ -41,14 +41,6 @@ export default async function AuthorsPage() {
       ? img
       : "/images/placeholder.png";
 
-  const getDisplayName = (name: string, slug: string) => {
-    // ZAWSZE zwracaj tę samą wartość - nie używaj fallback jeśli name istnieje
-    return name?.trim() || slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
   return (
     <main className="bg-gray-100 min-h-screen pb-12">
       {/* HERO */}
@@ -105,7 +97,6 @@ export default async function AuthorsPage() {
         <div className="container">
           <div className="row">
             {authors.map((a: AuthorRow) => {
-              const displayName = getDisplayName(a.name, a.slug);
               const avatarSrc = getAvatarSrc(a.img);
 
               return (
@@ -114,27 +105,27 @@ export default async function AuthorsPage() {
                     <div className="team-img">
                       <Image
                         src={avatarSrc}
-                        alt={displayName}
+                        alt={a.displayName}
                         className="img-fluid d-block rounded"
                         width={600}
                         height={600}
                         unoptimized
                       />
                       <div className="our-team-name text-center">
-                        <h6 className="mb-0 text-white" suppressHydrationWarning>
-                          {displayName}
+                        <h6 className="mb-0 text-white">
+                          {a.displayName}
                         </h6>
                       </div>
                     </div>
                     <div className="our-team-overlay">
                       <div className="item-content text-white text-center p-2">
                         <div className="item-desc">
-                          <h5 className="text-white mb-0" suppressHydrationWarning>
+                          <h5 className="text-white mb-0">
                             <Link
                               href={`/autor/${a.slug}`}
                               style={{ color: "inherit", textDecoration: "none" }}
                             >
-                              {displayName}
+                              {a.displayName}
                             </Link>
                           </h5>
                           <div className="our-team-box-border mt-3 mb-3" />

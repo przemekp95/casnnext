@@ -27,20 +27,6 @@ export default async function AuthorPage(props: any) {
       ? img
       : "/images/placeholder.png";
 
-  const getDisplayName = (name: string, slug: string) => {
-    if (name?.trim()) {
-      return name;
-    }
-    // Generuj nazwę z slug jeśli name jest puste
-    return slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  const displayName = getDisplayName(author.name, author.slug);
-  const imgSrc = getAvatarSrc(author.img);
-
   return (
     <main>
       <section className="contact-us-home section" id="home">
@@ -56,12 +42,12 @@ export default async function AuthorPage(props: any) {
                 <div className="row justify-content-center">
                   <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
                     <div className="home-page-title text-center">
-                      <h1 className="text-white mb-2" suppressHydrationWarning>{displayName}</h1>
+                      <h1 className="text-white mb-2">{author.displayName}</h1>
                       <nav aria-label="breadcrumb">
                         <ol className="breadcrumb justify-content-center bg-transparent">
                           <li className="breadcrumb-item text-white"><Link href="/" className="text-white">Strona główna</Link></li>
                           <li className="breadcrumb-item"><Link href="/autorzy" className="text-custom">Nasi autorzy</Link></li>
-                          <li className="breadcrumb-item active" aria-current="page" suppressHydrationWarning>{displayName}</li>
+                          <li className="breadcrumb-item active" aria-current="page">{author.displayName}</li>
                         </ol>
                       </nav>
                     </div>
@@ -78,13 +64,13 @@ export default async function AuthorPage(props: any) {
           <div className="row align-items-center">
             <div className="col-lg-4">
               <div className="team-details-img mo-mb-20">
-                <Image src={imgSrc} alt={`Zdjęcie ${displayName}`}
+                <Image src={getAvatarSrc(author.img)} alt={`Zdjęcie ${author.displayName}`}
                        className="img-fluid d-block mx-auto rounded" width={600} height={600} unoptimized />
               </div>
             </div>
             <div className="col-lg-8">
               <div className="team-details rounded p-4">
-                <h4 className="text-dark mb-2">{displayName}</h4>
+                <h4 className="text-dark mb-2">{author.displayName}</h4>
                 <div className="team-details-border mt-3 mb-3"></div>
                 <p className="team-details-desc text-muted mb-4">{author.bio ?? ""}</p>
               </div>
