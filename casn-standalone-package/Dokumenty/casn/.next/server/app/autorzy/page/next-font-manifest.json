@@ -1,0 +1,13 @@
+{
+  "pages": {},
+  "app": {
+    "[project]/Dokumenty/casn/app/autorzy/page": [
+      "static/media/f7d6090e8b3debad-s.p.bd7225bd.woff2",
+      "static/media/ce62453a442c7f35-s.p.a9507876.woff2",
+      "static/media/d25394c5b8ff78eb-s.p.073fd20a.woff2",
+      "static/media/c9f6ebf08ddd616b-s.p.8e1a882d.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pagesUsingSizeAdjust": false
+}

@@ -2,29 +2,36 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAuthorBySlug } from "@/lib/authors";
+import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-
+type AuthorRow = { id: number; slug: string; name: string; bio?: string | null; img?: string | null };
+type AnalysisRow = { id: number; title: string; slug: string };
 
 // celowo: props:any – omijamy wadliwy constraint z .next/types
 export default async function AuthorPage(props: any) {
   const { slug }: { slug: string } = await props.params;
   if (!slug) return notFound();
 
-  const result = await getAuthorBySlug(slug);
-  if (!result) return notFound();
+  const authors = await query<AuthorRow>(
+    "SELECT id, slug, name, bio, img FROM Author WHERE slug = ? LIMIT 1",
+    [slug]
+  );
+  const author = authors[0];
+  if (!author) return notFound();
 
-  const { author, analyses } = result;
+  const analyses = await query<AnalysisRow>(
+    "SELECT id, title, slug FROM Analysis WHERE authorId = ? ORDER BY id DESC",
+    [author.id]
+  );
 
-  // Bezpieczne funkcje pomocnicze
-  const getAvatarSrc = (img?: string | null) =>
-    img && (img.startsWith("/") || img.startsWith("http"))
-      ? img
+  const imgSrc =
+    author.img && (author.img.startsWith("/") || author.img.startsWith("http"))
+      ? author.img
       : "/images/placeholder.png";
 
   return (
@@ -42,12 +49,12 @@ export default async function AuthorPage(props: any) {
                 <div className="row justify-content-center">
                   <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
                     <div className="home-page-title text-center">
-                      <h1 className="text-white mb-2">{author.displayName}</h1>
+                      <h1 className="text-white mb-2">{author.name}</h1>
                       <nav aria-label="breadcrumb">
                         <ol className="breadcrumb justify-content-center bg-transparent">
                           <li className="breadcrumb-item text-white"><Link href="/" className="text-white">Strona główna</Link></li>
                           <li className="breadcrumb-item"><Link href="/autorzy" className="text-custom">Nasi autorzy</Link></li>
-                          <li className="breadcrumb-item active" aria-current="page">{author.displayName}</li>
+                          <li className="breadcrumb-item active" aria-current="page">{author.name}</li>
                         </ol>
                       </nav>
                     </div>
@@ -64,13 +71,13 @@ export default async function AuthorPage(props: any) {
           <div className="row align-items-center">
             <div className="col-lg-4">
               <div className="team-details-img mo-mb-20">
-                <Image src={getAvatarSrc(author.img)} alt={`Zdjęcie ${author.displayName}`}
+                <Image src={imgSrc} alt={`Zdjęcie ${author.name}`}
                        className="img-fluid d-block mx-auto rounded" width={600} height={600} unoptimized />
               </div>
             </div>
             <div className="col-lg-8">
               <div className="team-details rounded p-4">
-                <h4 className="text-dark mb-2">{author.displayName}</h4>
+                <h4 className="text-dark mb-2">{author.name}</h4>
                 <div className="team-details-border mt-3 mb-3"></div>
                 <p className="team-details-desc text-muted mb-4">{author.bio ?? ""}</p>
               </div>

@@ -1,4 +1,5 @@
 // components/ArticleLayout.tsx
+import Link from "next/link";  // tylko to zostawiamy, jeśli jest używane
 
 type Crumb = { label: string; href?: string; active?: boolean };
 
@@ -30,7 +31,7 @@ export default function ArticleLayout({
       <section className="contact-us-home section" id="home">
         <div className="relative" style={{ minHeight: 380 }}>
           {/* Desktop bg */}
-          { }
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/home2.webp"
             alt="Tło"
@@ -45,7 +46,7 @@ export default function ArticleLayout({
             }}
           />
           {/* Mobile logo */}
-          { }
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/logo.jpg"
             alt="CASN"
