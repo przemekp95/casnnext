@@ -12,7 +12,7 @@ import './entities/Analysis';
 export async function initializeDatabase() {
   // Check for database configuration
   const hasDatabaseConfig = !!(
-    process.env.DATABASE_URL ||
+    process.env.DATABASE_UR❌ ||
     (process.env.DB_HOST && process.env.DB_USER && process.env.DB_NAME)
   );
 
@@ -53,21 +53,21 @@ export async function initializeDatabase() {
       });
 
       await AppDataSource.initialize();
-      console.log(' Database connection established successfully');
+      console.log('✅ Database connection established successfully');
 
       // Always run migrations (never synchronize) - this ensures schema + data consistency
       console.log('Checking SKIP_TYPEORM_MIGRATE:', process.env.SKIP_TYPEORM_MIGRATE);
       if (process.env.SKIP_TYPEORM_MIGRATE !== '1') {
         console.log('=� Running database migrations...');
         await AppDataSource.runMigrations();
-        console.log(' Database migrations completed successfully');
+        console.log('✅ Database migrations completed successfully');
       } else {
         console.log('� Skipping database migrations (SKIP_TYPEORM_MIGRATE set)');
       }
 
-      console.log(' Database initialization completed');
+      console.log('✅ Database initialization completed');
     } catch (error) {
-      console.error('L Database initialization failed:', error);
+      console.error('❌ Database initialization failed:', error);
       console.error('Error details:', {
         message: error.message,
         code: error.code,
@@ -80,7 +80,7 @@ export async function initializeDatabase() {
       return AppDataSource;
     }
   } else {
-    console.log('9 Database already initialized');
+    console.log('ℹ️ Database already initialized');
   }
 
   return AppDataSource;
