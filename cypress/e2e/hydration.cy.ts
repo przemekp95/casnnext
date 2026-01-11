@@ -1,9 +1,9 @@
 describe('Hydration Tests', () => {
-  it.skip('should hydrate without errors on all pages', () => {
-    // Skip hydration tests in CI - they require specific Next.js development setup
+  it('should hydrate without errors on all pages', () => {
+    // Visit homepage and check for hydration errors in production
     cy.visit('/');
 
-    // Check for hydration errors in console
+    // Check for hydration errors in console - production build may not have __NEXT_DATA__
     cy.window().then((win) => {
       // Override console.error to catch hydration errors
       const originalError = win.console.error;
@@ -13,7 +13,10 @@ describe('Hydration Tests', () => {
         const message = args.join(' ');
         if (message.includes('Minified React error') ||
             message.includes('hydration') ||
-            message.includes('Hydration')) {
+            message.includes('Hydration') ||
+            message.includes('Text content does not match') ||
+            message.includes('Expected server HTML to contain') ||
+            message.includes('There was an error while hydrating')) {
           hydrationErrors.push(message);
         }
         originalError.apply(win.console, args);
@@ -23,6 +26,9 @@ describe('Hydration Tests', () => {
       (win as { hydrationErrors?: string[] }).hydrationErrors = hydrationErrors;
     });
 
+    // Wait a bit for hydration to complete
+    cy.wait(2000);
+
     // Verify no hydration errors occurred
     cy.window().should((win) => {
       const errors = (win as { hydrationErrors?: string[] }).hydrationErrors || [];
@@ -30,19 +36,62 @@ describe('Hydration Tests', () => {
     });
   });
 
-  it.skip('should maintain consistent DOM structure after hydration', () => {
-    // Skip DOM structure tests in CI - they depend on specific application state
+  it('should maintain consistent DOM structure after hydration', () => {
     cy.visit('/');
 
-    // Small delay to ensure hydration is complete
-    cy.wait(100);
+    // Check for hydration mismatches in console
+    cy.window().then((win) => {
+      const originalWarn = win.console.warn;
+      const originalError = win.console.error;
+      const hydrationWarnings: string[] = [];
+      const hydrationErrors: string[] = [];
 
-    // Compare DOM structure
-    cy.document().should((doc) => {
-      const clientHTML = doc.body.innerHTML;
-      // Basic structure should be similar (not identical due to dynamic content)
-      expect(clientHTML).to.contain('bg-gray-100'); // Main container class
-      expect(clientHTML).to.contain('min-h-screen'); // Layout classes
+      win.console.warn = (...args: unknown[]) => {
+        const message = args.join(' ');
+        if (message.includes('Expected server HTML') ||
+            message.includes('Did not expect server HTML') ||
+            message.includes('hydration') ||
+            message.includes('mismatch')) {
+          hydrationWarnings.push(message);
+        }
+        originalWarn.apply(win.console, args);
+      };
+
+      win.console.error = (...args: unknown[]) => {
+        const message = args.join(' ');
+        if (message.includes('hydration') ||
+            message.includes('Hydration') ||
+            message.includes('Text content does not match') ||
+            message.includes('There was an error while hydrating')) {
+          hydrationErrors.push(message);
+        }
+        originalError.apply(win.console, args);
+      };
+
+      (win as { hydrationWarnings?: string[]; hydrationErrors?: string[] }).hydrationWarnings = hydrationWarnings;
+      (win as { hydrationWarnings?: string[]; hydrationErrors?: string[] }).hydrationErrors = hydrationErrors;
+    });
+
+    // Wait for hydration to complete
+    cy.wait(2000);
+
+    // Check for hydration warnings/errors
+    cy.window().should((win) => {
+      const warnings = (win as { hydrationWarnings?: string[] }).hydrationWarnings || [];
+      const errors = (win as { hydrationWarnings?: string[]; hydrationErrors?: string[] }).hydrationErrors || [];
+
+      // Log warnings for debugging
+      if (warnings.length > 0) {
+        console.log('Hydration warnings:', warnings);
+      }
+
+      // Fail if there are hydration errors
+      expect(errors.length).to.equal(0, `Hydration errors found: ${errors.join(', ')}`);
+
+      // Allow some warnings but log them
+      if (warnings.length > 0) {
+        cy.log(`Hydration warnings detected: ${warnings.length} warnings`);
+      }
     });
   });
 
