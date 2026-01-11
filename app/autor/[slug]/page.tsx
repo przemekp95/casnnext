@@ -15,7 +15,7 @@ export default async function AuthorPage(props: any) {
   const { slug }: { slug: string } = await props.params;
   if (!slug) return notFound();
 
-  const response = await fetch(`http://localhost:3000/api/authors/${slug}`, {
+  const response = await fetch(`/api/authors/${slug}`, {
     cache: "no-store",
   });
 

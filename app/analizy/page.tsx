@@ -25,9 +25,16 @@ export default async function AnalysesPage() {
 
   try {
     // Fetch all analyses with author data
-    const analyses = await fetch("http://localhost:3000/api/analyses", {
+    const response = await fetch("/api/analyses", {
       cache: "no-store",
-    }).then(res => res.json());
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch analyses:', response.status);
+      throw new Error('Failed to fetch analyses');
+    }
+
+    const analyses = await response.json();
 
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
