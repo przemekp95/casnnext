@@ -60,8 +60,8 @@ describe.skip('Database Seeding', () => {
   beforeAll(async () => {
     // Check if database is available for seeding tests
     try {
-      const db = require('@/lib/db');
-      const pool = db.getPool();
+      const { getPool } = await import('@/lib/db');
+      const pool = getPool();
       if (pool) {
         await pool.execute('SELECT 1');
         isDatabaseAvailable = true;

@@ -20,5 +20,5 @@ if (typeof global.fetch === 'undefined') {
     status: 200,
     json: () => Promise.resolve([]),
     text: () => Promise.resolve('')
-  })) as any;
+  })) as jest.MockedFunction<typeof fetch>;
 }

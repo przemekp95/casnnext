@@ -7,8 +7,8 @@ describe('Hydration and Data Integration Tests', () => {
   beforeAll(async () => {
     // Check if database is available for integration tests
     try {
-      const db = require('@/lib/db');
-      const pool = db.getPool();
+      const { getPool } = await import('@/lib/db');
+      const pool = getPool();
       if (pool) {
         await pool.execute('SELECT 1');
         isDatabaseAvailable = true;
