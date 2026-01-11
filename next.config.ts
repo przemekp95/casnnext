@@ -6,7 +6,10 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
   // output: "standalone",        // REMOVED - causing deployment issues
-  images: { unoptimized: true } // <- naprawia 400 na /_next/image
+  images: { unoptimized: true }, // <- naprawia 400 na /_next/image
+  // turbopack: {
+  //   rules: undefined  // Remove invalid 'conditions' if present
+  // }
 } satisfies NextConfig;
 
 const withMDX = createMDX({
