@@ -26,20 +26,24 @@ export default async function AuthorsPage() {
     );
   }
 
-  const authors = await getAuthors();
+  // Pobierz dane - jeśli baza niedostępna, zwróć fallback
+  let authors: AuthorRow[] = [];
+  try {
+    authors = await getAuthors();
+  } catch (error) {
+    console.warn('Failed to load authors, showing empty list:', error);
+    // Fallback: pusta lista zamiast błędów
+  }
 
-  // Bezpieczne funkcje pomocnicze
+  // Bezpieczne funkcje pomocnicze - zawsze zwracają spójne wyniki
   const getAvatarSrc = (img?: string | null) =>
     img && (img.startsWith("/") || img.startsWith("http"))
       ? img
       : "/images/placeholder.png";
 
   const getDisplayName = (name: string, slug: string) => {
-    if (name?.trim()) {
-      return name;
-    }
-    // Generuj nazwę z slug jeśli name jest puste
-    return slug
+    // ZAWSZE zwracaj tę samą wartość - nie używaj fallback jeśli name istnieje
+    return name?.trim() || slug
       .split('-')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
