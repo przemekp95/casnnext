@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class FixAnalysesData1768119419753 implements MigrationInterface {
@@ -160,16 +161,16 @@ export class FixAnalysesData1768119419753 implements MigrationInterface {
             { slug: 'wot-balcerowski', title: 'Wojska Obrony Terytorialnej (WOT) w latach 2016-2022' },
             { slug: 'balcerowski-wegry', title: 'Czy Polacy potrzebuj biaBo-czerwonego Orbana?' },
             { slug: 'balcerowski-nacjonalizm', title: 'O pojciu Nacjonalizm' },
-            { slug: 'kochman-artykul', title: 'Rozwój otoczenia instytucjonalnego polityki mBodzie|owej' },
+            { slug: 'kochman-artykul', title: 'Rozwï¿½j otoczenia instytucjonalnego polityki mBodzie|owej' },
             { slug: 'kochman-epbd', title: 'WpByw nowelizacji dyrektywy EPBD' },
             { slug: 'rosolowski-energetyka', title: 'Zielona zmiana w polskiej energetyce' },
             { slug: 'rosolowski-atom', title: 'Polski atom  pitna[cie lat wahaD' },
-            { slug: 'domanska-artykul', title: 'Raport dotyczcy badania to|samo[ci wspólnotowej' },
+            { slug: 'domanska-artykul', title: 'Raport dotyczcy badania to|samo[ci wspï¿½lnotowej' },
             { slug: 'luczuk-artykul', title: 'Polska suwerenno[ informacyjna a social media' },
             { slug: 'slad-luczuk', title: 'Jak dBugi cyfrowy [lad po sobie zostawiamy' },
             { slug: 'okolowski-artykul', title: 'Dwa modele uniwersytetu' },
             { slug: 'wos-artykul', title: 'Solidarno[ 2023' },
-            { slug: 'bruszewski-artykul', title: 'Rozwój SiB Zbrojnych RP' },
+            { slug: 'bruszewski-artykul', title: 'Rozwï¿½j SiB Zbrojnych RP' },
             { slug: 'gursztyn-artykul', title: 'Pora|ki polskiej polityki wschodniej' },
             { slug: 'rutke-artykul', title: 'Europa murami podzielona' },
             { slug: 'kita-artykul', title: 'Francuska polityka migracyjna' },
