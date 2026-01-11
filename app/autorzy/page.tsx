@@ -60,9 +60,7 @@ function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            );
+                );
           })
         ) : (
           <div className="col-12 text-center py-5">
