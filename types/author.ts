@@ -2,6 +2,7 @@ export interface AuthorRow {
   id: string;
   slug: string;
   name: string;
+  displayName: string;
   img?: string | null;
   bio?: string | null;
 }
@@ -11,6 +12,7 @@ export interface AuthorDetail {
     id: string;
     slug: string;
     name: string;
+    displayName: string;
     img?: string | null;
     bio?: string | null;
   };

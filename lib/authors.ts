@@ -24,7 +24,7 @@ export async function getAuthors(): Promise<AuthorRow[]> {
     const authors = await authorRepository.find({
       order: { name: 'ASC' },
       // Ensure we load all required fields explicitly
-      select: ['id', 'slug', 'name', 'img', 'bio'],
+      select: ['id', 'slug', 'name', 'displayName', 'img', 'bio'],
     });
 
     // Transform to UI-friendly format with explicit string conversion
@@ -32,6 +32,7 @@ export async function getAuthors(): Promise<AuthorRow[]> {
       id: String(author.id),
       slug: String(author.slug),
       name: String(author.name),
+      displayName: String(author.displayName),
       img: author.img ? String(author.img) : null,
       bio: author.bio ? String(author.bio) : null,
     }));
@@ -73,13 +74,16 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
   });
 
   // Transform to UI-friendly format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const authorEntity = author as any;
   return {
     author: {
-      id: String(author.id),
-      slug: author.slug,
-      name: author.name,
-      img: author.img || undefined,
-      bio: author.bio || undefined,
+      id: String(authorEntity.id),
+      slug: authorEntity.slug,
+      name: authorEntity.name,
+      displayName: authorEntity.displayName,
+      img: authorEntity.img || undefined,
+      bio: authorEntity.bio || undefined,
     },
     analyses: analyses.map(analysis => ({
       id: String(analysis.id),

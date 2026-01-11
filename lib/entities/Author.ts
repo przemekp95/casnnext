@@ -4,6 +4,7 @@ export interface AuthorEntity {
   id: number;
   slug: string;
   name: string;
+  displayName: string;
   img?: string | null;
   bio?: string | null;
   analyses?: unknown[];
@@ -24,6 +25,10 @@ export const AuthorSchema = new EntitySchema<AuthorEntity>({
       unique: true,
     },
     name: {
+      type: String,
+      length: 255,
+    },
+    displayName: {
       type: String,
       length: 255,
     },

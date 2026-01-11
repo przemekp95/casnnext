@@ -41,14 +41,6 @@ export default async function AuthorsPage() {
       ? img
       : "/images/placeholder.png";
 
-  const getDisplayName = (name: string, slug: string) => {
-    // ZAWSZE zwracaj tę samą wartość - nie używaj fallback jeśli name istnieje
-    return name?.trim() || slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
   return (
     <main className="bg-gray-100 min-h-screen pb-12">
       {/* HERO */}
@@ -105,7 +97,6 @@ export default async function AuthorsPage() {
         <div className="container">
           <div className="row">
             {authors.map((a: AuthorRow) => {
-              const displayName = getDisplayName(a.name, a.slug);
               const avatarSrc = getAvatarSrc(a.img);
 
               return (
@@ -114,7 +105,7 @@ export default async function AuthorsPage() {
                     <div className="team-img">
                       <Image
                         src={avatarSrc}
-                        alt={displayName}
+                        alt={a.displayName}
                         className="img-fluid d-block rounded"
                         width={600}
                         height={600}
@@ -122,7 +113,7 @@ export default async function AuthorsPage() {
                       />
                       <div className="our-team-name text-center">
                         <h6 className="mb-0 text-white">
-                          {displayName}
+                          {a.displayName}
                         </h6>
                       </div>
                     </div>
@@ -134,7 +125,7 @@ export default async function AuthorsPage() {
                               href={`/autor/${a.slug}`}
                               style={{ color: "inherit", textDecoration: "none" }}
                             >
-                              {displayName}
+                              {a.displayName}
                             </Link>
                           </h5>
                           <div className="our-team-box-border mt-3 mb-3" />
