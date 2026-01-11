@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
 describe('Hydration Tests', () => {
   it('should hydrate without errors on all pages', () => {
     // Visit homepage
@@ -56,7 +55,6 @@ describe('Hydration Tests', () => {
     cy.visit('/autorzy');
 
     // Wait for page to load
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     void cy.contains('Nasi autorzy').should('be.visible');
 
     // Check for hydration errors
