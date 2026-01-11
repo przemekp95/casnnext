@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -99,7 +97,7 @@ describe('Hydration and Data Integration Tests', () => {
       const data = await response.json();
       expect(Array.isArray(data)).toBe(true);
 
-      data.forEach((author: any) => {
+      data.forEach((author: Record<string, unknown>) => {
         // Verify required attributes
         expect(author).toHaveProperty('id');
         expect(author).toHaveProperty('slug');
@@ -143,7 +141,7 @@ describe('Hydration and Data Integration Tests', () => {
 
         // Verify analyses structure
         expect(Array.isArray(detailData.analyses)).toBe(true);
-        detailData.analyses.forEach((analysis: any) => {
+        detailData.analyses.forEach((analysis: Record<string, unknown>) => {
           expect(analysis).toHaveProperty('id');
           expect(analysis).toHaveProperty('title');
           expect(analysis).toHaveProperty('slug');
@@ -160,7 +158,7 @@ describe('Hydration and Data Integration Tests', () => {
       const data = await response.json();
       expect(Array.isArray(data)).toBe(true);
 
-      data.forEach((article: any) => {
+      data.forEach((article: Record<string, unknown>) => {
         expect(article).toHaveProperty('id');
         expect(article).toHaveProperty('title');
         expect(article).toHaveProperty('slug');
@@ -192,9 +190,9 @@ describe('Hydration and Data Integration Tests', () => {
       const articles = await articlesResponse.json();
       const authors = await authorsResponse.json();
 
-      const authorIds = new Set(authors.map((a: any) => a.id));
+      const authorIds = new Set(authors.map((a: Record<string, unknown>) => a.id));
 
-      articles.forEach((article: any) => {
+      articles.forEach((article: Record<string, unknown>) => {
         expect(authorIds.has(article.authorId)).toBe(true);
       });
     });

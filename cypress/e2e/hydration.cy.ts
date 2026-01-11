@@ -10,9 +10,9 @@ describe('Hydration Tests', () => {
     cy.window().then((win) => {
       // Override console.error to catch hydration errors
       const originalError = win.console.error;
-      let hydrationErrors: string[] = [];
+      const hydrationErrors: string[] = [];
 
-      win.console.error = (...args: any[]) => {
+      win.console.error = (...args: unknown[]) => {
         const message = args.join(' ');
         if (message.includes('Minified React error') ||
             message.includes('hydration') ||
@@ -23,24 +23,18 @@ describe('Hydration Tests', () => {
       };
 
       // Store for later checks
-      (win as any).hydrationErrors = hydrationErrors;
+      (win as { hydrationErrors?: string[] }).hydrationErrors = hydrationErrors;
     });
 
     // Verify no hydration errors occurred
     cy.window().should((win) => {
-      const errors = (win as any).hydrationErrors || [];
+      const errors = (win as { hydrationErrors?: string[] }).hydrationErrors || [];
       expect(errors.length).to.equal(0, `Hydration errors found: ${errors.join(', ')}`);
     });
   });
 
   it('should maintain consistent DOM structure after hydration', () => {
     cy.visit('/');
-
-    // Get initial HTML structure
-    let serverHTML = '';
-    cy.document().then((doc) => {
-      serverHTML = doc.body.innerHTML;
-    });
 
     // Wait for hydration
     cy.window().should('have.property', '__NEXT_DATA__');
@@ -66,9 +60,9 @@ describe('Hydration Tests', () => {
     // Check for hydration errors
     cy.window().then((win) => {
       const originalError = win.console.error;
-      let hydrationErrors: string[] = [];
+      const hydrationErrors: string[] = [];
 
-      win.console.error = (...args: any[]) => {
+      win.console.error = (...args: unknown[]) => {
         const message = args.join(' ');
         if (message.includes('Minified React error') ||
             message.includes('hydration') ||
@@ -78,12 +72,12 @@ describe('Hydration Tests', () => {
         originalError.apply(win.console, args);
       };
 
-      (win as any).hydrationErrors = hydrationErrors;
+      (win as { hydrationErrors?: string[] }).hydrationErrors = hydrationErrors;
     });
 
     // Verify no errors
     cy.window().should((win) => {
-      const errors = (win as any).hydrationErrors || [];
+      const errors = (win as { hydrationErrors?: string[] }).hydrationErrors || [];
       expect(errors.length).to.equal(0, `Errors found: ${errors.join(', ')}`);
     });
   });
@@ -97,9 +91,9 @@ describe('Hydration Tests', () => {
     // Check for hydration errors
     cy.window().then((win) => {
       const originalError = win.console.error;
-      let hydrationErrors: string[] = [];
+      const hydrationErrors: string[] = [];
 
-      win.console.error = (...args: any[]) => {
+      win.console.error = (...args: unknown[]) => {
         const message = args.join(' ');
         if (message.includes('Minified React error') ||
             message.includes('hydration') ||
@@ -109,12 +103,12 @@ describe('Hydration Tests', () => {
         originalError.apply(win.console, args);
       };
 
-      (win as any).hydrationErrors = hydrationErrors;
+      (win as { hydrationErrors?: string[] }).hydrationErrors = hydrationErrors;
     });
 
     // Verify no errors
     cy.window().should((win) => {
-      const errors = (win as any).hydrationErrors || [];
+      const errors = (win as { hydrationErrors?: string[] }).hydrationErrors || [];
       expect(errors.length).to.equal(0, `Errors found: ${errors.join(', ')}`);
     });
   });
