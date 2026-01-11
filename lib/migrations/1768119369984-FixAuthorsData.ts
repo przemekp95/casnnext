@@ -7,7 +7,7 @@ export class FixAuthorsData1768119369984 implements MigrationInterface {
         // Fix existing author data by populating missing name, img, and bio fields
         // based on slug values and providing reasonable defaults
 
-        // 1. Update names based on existing slugs (convert slug format to proper names)
+        // 1. Update names and displayNames based on existing slugs (convert slug format to proper names)
         await queryRunner.query(`
             UPDATE \`Author\`
             SET \`name\` = CASE
@@ -39,13 +39,48 @@ export class FixAuthorsData1768119369984 implements MigrationInterface {
                 WHEN \`slug\` = 'rowinski' THEN 'Tomasz RowiDski'
                 WHEN \`slug\` = 'siemiatkowski' THEN 'dr Jakub Siemitkowski'
                 WHEN \`slug\` = 'musial' THEN 'dr Adrian MusiaB'
-                WHEN \`slug\` = 'gorka' THEN 'adw. Grzegorz G�rka'
+                WHEN \`slug\` = 'gorka' THEN 'adw. Grzegorz Grka'
                 WHEN \`slug\` = 'szymanski' THEN 'MichaB SzymaDski'
                 WHEN \`slug\` = 'masior' THEN 'dr MichaB Masior'
                 WHEN \`slug\` = 'pietrzak' THEN 'PrzemysBaw Pietrzak LL.M.'
                 ELSE \`name\`
+            END,
+            \`displayName\` = CASE
+                WHEN \`slug\` = 'lempicka-wyszynska' THEN 'Dominika Aempicka-WyszyDska'
+                WHEN \`slug\` = 'balcerowski' THEN 'Dr Piotr Balcerowski'
+                WHEN \`slug\` = 'kochman' THEN 'Adw. Oskar Kochman'
+                WHEN \`slug\` = 'rosolowski' THEN 'Marcin RosoBowski'
+                WHEN \`slug\` = 'luczuk' THEN 'Dr Piotr Auczuk'
+                WHEN \`slug\` = 'domanska' THEN 'Dr Aldona DomaDska'
+                WHEN \`slug\` = 'lewandowski' THEN 'Adw. dr Bartosz Lewandowski'
+                WHEN \`slug\` = 'kochan' THEN 'Prof. Marek Kochan'
+                WHEN \`slug\` = 'wos' THEN 'RafaB Wo['
+                WHEN \`slug\` = 'gursztyn' THEN 'Piotr Gursztyn'
+                WHEN \`slug\` = 'kita' THEN 'Kacper Kita'
+                WHEN \`slug\` = 'swietlik' THEN 'Wiktor Zwietlik'
+                WHEN \`slug\` = 'rutke' THEN 'Grzegorz Rutke'
+                WHEN \`slug\` = 'bochenek' THEN 'Adrian Bochenek'
+                WHEN \`slug\` = 'trochanowska' THEN 'Beata Trochanowska'
+                WHEN \`slug\` = 'bruszewski' THEN 'MichaB Bruszewski'
+                WHEN \`slug\` = 'giera' THEN 'Kamil Giera'
+                WHEN \`slug\` = 'pietr' THEN 'Wojciech Pietr'
+                WHEN \`slug\` = 'rak' THEN 'Dr Krzysztof Rak'
+                WHEN \`slug\` = 'dakowski' THEN 'Marek Dakowski'
+                WHEN \`slug\` = 'feszler' THEN 'Mateusz Feszler'
+                WHEN \`slug\` = 'horoszko' THEN 'Aleksandra Horoszko'
+                WHEN \`slug\` = 'trabinski' THEN 'Piotr TrbiDski'
+                WHEN \`slug\` = 'okolowski' THEN 'Dr hab. PaweB OkoBowski'
+                WHEN \`slug\` = 'ratynski' THEN 'Dr Mateusz RatyDski'
+                WHEN \`slug\` = 'rowinski' THEN 'Tomasz RowiDski'
+                WHEN \`slug\` = 'siemiatkowski' THEN 'dr Jakub Siemitkowski'
+                WHEN \`slug\` = 'musial' THEN 'dr Adrian MusiaB'
+                WHEN \`slug\` = 'gorka' THEN 'adw. Grzegorz Grka'
+                WHEN \`slug\` = 'szymanski' THEN 'MichaB SzymaDski'
+                WHEN \`slug\` = 'masior' THEN 'dr MichaB Masior'
+                WHEN \`slug\` = 'pietrzak' THEN 'PrzemysBaw Pietrzak LL.M.'
+                ELSE \`displayName\`
             END
-            WHERE \`name\` IS NULL OR \`name\` = ''
+            WHERE \`name\` IS NULL OR \`name\` = '' OR \`displayName\` IS NULL OR \`displayName\` = ''
         `);
 
         // 2. Update image paths (set default images based on slug)
