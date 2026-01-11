@@ -5,9 +5,7 @@ import { getAuthors } from "@/lib/authors";
 import { AuthorRow } from "@/types/author";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 3600; // ISR - odśwież co godzinę
 
 export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
 
@@ -30,6 +28,7 @@ export default async function AuthorsPage() {
   let authors: AuthorRow[] = [];
   try {
     authors = await getAuthors();
+    console.log('SSR: Loaded authors count:', authors.length);
   } catch (error) {
     console.warn('Failed to load authors, showing empty list:', error);
     // Fallback: pusta lista zamiast błędów
