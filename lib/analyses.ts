@@ -60,31 +60,29 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
   }
 
   const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-  const analysis = await analysisRepository
-    .createQueryBuilder('analysis')
-    .leftJoin('Author', 'author', 'author.id = analysis.authorId')
-    .select([
-      'analysis.id',
-      'analysis.title',
-      'analysis.slug',
-      'author.name as author_name',
-      'author.bio as author_bio'
-    ])
-    .where('analysis.slug = :slug', { slug })
-    .getRawOne();
+
+  // U|yj findOne zamiast query builder dla prostoty i niezawodno[ci
+  const analysis = await analysisRepository.findOne({
+    where: { slug },
+    relations: {
+      author: true,
+    },
+  });
 
   if (!analysis) {
     return null;
   }
 
   // Transform to UI-friendly format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const author = (analysis as any).author;
   return {
-    id: String(analysis.analysis_id || analysis.id),
-    title: analysis.analysis_title || analysis.title,
-    slug: analysis.analysis_slug || analysis.slug,
-    author: analysis.author_name ? {
-      name: analysis.author_name,
-      bio: analysis.author_bio || undefined,
+    id: String(analysis.id),
+    title: analysis.title,
+    slug: analysis.slug,
+    author: author ? {
+      name: author.name || undefined,
+      bio: author.bio || undefined,
     } : undefined,
   };
 }
