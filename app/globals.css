@@ -1,5 +1,42 @@
 @import "bootstrap/dist/css/bootstrap.min.css";
 
+/* CSS Reset to normalize browser differences and prevent hydration mismatches */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Aggressive overrides for Bootstrap properties that cause SSR/client parsing differences */
+html {
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+  -moz-osx-font-smoothing: auto !important;
+  -webkit-font-smoothing: auto !important;
+}
+
+/* Override all problematic focus-related properties that Bootstrap uses */
+*::-moz-focus-inner,
+*::-moz-focus-outer {
+  border: 0 !important;
+  padding: 0 !important;
+}
+
+/* Normalize column-gap properties across all browsers */
+* {
+  -moz-column-gap: normal !important;
+  column-gap: normal !important;
+}
+
+/* Override Bootstrap's problematic selector patterns */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #FF0000;
+  outline-offset: 2px;
+}
+
 /* Essential legacy styles - cleaned for hydration compatibility */
 @import "css/legacy/style.css";
 
