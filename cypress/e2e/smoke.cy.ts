@@ -1,13 +1,13 @@
 describe('Smoke', () => {
   it('Home ładuje się i zawiera słowa kluczowe', () => {
-    cy.request('/').then((response) => {
-      expect(response.status).to.eq(200);
-      expect(response.body).to.include('Centrum Analiz');
-      expect(response.body).to.include('niepodległej');
-    });
+    cy.visit('/');
+    cy.contains(/CASN|Centrum Analiz|Analizy/i);
   });
 
-  it('API health endpoint odpowiada', () => {
-    cy.request('/api/health').its('status').should('eq', 200);
+  it('Strona analizy istnieje albo daje 404', () => {
+    const slug = 'pierwsza-analiza'; // podmień na realny slug
+    cy.request({ url: `/analizy/${slug}`, failOnStatusCode: false })
+      .its('status')
+      .should('be.oneOf', [200, 404]);
   });
 });

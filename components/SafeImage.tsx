@@ -38,6 +38,6 @@ export default function SafeImage({
     );
   }
 
-   
+  // eslint-disable-next-line @next/next/no-img-element
   return <img src={String(src)} alt={alt} {...rest} />;
 }

@@ -1,112 +1,164 @@
-# Centrum Analiz Służby Niepodległej (CASN)
+# Project Title
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue)](https://www.docker.com/)
+Centrum Analiz Służby Niepodległej (CASN) - Strona internetowa [Centrum Analiz Służby Niepodległej](https://casn.pl) oparta na **Next.js 15 (App Router)**. Projekt rozwijany z myślą o wydajności, SEO i prostym zarządzaniu treścią.
 
-Strona internetowa [Centrum Analiz Służby Niepodległej](https://casn.pl) oparta na **Next.js 16 (App Router)**. Platforma publikująca analizy i artykuły w formacie MDX z myślą o wydajności, SEO i prostym zarządzaniu treścią.
+## Description
 
-## 🏗️ Architektura
+Strona internetowa Centrum Analiz Służby Niepodległej (CASN) - platforma publikująca analizy i artykuły w formacie MDX, zbudowana w oparciu o nowoczesne technologie webowe.
 
-### Tech Stack
+## Tech stack
 
-**Core:**
-- Next.js 16 (App Router) + React 19 + TypeScript 5.6
+### Core
 
-**Database:**
-- TypeORM + MySQL 8.0/MariaDB
+- Next.js 15 (App Router) + React + TypeScript
 
-**Content:**
+### Dane
+
+- Prisma ORM
+- MySQL/MariaDB (silnik bazy danych)
+
+### Treści
+
 - MDX (artykuły i analizy w `posts/`)
-- Next.js Image Optimization
+- Obsługa obrazów w MDX przez `next/image`
 
-**Styling:**
-- Bootstrap 5 + Custom legacy styles
-- Material Design Icons
+### Styling & UI
 
-**Quality:**
-- ESLint + TypeScript strict checking
-- Cypress E2E testing
-- Lighthouse performance monitoring
+- Bootstrap 5 + `legacy.css`
+- Material Design Icons (mdi)
 
-**Deployment:**
-- Docker + Docker Compose
-- Nginx reverse proxy
-- Self-hosted infrastructure
+### Media & typografia
 
-## 🚀 Szybki start
+- `next/image` – optymalizacja i responsywne obrazy
+- `next/font` – optymalizacja fontów Google (Roboto, Rubik)
 
-### Wymagania
+### Jakość
+
+- ESLint + type-checking (`tsc`) w trakcie builda
+- Lighthouse – ręczne testy wydajności i SEO
+
+### Deployment
+
+- Budowanie: `npm run build`
+- Uruchamianie: `npm run start` (z automatycznym `prisma migrate deploy`)
+- Hosting: self-hosted (np. Cyber_Folks, własny serwer)
+
+## Setup
+
+Wymagania:
 - Node.js 20+
-- Docker & Docker Compose (dla deploymentu)
-- MySQL/MariaDB
+- Baza danych MySQL/MariaDB
 
-### Instalacja lokalna
+Konfiguracja:
+1. Zainstaluj zależności: `npm install`
+2. Skopiuj plik środowiskowy: `cp .env.example .env.local` i uzupełnij `DATABASE_URL`
+3. Uruchom migracje: `npx prisma migrate deploy`
+4. Start dev: `npm run dev`
+
+## Getting Started
+
+### Dependencies
+
+* Node.js 20+
+* MySQL/MariaDB
+* Next.js 15
+* React
+* TypeScript
+
+### Installing
+
+* Sklonuj repozytorium
+* Zainstaluj zależności: `npm install`
+* Skonfiguruj bazę danych i zmienne środowiskowe
+* Uruchom migracje: `npx prisma migrate deploy`
+
+### Executing program
+
+* Uruchom serwer deweloperski: `npm run dev`
+* Otwórz http://localhost:3000 w przeglądarce
+* Zbuduj aplikację produkcyjną: `npm run build`
+
+## Docker Deployment
+
+### Quick Start with Docker Compose
+
+1. **Clone and setup:**
+   ```bash
+   git clone <repository>
+   cd casn
+   ```
+
+2. **Configure environment:**
+   ```bash
+   cp docker-compose.env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. **Start all services:**
+   ```bash
+   ./docker-start.sh
+   ```
+
+   Or manually:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+4. **Access the application:**
+   - Main app: http://localhost:3000
+   - With Nginx proxy: http://localhost:80 (if enabled)
+
+### Docker Services
+
+The Docker setup includes:
+
+- **MySQL 8.0** - Database server
+- **Next.js App** - Main application  
+- **Nginx** - Reverse proxy (optional)
+
+### Docker Commands
+
 ```bash
-# Klonowanie repo
-git clone <repository>
-cd casn
+# Start services
+docker-compose up -d
 
-# Instalacja zależności
-npm install
+# View logs
+docker-compose logs -f
 
-# Konfiguracja środowiska
-cp docker-compose.env.example .env
-# Edytuj .env z właściwymi ustawieniami
+# Stop services
+docker-compose down
 
-# Uruchomienie migracji bazy danych
-npm run migration:run
+# Rebuild specific service
+docker-compose build app
+docker-compose up -d app
 
-# Start serwera deweloperskiego
-npm run dev
+# Run database migrations
+docker-compose exec app npx prisma migrate deploy
+
+# Access database
+docker-compose exec mysql mysql -u casn_user -pcasn_password123 casn
 ```
 
-### Docker deployment
-```bash
-# Szybki start wszystkich usług
-./docker-start.sh
-# lub
-docker-compose up --build -d
+### Environment Configuration
 
-# Dostęp do aplikacji
-# - Aplikacja: http://localhost:3000
-# - Z Nginx proxy: http://localhost:80
-```
+Copy `docker-compose.env.example` to `.env` and configure:
 
-## 🧪 Testowanie
+- Database credentials
+- NextAuth configuration
+- Application URLs
 
-### E2E Tests (Cypress)
-```bash
-# Uruchomienie testów E2E
-npm run test:e2e
+### Production Deployment
 
-# W trybie headless (CI)
-npm run test:e2e
-```
+1. Update environment variables for production
+2. Configure SSL certificates for Nginx
+3. Set up persistent volumes for data
+4. Configure backup strategies
 
-### Unit Tests (Jest)
-```bash
-# Uruchomienie testów jednostkowych
-npm run test
+### Troubleshooting
 
-# Z coverage
-npm run test -- --coverage
-```
-
-### TypeScript Checking
-```bash
-# Sprawdzenie typów
-npm run type-check
-```
-
-### Linting
-```bash
-# Sprawdzenie kodu
-npm run lint
-
-# Auto-fix
-npm run lint:fix
-```
+- Check service health: `docker-compose ps`
+- View specific service logs: `docker-compose logs mysql`
+- Restart problematic service: `docker-compose restart app`
 
 
 ## Help
@@ -114,7 +166,7 @@ npm run lint:fix
 W przypadku problemów sprawdź:
 - Konfigurację zmiennych środowiskowych w `.env.local`
 - Logi błędów w konsoli deweloperskiej
-- Dokumentację Next.js i TypeORM
+- Dokumentację Next.js i Prisma ORM
 
 ## Authors
 
@@ -127,71 +179,19 @@ contact@pietrzakprzemyslaw.pl
 
 Inspiration, code snippets, etc.
 * [Next.js](https://nextjs.org/)
-* [TypeORM](https://typeorm.io/)
+* [Prisma](https://www.prisma.io/)
 * [MDX](https://mdxjs.com/)
 
-## 📋 Development
+## Version History
 
-### Available Scripts
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run type-check   # Run TypeScript checking
-npm run test:e2e     # Run Cypress E2E tests
-```
+- 1.0
+  - Pierwsza wersja produkcyjna z Next.js 15 i Prisma
+- 0.1
+  - Initial Release
 
-### Project Structure
-```
-casn/
-├── app/                 # Next.js App Router
-│   ├── api/            # API routes
-│   ├── _components/    # Reusable components
-│   └── (pages)/        # App pages
-├── components/         # UI components
-├── lib/               # Database, utilities
-├── posts/             # MDX articles
-├── cypress/           # E2E tests
-└── public/            # Static assets
-```
-
-## 🔧 Deployment
-
-### Docker Production Setup
-```bash
-# Build and deploy
-docker-compose -f docker-compose.final.yml up --build -d
-
-# With Portainer management
-docker-compose -f docker-compose.portainer.yml up --build -d
-```
-
-### Environment Variables
-See `docker-compose.env.example` for required configuration:
-- Database connection strings
-- NextAuth secrets
-- Application URLs
-
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE.md file for details
-
-## 📊 Version History
-
-- **1.1.0** (2026-01-10)
-  - Updated to Next.js 16 and React 19
-  - Added Cypress E2E testing
-  - Docker deployment improvements
-  - TypeScript strict mode enabled
-
-- **1.0.0** (2024)
-  - First production release with Next.js 15 and TypeORM
-  - MDX article system
-  - MySQL database integration
-
-- **0.1.0**
-  - Initial development release
 
 ## API Documentation
 
@@ -289,7 +289,7 @@ Invalidacja cache dla taga.
     →
 [MDX Files (posts/)] ← Processed by MDXContent Component
     →
-[TypeORM] → Migration + Query Builder
+[Prisma ORM (optional)] → Migration + Query Builder
 ```
 
 ## Data Flow Diagram
@@ -301,18 +301,94 @@ Invalidacja cache dla taga.
 5. HTML rendered and served to user
 6. Client-side JS handles mobile menu interactions (LegacyScripts)
 
-## 📝 Changelog
+## Changelog
 
-Follows [Conventional Commits](https://conventionalcommits.org/):
+Follows Conventional Commits.
 
-- `feat:` new features
-- `fix:` bug fixes
-- `docs:` documentation updates
-- `test:` testing improvements
-- `refactor:` code restructuring
-- `build:` build system changes
+- feat: add API endpoint for articles
+- fix: correct table names case sensitivity
+- refactor: move mobile menu to separate component
 
-### Recent Changes
-- `fix(build):` exclude Cypress config from TypeScript compilation
-- `test(e2e):` fix tests for plain text responses from broken app
-- `feat:` add comprehensive Docker deployment setup
+> **EN summary**: This project is a Next.js 15 web app for an NGO, featuring articles in MDX and a Prisma ORM backend.
+
+## Docker Deployment
+
+### Quick Start with Docker Compose
+
+1. **Clone and setup:**
+   ```bash
+   git clone <repository>
+   cd casn
+   ```
+
+2. **Configure environment:**
+   ```bash
+   cp docker-compose.env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. **Start all services:**
+   ```bash
+   ./docker-start.sh
+   ```
+
+   Or manually:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+4. **Access the application:**
+   - Main app: http://localhost:3000
+   - With Nginx proxy: http://localhost:80 (if enabled)
+
+### Docker Services
+
+The Docker setup includes:
+
+- **MySQL 8.0** - Database server
+- **Next.js App** - Main application  
+- **Nginx** - Reverse proxy (optional)
+
+### Docker Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Rebuild specific service
+docker-compose build app
+docker-compose up -d app
+
+# Run database migrations
+docker-compose exec app npx prisma migrate deploy
+
+# Access database
+docker-compose exec mysql mysql -u casn_user -pcasn_password123 casn
+```
+
+### Environment Configuration
+
+Copy `docker-compose.env.example` to `.env` and configure:
+
+- Database credentials
+- NextAuth configuration
+- Application URLs
+
+### Production Deployment
+
+1. Update environment variables for production
+2. Configure SSL certificates for Nginx
+3. Set up persistent volumes for data
+4. Configure backup strategies
+
+### Troubleshooting
+
+- Check service health: `docker-compose ps`
+- View specific service logs: `docker-compose logs mysql`
+- Restart problematic service: `docker-compose restart app`

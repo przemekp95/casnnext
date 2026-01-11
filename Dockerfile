@@ -13,11 +13,22 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies
+# Install dependencies (including @prisma/client from dependencies)
 RUN npm install --omit=dev --ignore-scripts
 
 # Copy source code
 COPY . .
+
+# Generate Prisma client BEFORE build (required for Prisma 7.x)
+# Set DB_* variables for MariaDB adapter during generation
+ENV DB_HOST="localhost" \
+    DB_PORT="3306" \
+    DB_USER="builduser" \
+    DB_PASSWORD="buildpass" \
+    DB_NAME="builddb" \
+    NEXT_PHASE="phase-production-build"
+
+RUN npx prisma generate
 
 # Clean npm cache
 RUN npm cache clean --force
@@ -52,6 +63,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 
 # Copy production dependencies
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Copy Prisma files for runtime
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+# Copy generated Prisma client
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
 # Create posts directory with correct permissions before copying
 RUN mkdir -p /app/posts && chown -R nextjs:nodejs /app/posts

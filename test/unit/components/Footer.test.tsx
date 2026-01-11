@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-
 import { render } from '@testing-library/react';
 
 let Footer: any;

@@ -1,0 +1,248 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches: [ dev ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: casn_test
+          MYSQL_USER: casn_user
+          MYSQL_PASSWORD: casn_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"
+
+      - name: Run database migrations
+        run: npm run migration:run
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Check posts
+        run: npm run check:posts
+
+      - name: Run unit tests with coverage
+        run: npm run test:ci -- --coverage --watchAll=false
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(npx jest --coverage --coverageReporters=json-summary --watchAll=false | jq '.total.lines.pct')
+          echo "Test coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "Coverage below 80% minimum requirement"
+            exit 1
+          fi
+          echo "✅ Coverage meets 80% minimum requirement"
+
+      - name: Build application
+        run: npm run build
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+
+      - name: Start application server
+        run: |
+          npm start &
+          echo $! > server.pid
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          PORT: 3000
+
+      - name: Wait for server to be ready
+        run: npx wait-on http://localhost:3000/api/health --timeout 60000
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+
+      - name: Stop application server
+        run: |
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) || true
+            rm server.pid
+          fi
+        if: always()
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dev-deploy-test-results-${{ github.run_id }}
+          path: |
+            coverage/
+            cypress/videos/
+            cypress/screenshots/
+          retention-days: 30
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push Docker image (dev)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }},dev
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    environment: development
+    needs: build-and-push
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        if: env.DEPLOY_HOST_DEV
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST_DEV }}
+          username: ${{ secrets.DEPLOY_USER_DEV }}
+          key: ${{ secrets.DEPLOY_KEY_DEV }}
+          port: ${{ secrets.DEPLOY_PORT_DEV || 22 }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH_DEV || '/opt/casn-dev' }}
+
+            # Pull latest docker-compose configuration
+            git pull origin dev
+
+            # Pull latest Docker image
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
+
+            # Deploy with docker-compose
+            docker-compose -f docker-compose.portainer.yml down
+            docker-compose -f docker-compose.portainer.yml up -d
+
+            # Clean up old images
+            docker image prune -f
+
+      - name: Deploy via Portainer API
+        if: env.PORTAINER_URL_DEV && !env.DEPLOY_HOST_DEV
+        run: |
+          echo "Deploying via Portainer API"
+          # Here you would add Portainer API calls for dev environment
+          # Example:
+          # curl -X POST ${{ secrets.PORTAINER_URL_DEV }}/api/stacks/webhooks/${{ secrets.PORTAINER_WEBHOOK_ID_DEV }}
+
+      - name: Manual deployment notification
+        if: ${{ !env.DEPLOY_HOST_DEV && !env.PORTAINER_URL_DEV }}
+        run: |
+          echo "Deployment Ready for Dev!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
+          echo ""
+          echo "Manual deployment steps:"
+          echo "1. Pull latest code: git pull origin dev"
+          echo "2. Pull Docker image: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
+          echo "3. Deploy: docker-compose -f docker-compose.portainer.yml up -d"
+
+      - name: Health check
+        if: env.HEALTH_CHECK_URL_DEV
+        run: |
+          echo "Performing health check..."
+          for i in {1..30}; do
+            if curl -f -s ${{ secrets.HEALTH_CHECK_URL_DEV }} > /dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying in 10 seconds..."
+            sleep 10
+          done
+          echo "Health check failed after 30 attempts"
+          exit 1
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          echo "Dev deployment finished with status: ${{ job.status }}"
+          # Here you could add notifications to Slack, Discord, etc.

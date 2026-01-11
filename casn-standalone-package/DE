@@ -1,0 +1,270 @@
+# CASN Standalone - Instrukcja wdrożenia
+
+## Opis
+CASN Standalone to gotowa do wdrożenia wersja aplikacji CASN (Centrum Analiz Strategicznych i Naukowych), która może być uruchomiona na dowolnym serwerze z Node.js.
+
+## Wymagania systemowe
+
+### Minimalne wymagania:
+- **Node.js** wersja 20.0.0 lub wyższa
+- **MySQL** wersja 8.0+ lub MariaDB 10.6+
+- **System operacyjny**: Linux, macOS, Windows
+- **RAM**: minimum 512MB (zalecane 1GB+)
+- **Dysk**: minimum 500MB wolnego miejsca
+
+### Rekomendowane:
+- **Node.js** wersja 20 LTS
+- **MySQL** wersja 8.0+
+- **RAM**: 1GB+
+- **SSD**: dla lepszej wydajności
+
+## Instalacja
+
+### 1. Przygotowanie środowiska
+
+#### Instalacja Node.js (Ubuntu/Debian):
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+#### Instalacja Node.js (CentOS/RHEL):
+```bash
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo yum install -y nodejs
+```
+
+#### Instalacja Node.js (macOS):
+```bash
+# Przez Homebrew
+brew install node@20
+
+# Lub pobierz z https://nodejs.org
+```
+
+#### Instalacja MySQL (Ubuntu/Debian):
+```bash
+sudo apt update
+sudo apt install mysql-server
+sudo mysql_secure_installation
+```
+
+### 2. Konfiguracja bazy danych
+
+Zaloguj się do MySQL i utwórz bazę danych oraz użytkownika:
+
+```sql
+mysql -u root -p
+
+-- Tworzenie bazy danych
+CREATE DATABASE casn_database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Tworzenie użytkownika
+CREATE USER 'casn_user'@'localhost' IDENTIFIED BY 'bezpieczne_haslo';
+
+-- Nadawanie uprawnień
+GRANT ALL PRIVILEGES ON casn_database.* TO 'casn_user'@'localhost';
+
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+### 3. Konfiguracja aplikacji
+
+#### Kopiowanie plików:
+```bash
+# Rozpakuj paczkę standalone do wybranego katalogu
+tar -xzf casn-standalone.tar.gz
+cd casn-standalone-package
+```
+
+#### Konfiguracja zmiennych środowiskowych:
+```bash
+# Skopiuj plik przykładowy
+cp .env.example .env
+
+# Edytuj plik .env zgodnie z Twoją konfiguracją
+nano .env
+```
+
+#### Przykładowa konfiguracja .env:
+```bash
+# Database Configuration
+DB_HOST=localhost
+DB_USER=casn_user
+DB_PASS=bezpieczne_haslo
+DB_NAME=casn_database
+DB_CONN_LIMIT=2
+
+# Application Configuration
+NODE_ENV=production
+PORT=3000
+
+# Public URL (opcjonalnie)
+NEXT_PUBLIC_APP_URL=http://your-domain.com
+```
+
+### 4. Uruchomienie aplikacji
+
+#### Testowe uruchomienie:
+```bash
+# Uruchom skrypt startowy
+./start.sh
+```
+
+#### Produkcyjne uruchomienie z PM2:
+```bash
+# Instalacja PM2
+npm install -g pm2
+
+# Uruchomienie aplikacji
+pm2 start start.sh --name casn
+
+# Automatyczne uruchamianie po restarcie systemu
+pm2 startup
+pm2 save
+```
+
+## Konfiguracja serwera web
+
+### Nginx (zalecane):
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+### Apache:
+```apache
+<VirtualHost *:80>
+    ServerName your-domain.com
+    ProxyPreserveHost On
+    ProxyPass / http://localhost:3000/
+    ProxyPassReverse / http://localhost:3000/
+</VirtualHost>
+```
+
+## Bezpieczeństwo
+
+### 1. Zapora sieciowa:
+```bash
+# Ubuntu/Debian
+sudo ufw allow 22
+sudo ufw allow 80
+sudo ufw allow 443
+sudo ufw enable
+
+# CentOS/RHEL
+sudo firewall-cmd --permanent --add-service=ssh
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
+```
+
+### 2. SSL/HTTPS:
+```bash
+# Użyj Let's Encrypt z Certbot
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+### 3. Aktualizacje systemu:
+```bash
+# Regularne aktualizacje systemu
+sudo apt update && sudo apt upgrade
+```
+
+## Monitoring i logi
+
+### Logi aplikacji:
+```bash
+# Logi PM2
+pm2 logs casn
+
+# Logi systemowe
+sudo journalctl -u casn -f
+```
+
+### Monitoring wydajności:
+```bash
+# Sprawdzenie zużycia zasobów
+htop
+pm2 monit
+
+# Sprawdzenie logów MySQL
+sudo tail -f /var/log/mysql/error.log
+```
+
+## Rozwiązywanie problemów
+
+### Częste problemy:
+
+#### 1. Błąd połączenia z bazą danych:
+```bash
+# Sprawdź status MySQL
+sudo systemctl status mysql
+
+# Test połączenia
+mysql -u casn_user -p -h localhost casn_database
+```
+
+#### 2. Aplikacja nie uruchamia się:
+```bash
+# Sprawdź logi
+./start.sh
+
+# Sprawdź port
+netstat -tlnp | grep :3000
+
+# Sprawdź zmienne środowiskowe
+cat .env
+```
+
+#### 3. Problemy z wydajnością:
+```bash
+# Sprawdź zużycie pamięci
+free -h
+
+# Sprawdź procesy
+ps aux | grep node
+```
+
+## Backup
+
+### Backup bazy danych:
+```bash
+# Automatyczny backup
+mysqldump -u casn_user -p casn_database > backup_$(date +%Y%m%d_%H%M%S).sql
+```
+
+### Backup plików aplikacji:
+```bash
+# Backup katalogu aplikacji
+tar -czf casn_backup_$(date +%Y%m%d).tar.gz casn-standalone-package/
+```
+
+## Wsparcie
+
+W przypadku problemów:
+1. Sprawdź logi aplikacji i systemu
+2. Zweryfikuj konfigurację bazy danych
+3. Upewnij się, że wszystkie wymagania systemowe są spełnione
+
+## Wersja i licencja
+- **CASN Standalone**: v1.0.0
+- **Next.js**: 16.1.1
+- **Node.js**: 20+ wymagany
+- **Data kompilacji**: 2025-12-23

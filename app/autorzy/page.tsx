@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { getAuthors } from "@/lib/authors";
-import { AuthorRow } from "@/types/author";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
-export const revalidate = 3600; // ISR - odśwież co godzinę
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
 
+type AuthorRow = { slug: string; name: string; img?: string | null };
+
 export default async function AuthorsPage() {
-  // Skip during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  // Skip Prisma during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
         <div className="container py-12">
@@ -24,20 +27,15 @@ export default async function AuthorsPage() {
     );
   }
 
-  // Pobierz dane - jeśli baza niedostępna, zwróć fallback
-  let authors: AuthorRow[] = [];
-  try {
-    authors = await getAuthors();
-    console.log('SSR: Loaded authors count:', authors.length);
-  } catch (error) {
-    console.warn('Failed to load authors, showing empty list:', error);
-    // Fallback: pusta lista zamiast błędów
-  }
+  const authors = await prisma.author.findMany({
+    orderBy: {
+      name: 'asc',
+    },
+  });
 
-  // Bezpieczne funkcje pomocnicze - zawsze zwracają spójne wyniki
-  const getAvatarSrc = (img?: string | null) =>
-    img && (img.startsWith("/") || img.startsWith("http"))
-      ? img
+  const normalizeSrc = (src?: string | null) =>
+    src && (src.startsWith("/") || src.startsWith("http"))
+      ? src
       : "/images/placeholder.png";
 
   return (
@@ -95,46 +93,40 @@ export default async function AuthorsPage() {
       <section className="section">
         <div className="container">
           <div className="row">
-            {authors.map((a: AuthorRow) => {
-              const avatarSrc = getAvatarSrc(a.img);
-
-              return (
-                <div className="col-lg-3 col-md-6" key={a.id}>
-                  <div className="our-team-box mt-2 mb-4">
-                    <div className="team-img">
-                      <Image
-                        src={avatarSrc}
-                        alt={a.displayName}
-                        className="img-fluid d-block rounded"
-                        width={600}
-                        height={600}
-                        unoptimized
-                      />
-                      <div className="our-team-name text-center">
-                        <h6 className="mb-0 text-white">
-                          {a.displayName}
-                        </h6>
-                      </div>
+            {authors.map((a: AuthorRow) => (
+              <div className="col-lg-3 col-md-6" key={a.slug}>
+                <div className="our-team-box mt-2 mb-4">
+                  <div className="team-img">
+                    <Image
+                      src={normalizeSrc(a.img)}
+                      alt={a.name || "Autor"}
+                      className="img-fluid d-block rounded"
+                      width={600}
+                      height={600}
+                      unoptimized
+                    />
+                    <div className="our-team-name text-center">
+                      <h6 className="mb-0 text-white">{a.name}</h6>
                     </div>
-                    <div className="our-team-overlay">
-                      <div className="item-content text-white text-center p-2">
-                        <div className="item-desc">
-                          <h5 className="text-white mb-0">
-                            <Link
-                              href={`/autor/${a.slug}`}
-                              style={{ color: "inherit", textDecoration: "none" }}
-                            >
-                              {a.displayName}
-                            </Link>
-                          </h5>
-                          <div className="our-team-box-border mt-3 mb-3" />
-                        </div>
+                  </div>
+                  <div className="our-team-overlay">
+                    <div className="item-content text-white text-center p-2">
+                      <div className="item-desc">
+                        <h5 className="text-white mb-0">
+                          <Link
+                            href={`/autor/${a.slug}`}
+                            style={{ color: "inherit", textDecoration: "none" }}
+                          >
+                            {a.name}
+                          </Link>
+                        </h5>
+                        <div className="our-team-box-border mt-3 mb-3" />
                       </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
             {/* opcjonalnie puste kolumny dla domknięcia siatki */}
           </div>
         </div>

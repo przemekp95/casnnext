@@ -5,31 +5,22 @@ import matter from "gray-matter";
 import ArticleLayout from "@/components/ArticleLayout";
 import Header from "@/components/Header";
 import { notFound } from "next/navigation";
-import { getAnalyses, getAnalysisBySlug } from "@/lib/analyses";
-
+import { query } from "@/lib/db";
 import MDXContent from "@/components/mdx/MDXContent";
 
 // ——— RUNTIME / CACHE ————————————————————————————————————————————————
 export const runtime = "nodejs";
-// Generuj statycznie dla lepszej wydajności i SEO
-export const dynamicParams = true; // Allow dynamic params for new content
-export const revalidate = 3600; // Revalidate every hour
-
-// Generuj statyczne ścieżki dla istniejących analiz
-export async function generateStaticParams() {
-  try {
-    const analyses = await getAnalyses();
-    return analyses.map((analysis) => ({
-      slug: analysis.slug,
-    }));
-  } catch (error) {
-    // W przypadku błędu DB, zwróć pustą tablicę (fallback do SSR)
-    console.warn('generateStaticParams failed:', error);
-    return [];
-  }
-}
+// Tymczasowo zostaw; po stabilizacji zamień na: export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 // ——— Typy ——————————————————————————————————————————————————————————————
+type Row = {
+  id: number;
+  slug: string;
+  title: string;
+  author_name?: string | null;
+  author_bio?: string | null;
+};
 
 // ——— Utils ————————————————————————————————————————————————————————————
 function replacePlaceholders(str: string | undefined, placeholders: Record<string, string>) {
@@ -69,9 +60,26 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
     logDbg("STEP", "slug", slug);
 
-    // 1) DB — pobierz meta artykułu
-    const analysis = await getAnalysisBySlug(slug);
+    // 1) DB — pobierz meta artykułu (bezpiecznik: nie wywal 500 przy problemie DB)
+    let rows: Row[] = [];
+    try {
+      rows = await query<Row>(
+        `SELECT a.id, a.slug, a.title,
+                au.name  AS author_name,
+                au.bio   AS author_bio
+           FROM Analysis a
+      LEFT JOIN Author au ON au.id = a.authorId
+          WHERE a.slug = ?
+          LIMIT 1`,
+        [slug]
+      );
+    } catch (e: any) {
+      console.error("DB_ERROR", e?.message || e);
+      // zamiast 500 — 404 (jeśli DB padnie, wolimy "nie znaleziono" niż crash SSR)
+      return notFound();
+    }
 
+    const analysis = rows[0];
     if (!analysis) {
       logDbg("STEP", "notFound_db", slug);
       return notFound();
@@ -107,14 +115,14 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
     const placeholders: Record<string, string> = {
       analysisTitle: analysis.title ?? "",
-      authorName: analysis.author?.name ?? "",
-      authorBio: analysis.author?.bio ?? "",
+      authorName: analysis.author_name ?? "",
+      authorBio: analysis.author_bio ?? "",
     };
 
     const replacedContent = replacePlaceholders(content, placeholders);
     const title = data.title ? replacePlaceholders(data.title, placeholders) : analysis.title;
     const lead = data.lead ? replacePlaceholders(data.lead, placeholders) : undefined;
-    const author = data.author ? replacePlaceholders(data.author, placeholders) : analysis.author?.name ?? undefined;
+    const author = data.author ? replacePlaceholders(data.author, placeholders) : analysis.author_name ?? undefined;
 
     logDbg("STEP", "pre_mdx", (replacedContent || "").length);
 
