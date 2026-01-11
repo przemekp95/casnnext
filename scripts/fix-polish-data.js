@@ -1,11 +1,26 @@
 #!/usr/bin/env node
 
-// Simple script to fix Polish characters in database
-// Run with: node scripts/fix-polish-data.js
+// Script to fix Polish characters in database
+// Can be run manually: node scripts/fix-polish-data.js
+// Or automatically in Docker: runs during container startup
 
 const mysql = require('mysql2/promise');
+const fs = require('fs');
+const path = require('path');
+
+// Check if we should run automatically
+const shouldRunAutomatically = process.argv.includes('--auto') ||
+  process.env.RUN_POLISH_FIX === '1';
 
 async function fixPolishData() {
+  // Create a lock file to prevent multiple runs
+  const lockFile = path.join(__dirname, '..', '.polish-fix-lock');
+
+  if (fs.existsSync(lockFile) && !shouldRunAutomatically) {
+    console.log('Polish data fix already completed. Skipping.');
+    return;
+  }
+
   console.log('Connecting to database...');
 
   const connection = await mysql.createConnection({
@@ -107,6 +122,9 @@ async function fixPolishData() {
   authors.forEach(author => {
     console.log(`  ${author.slug}: "${author.name}" - bio: "${author.bio_preview}..."`);
   });
+
+  // Create lock file to prevent re-running
+  fs.writeFileSync(lockFile, new Date().toISOString());
 
   await connection.end();
   console.log('✅ Polish data fix completed successfully!');

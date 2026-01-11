@@ -10,6 +10,10 @@ if [ "${SKIP_TYPEORM_MIGRATE:-0}" != "1" ]; then
   # Run seed script to populate database with initial data
   echo "🌱 Running database seed..."
   npm run seed || echo "Seed script failed, continuing..."
+
+  # Run Polish data fix to ensure proper character encoding
+  echo "🇵🇱 Running Polish data fix..."
+  RUN_POLISH_FIX=1 node scripts/fix-polish-data.js || echo "Polish data fix failed, continuing..."
 fi
 
 echo "✅ Migrations and seeding completed. Starting server..."
