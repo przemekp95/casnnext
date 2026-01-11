@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getAuthors } from "@/lib/authors";
@@ -9,30 +10,26 @@ export const revalidate = 3600; // ISR - odśwież co godzinę
 
 export const metadata: Metadata = { title: "Nasi autorzy - Kevix Template" };
 
-export default async function AuthorsPage() {
-  // Skip during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
-    return (
-      <main className="bg-gray-100 min-h-screen pb-12">
-        <div className="container py-12">
-          <div className="text-center">
-            <h1>Nasi autorzy</h1>
-            <p>Ładowanie autorów...</p>
-          </div>
-        </div>
-      </main>
-    );
-  }
+// Client component to handle database loading state
+function AuthorsContent() {
+  "use client";
 
-  // Pobierz dane - jeśli baza niedostępna, zwróć fallback
-  let authors: AuthorRow[] = [];
-  try {
-    authors = await getAuthors();
-    console.log('SSR: Loaded authors count:', authors.length);
-  } catch (error) {
-    console.warn('Failed to load authors, showing empty list:', error);
-    // Fallback: pusta lista zamiast błędów
-  }
+  const [authors, setAuthors] = React.useState<AuthorRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function loadAuthors() {
+      try {
+        const data = await getAuthors();
+        setAuthors(data);
+      } catch (error) {
+        console.warn('Failed to load authors:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAuthors();
+  }, []);
 
   // Bezpieczne funkcje pomocnicze - zawsze zwracają spójne wyniki
   const getAvatarSrc = (img?: string | null) =>
@@ -40,6 +37,77 @@ export default async function AuthorsPage() {
       ? img
       : "/images/placeholder.png";
 
+  if (loading) {
+    return (
+      <section className="section">
+        <div className="container">
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="sr-only">Ładowanie autorów...</span>
+            </div>
+            <p className="mt-3">Ładowanie listy autorów...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="section">
+      <div className="container">
+        <div className="row">
+          {authors.map((a: AuthorRow) => {
+            const avatarSrc = getAvatarSrc(a.img);
+
+            return (
+              <div className="col-lg-3 col-md-6" key={a.id}>
+                <div className="our-team-box mt-2 mb-4">
+                  <div className="team-img">
+                    <Image
+                      src={avatarSrc}
+                      alt={a.displayName}
+                      className="img-fluid d-block rounded"
+                      width={600}
+                      height={600}
+                      unoptimized
+                    />
+                    <div className="our-team-name text-center">
+                      <h6 className="mb-0 text-white">
+                        {a.displayName}
+                      </h6>
+                    </div>
+                  </div>
+                  <div className="our-team-overlay">
+                    <div className="item-content text-white text-center p-2">
+                      <div className="item-desc">
+                        <h5 className="text-white mb-0">
+                          <Link
+                            href={`/autor/${a.slug}`}
+                            style={{ color: "inherit", textDecoration: "none" }}
+                          >
+                            {a.displayName}
+                          </Link>
+                        </h5>
+                        <div className="our-team-box-border mt-3 mb-3" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {authors.length === 0 && (
+            <div className="col-12 text-center py-5">
+              <p className="text-muted">Autorzy będą wkrótce dodani.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function AuthorsPage() {
   return (
     <main className="bg-gray-100 min-h-screen pb-12">
       {/* HERO */}
@@ -92,53 +160,7 @@ export default async function AuthorsPage() {
       </section>
 
       {/* LISTA AUTORÓW */}
-      <section className="section">
-        <div className="container">
-          <div className="row">
-            {authors.map((a: AuthorRow) => {
-              const avatarSrc = getAvatarSrc(a.img);
-
-              return (
-                <div className="col-lg-3 col-md-6" key={a.id}>
-                  <div className="our-team-box mt-2 mb-4">
-                    <div className="team-img">
-                      <Image
-                        src={avatarSrc}
-                        alt={a.displayName}
-                        className="img-fluid d-block rounded"
-                        width={600}
-                        height={600}
-                        unoptimized
-                      />
-                      <div className="our-team-name text-center">
-                        <h6 className="mb-0 text-white">
-                          {a.displayName}
-                        </h6>
-                      </div>
-                    </div>
-                    <div className="our-team-overlay">
-                      <div className="item-content text-white text-center p-2">
-                        <div className="item-desc">
-                          <h5 className="text-white mb-0">
-                            <Link
-                              href={`/autor/${a.slug}`}
-                              style={{ color: "inherit", textDecoration: "none" }}
-                            >
-                              {a.displayName}
-                            </Link>
-                          </h5>
-                          <div className="our-team-box-border mt-3 mb-3" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {/* opcjonalnie puste kolumny dla domknięcia siatki */}
-          </div>
-        </div>
-      </section>
+      <AuthorsContent />
     </main>
   );
 }
