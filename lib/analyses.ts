@@ -27,12 +27,14 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
   // Transform to UI-friendly format
   return analyses.map(analysis => ({
     id: String(analysis.id),
-    title: analysis.title,
-    slug: analysis.slug,
+    title: String(analysis.title),
+    slug: String(analysis.slug),
     authorId: String(analysis.authorId),
     author: analysis.author ? {
       id: String(analysis.author.id),
-      name: analysis.author.name,
+      slug: String(analysis.author.slug),
+      name: String(analysis.author.name),
+      img: analysis.author.img ?? null,
     } : undefined,
   }));
 }

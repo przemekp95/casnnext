@@ -5,7 +5,9 @@ export interface AnalysisRow {
   authorId: string;
   author?: {
     id: string;
+    slug: string;
     name: string;
+    img?: string | null;
   };
 }
 

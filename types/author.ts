@@ -2,7 +2,8 @@ export interface AuthorRow {
   id: string;
   slug: string;
   name: string;
-  img?: string;
+  img?: string | null;
+  bio?: string | null;
 }
 
 export interface AuthorDetail {
@@ -10,8 +11,8 @@ export interface AuthorDetail {
     id: string;
     slug: string;
     name: string;
-    img?: string;
-    bio?: string;
+    img?: string | null;
+    bio?: string | null;
   };
   analyses: Array<{
     id: string;

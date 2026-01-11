@@ -26,9 +26,10 @@ export async function getAuthors(): Promise<AuthorRow[]> {
   // Transform to UI-friendly format
   return authors.map(author => ({
     id: String(author.id),
-    slug: author.slug,
-    name: author.name,
-    img: author.img || undefined,
+    slug: String(author.slug),
+    name: String(author.name),
+    img: author.img ?? null,
+    bio: author.bio ?? null,
   }));
 }
 
