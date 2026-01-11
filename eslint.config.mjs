@@ -16,9 +16,14 @@ export default [
     ignores: [
       ".next/**",
       "node_modules/**",
+      ".prisma/**",
+      "casn-standalone-package/**",
       "app/generated/**", // Prisma client i runtime (vendor)
-      // jeśli chcesz: wycisz typy
-      // "**/*.d.ts",
+      "**/*.d.ts", // TypeScript declaration files
+      "prisma/seed.ts", // Generated/migrated file
+      "**/*.min.js", // Minified files
+      "public/**", // Static assets
+      "tmp/**", // Temporary files
     ],
   },
 
