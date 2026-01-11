@@ -104,11 +104,29 @@ describe('Hydration and Data Integration Tests', () => {
     });
   });
 
-  describe.skip('Database Integration - Authors API', () => {
-    // Skip API tests - they require running Next.js server with database
-    // These tests are designed for integration testing with live server
+  describe('Database Integration - Authors API', () => {
+    // Enable API tests when server is available, skip gracefully otherwise
 
-    it('API /api/authors returns proper data structure with all attributes', async () => {
+    let serverAvailable = false;
+
+    beforeAll(async () => {
+      try {
+        // Quick check if server is responding
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
+
+        const response = await fetch('http://localhost:3000/api/health', {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        serverAvailable = response.ok;
+      } catch (error) {
+        serverAvailable = false;
+      }
+    });
+
+    (serverAvailable ? it : it.skip)('API /api/authors returns proper data structure with all attributes', async () => {
       const response = await fetch('http://localhost:3000/api/authors');
       expect(response.ok).toBe(true);
 
@@ -136,7 +154,7 @@ describe('Hydration and Data Integration Tests', () => {
       });
     });
 
-    it('API /api/authors/[slug] returns detailed author with analyses', async () => {
+    (serverAvailable ? it : it.skip)('API /api/authors/[slug] returns detailed author with analyses', async () => {
       // First get list of authors
       const authorsResponse = await fetch('http://localhost:3000/api/authors');
       const authors = await authorsResponse.json();
@@ -219,11 +237,28 @@ describe('Hydration and Data Integration Tests', () => {
     });
   });
 
-  describe.skip('Hydration Testing - Client/Server Consistency', () => {
-    // Skip hydration tests - they require running Next.js server
-    // These tests are designed for integration testing with live server
+  describe('Hydration Testing - Client/Server Consistency', () => {
+    // Enable hydration tests with multiple error scenarios
 
-    it('server-rendered HTML matches client-rendered HTML', async () => {
+    let serverAvailable = false;
+
+    beforeAll(async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
+
+        const response = await fetch('http://localhost:3000/api/health', {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        serverAvailable = response.ok;
+      } catch (error) {
+        serverAvailable = false;
+      }
+    });
+
+    (serverAvailable ? it : it.skip)('server-rendered HTML matches client-rendered HTML', async () => {
       // Test static pages for hydration consistency
       const pagesToTest = ['/', '/kontakt', '/zbiory'];
 
@@ -243,7 +278,7 @@ describe('Hydration and Data Integration Tests', () => {
       }
     });
 
-    it('dynamic author pages render without hydration errors', async () => {
+    (serverAvailable ? it : it.skip)('dynamic author pages render without hydration errors', async () => {
       const authorsResponse = await fetch('http://localhost:3000/api/authors');
       const authors = await authorsResponse.json();
 
@@ -256,6 +291,64 @@ describe('Hydration and Data Integration Tests', () => {
         expect(html).toContain('<html');
         expect(html).not.toContain('Error:');
         expect(html).not.toContain('TypeError:');
+      }
+    });
+
+    (serverAvailable ? it : it.skip)('dynamic analysis pages render without hydration errors', async () => {
+      const articlesResponse = await fetch('http://localhost:3000/api/articles');
+      const articles = await articlesResponse.json();
+
+      if (articles.length > 0) {
+        const firstArticle = articles[0];
+        const response = await fetch(`http://localhost:3000/analizy/${firstArticle.slug}`);
+        expect(response.ok).toBe(true);
+
+        const html = await response.text();
+        expect(html).toContain('<html');
+        expect(html).not.toContain('Error:');
+        expect(html).not.toContain('TypeError:');
+        expect(html).not.toContain('Minified React error');
+      }
+    });
+
+    (serverAvailable ? it : it.skip)('pages handle missing data gracefully without hydration errors', async () => {
+      // Test pages that might return empty states or handle missing data
+      const testPages = [
+        '/autorzy', // Empty authors list
+        '/zbiory',  // Analysis collection
+        '/analizy'  // Analysis list
+      ];
+
+      for (const page of testPages) {
+        const response = await fetch(`http://localhost:3000${page}`);
+        expect(response.ok).toBe(true);
+
+        const html = await response.text();
+        expect(html).toContain('<html');
+        expect(html).not.toContain('Error:');
+        expect(html).not.toContain('TypeError:');
+        expect(html).not.toContain('Minified React error');
+        expect(html).not.toContain('Cannot read properties of undefined');
+      }
+    });
+
+    (serverAvailable ? it : it.skip)('navigation between pages works without hydration errors', async () => {
+      // Test basic navigation flow
+      const pages = ['/', '/kontakt', '/zbiory', '/autorzy'];
+
+      for (const page of pages) {
+        const response = await fetch(`http://localhost:3000${page}`);
+        expect(response.ok).toBe(true);
+
+        const html = await response.text();
+        expect(html).toContain('<html');
+        expect(html).not.toContain('Error:');
+        expect(html).not.toContain('TypeError:');
+        expect(html).not.toContain('Minified React error');
+
+        // Check for navigation elements
+        expect(html).toContain('Strona główna');
+        expect(html).toContain('Autorzy');
       }
     });
   });

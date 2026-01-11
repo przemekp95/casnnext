@@ -1,4 +1,33 @@
 import Image from "next/image";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Centrum Analiz Służby Niepodległej",
+  description: "Centrum Analiz Fundacji Służby Niepodległej - niezależne analizy polityczne, gospodarcze i społeczne. Badania suwerenności informacyjnej, energetycznej, konstytucyjnej i kulturowej.",
+  keywords: [
+    "analizy polityczne",
+    "badania społeczne",
+    "suwerenność",
+    "niepodległość",
+    "Polska",
+    "Fundacja Służby Niepodległej",
+    "raporty polityczne",
+    "analizy gospodarcze"
+  ],
+  authors: [{ name: "Centrum Analiz Służby Niepodległej" }],
+  openGraph: {
+    title: "Centrum Analiz Służby Niepodległej",
+    description: "Niezależne analizy polityczne, gospodarcze i społeczne. Badania suwerenności informacyjnej, energetycznej, konstytucyjnej i kulturowej.",
+    type: "website",
+    siteName: "Centrum Analiz Służby Niepodległej",
+    images: "/images/home2.webp",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Centrum Analiz Służby Niepodległej",
+    description: "Niezależne analizy polityczne, gospodarcze i społeczne. Badania suwerenności informacyjnej, energetycznej, konstytucyjnej i kulturowej.",
+  },
+};
 
 export default function HomePage() {
   return (

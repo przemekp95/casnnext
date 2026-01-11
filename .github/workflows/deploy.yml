@@ -86,21 +86,6 @@ jobs:
       - name: Check posts
         run: npm run check:posts
 
-      - name: Run unit tests with coverage
-        run: npm run test:ci -- --coverage --watchAll=false
-        env:
-          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
-
-      - name: Check coverage threshold
-        run: |
-          COVERAGE=$(npx jest --coverage --coverageReporters=json-summary --watchAll=false | jq '.total.lines.pct')
-          echo "Test coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-            echo "L Coverage below 80% minimum requirement"
-            exit 1
-          fi
-          echo "✅ Coverage meets 80% minimum requirement"
-
       - name: Build application
         run: npm run build
         env:
@@ -116,6 +101,21 @@ jobs:
 
       - name: Wait for server to be ready
         run: npx wait-on http://localhost:3000/api/health --timeout 60000
+
+      - name: Run unit tests with coverage
+        run: npm run test:ci -- --coverage --watchAll=false
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(npx jest --coverage --coverageReporters=json-summary --watchAll=false | jq '.total.lines.pct')
+          echo "Test coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "L Coverage below 80% minimum requirement"
+            exit 1
+          fi
+          echo "✅ Coverage meets 80% minimum requirement"
 
       - name: Run E2E tests
         run: npm run test:e2e

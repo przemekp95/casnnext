@@ -2,12 +2,15 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
 
 // 🔧 SSR / no-cache
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
+
+export const metadata: Metadata = { title: "Zbiory analiz - Centrum Analiz Służby Niepodległej" };
 
 const issues = [
   { year: 2022, file: "/CASN_gotowa_wersja_do_druku_24.01.2023.pdf", title: "Zeszyt Analiz 2022" },

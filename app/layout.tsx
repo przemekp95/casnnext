@@ -72,7 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="w-full min-h-screen">{children}</main>
         <CtaSection />
         <Footer />
-        <LegacyScripts />
+        {/* <LegacyScripts /> */}
 
         {/* istniejący inline script na navbar zostaje */}
 
