@@ -2,6 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { getAnalyses } from "@/lib/analyses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,17 +25,7 @@ export default async function AnalysesPage() {
   }
 
   try {
-    // Fetch all analyses with author data
-    const response = await fetch("/api/analyses", {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch analyses:', response.status);
-      throw new Error('Failed to fetch analyses');
-    }
-
-    const analyses = await response.json();
+    const analyses = await getAnalyses();
 
     return (
       <main className="bg-gray-100 min-h-screen pb-12">

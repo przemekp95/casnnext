@@ -2,6 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getAuthorBySlug } from "@/lib/authors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,13 +16,10 @@ export default async function AuthorPage(props: any) {
   const { slug }: { slug: string } = await props.params;
   if (!slug) return notFound();
 
-  const response = await fetch(`/api/authors/${slug}`, {
-    cache: "no-store",
-  });
+  const result = await getAuthorBySlug(slug);
+  if (!result) return notFound();
 
-  if (!response.ok) return notFound();
-
-  const { author, analyses } = await response.json();
+  const { author, analyses } = result;
 
   const imgSrc =
     author.img && (author.img.startsWith("/") || author.img.startsWith("http"))
