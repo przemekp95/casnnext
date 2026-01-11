@@ -9,8 +9,9 @@ interface RouteModule {
 let route: RouteModule | null = null;
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   route = require('@/app/api/articles/route') as RouteModule;
-} catch (_) {
+} catch (_unused) {
   route = null;
 }
 
