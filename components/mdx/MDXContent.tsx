@@ -1,15 +1,16 @@
 // components/mdx/MDXContent.tsx
 import { MDXRemote } from 'next-mdx-remote/rsc';
+import { ComponentProps } from 'react';
 import SafeImage from '../SafeImage';
 // Te dwa komponenty są Client Components (pliki zaczynają się od `use client`)
 import Chart from '../charts/Chart';
 import Map from '../maps/Map';
 
 const components = {
-  img: (props: any) => <SafeImage {...props} />,
-  Image: (props: any) => <SafeImage {...props} />,
-  Chart: Chart as any,
-  Map: Map as any,
+  img: (props: ComponentProps<typeof SafeImage>) => <SafeImage {...props} />,
+  Image: (props: ComponentProps<typeof SafeImage>) => <SafeImage {...props} />,
+  Chart: Chart,
+  Map: Map,
   // Linki zostają jako zwykłe <a> w MDX
 };
 
