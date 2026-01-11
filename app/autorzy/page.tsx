@@ -28,10 +28,22 @@ export default async function AuthorsPage() {
 
   const authors = await getAuthors();
 
-  const normalizeSrc = (src?: string | null) =>
-    src && (src.startsWith("/") || src.startsWith("http"))
-      ? src
+  // Bezpieczne funkcje pomocnicze
+  const getAvatarSrc = (img?: string | null) =>
+    img && (img.startsWith("/") || img.startsWith("http"))
+      ? img
       : "/images/placeholder.png";
+
+  const getDisplayName = (name: string, slug: string) => {
+    if (name?.trim()) {
+      return name;
+    }
+    // Generuj nazwę z slug jeśli name jest puste
+    return slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   return (
     <main className="bg-gray-100 min-h-screen pb-12">
@@ -88,40 +100,45 @@ export default async function AuthorsPage() {
       <section className="section">
         <div className="container">
           <div className="row">
-            {authors.map((a: AuthorRow) => (
-              <div className="col-lg-3 col-md-6" key={a.slug}>
-                <div className="our-team-box mt-2 mb-4">
-                  <div className="team-img">
-                    <Image
-                      src={normalizeSrc(a.img)}
-                      alt={a.name || "Autor"}
-                      className="img-fluid d-block rounded"
-                      width={600}
-                      height={600}
-                      unoptimized
-                    />
-                    <div className="our-team-name text-center">
-                      <h6 className="mb-0 text-white">{a.name}</h6>
+            {authors.map((a: AuthorRow) => {
+              const displayName = getDisplayName(a.name, a.slug);
+              const avatarSrc = getAvatarSrc(a.img);
+
+              return (
+                <div className="col-lg-3 col-md-6" key={a.slug}>
+                  <div className="our-team-box mt-2 mb-4">
+                    <div className="team-img">
+                      <Image
+                        src={avatarSrc}
+                        alt={displayName}
+                        className="img-fluid d-block rounded"
+                        width={600}
+                        height={600}
+                        unoptimized
+                      />
+                      <div className="our-team-name text-center">
+                        <h6 className="mb-0 text-white">{displayName}</h6>
+                      </div>
                     </div>
-                  </div>
-                  <div className="our-team-overlay">
-                    <div className="item-content text-white text-center p-2">
-                      <div className="item-desc">
-                        <h5 className="text-white mb-0">
-                          <Link
-                            href={`/autor/${a.slug}`}
-                            style={{ color: "inherit", textDecoration: "none" }}
-                          >
-                            {a.name}
-                          </Link>
-                        </h5>
-                        <div className="our-team-box-border mt-3 mb-3" />
+                    <div className="our-team-overlay">
+                      <div className="item-content text-white text-center p-2">
+                        <div className="item-desc">
+                          <h5 className="text-white mb-0">
+                            <Link
+                              href={`/autor/${a.slug}`}
+                              style={{ color: "inherit", textDecoration: "none" }}
+                            >
+                              {displayName}
+                            </Link>
+                          </h5>
+                          <div className="our-team-box-border mt-3 mb-3" />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {/* opcjonalnie puste kolumny dla domknięcia siatki */}
           </div>
         </div>

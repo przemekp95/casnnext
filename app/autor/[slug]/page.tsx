@@ -21,10 +21,25 @@ export default async function AuthorPage(props: any) {
 
   const { author, analyses } = result;
 
-  const imgSrc =
-    author.img && (author.img.startsWith("/") || author.img.startsWith("http"))
-      ? author.img
+  // Bezpieczne funkcje pomocnicze
+  const getAvatarSrc = (img?: string | null) =>
+    img && (img.startsWith("/") || img.startsWith("http"))
+      ? img
       : "/images/placeholder.png";
+
+  const getDisplayName = (name: string, slug: string) => {
+    if (name?.trim()) {
+      return name;
+    }
+    // Generuj nazwę z slug jeśli name jest puste
+    return slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const displayName = getDisplayName(author.name, author.slug);
+  const imgSrc = getAvatarSrc(author.img);
 
   return (
     <main>
@@ -41,12 +56,12 @@ export default async function AuthorPage(props: any) {
                 <div className="row justify-content-center">
                   <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
                     <div className="home-page-title text-center">
-                      <h1 className="text-white mb-2">{author.name}</h1>
+                      <h1 className="text-white mb-2">{displayName}</h1>
                       <nav aria-label="breadcrumb">
                         <ol className="breadcrumb justify-content-center bg-transparent">
                           <li className="breadcrumb-item text-white"><Link href="/" className="text-white">Strona główna</Link></li>
                           <li className="breadcrumb-item"><Link href="/autorzy" className="text-custom">Nasi autorzy</Link></li>
-                          <li className="breadcrumb-item active" aria-current="page">{author.name}</li>
+                          <li className="breadcrumb-item active" aria-current="page">{displayName}</li>
                         </ol>
                       </nav>
                     </div>
@@ -63,13 +78,13 @@ export default async function AuthorPage(props: any) {
           <div className="row align-items-center">
             <div className="col-lg-4">
               <div className="team-details-img mo-mb-20">
-                <Image src={imgSrc} alt={`Zdjęcie ${author.name}`}
+                <Image src={imgSrc} alt={`Zdjęcie ${displayName}`}
                        className="img-fluid d-block mx-auto rounded" width={600} height={600} unoptimized />
               </div>
             </div>
             <div className="col-lg-8">
               <div className="team-details rounded p-4">
-                <h4 className="text-dark mb-2">{author.name}</h4>
+                <h4 className="text-dark mb-2">{displayName}</h4>
                 <div className="team-details-border mt-3 mb-3"></div>
                 <p className="team-details-desc text-muted mb-4">{author.bio ?? ""}</p>
               </div>
