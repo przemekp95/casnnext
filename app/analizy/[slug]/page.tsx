@@ -168,6 +168,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     // 3) Render (MDX renderuje komponent MDXContent — bez sieciowych pluginów)
     return (
       <main>
+        <div id="analysis-page" data-page-type="analysis"></div>
         <Header />
         <ArticleLayout
           title={title ?? "Artykuł"}

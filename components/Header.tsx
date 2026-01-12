@@ -1,10 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAnalysisPage, setIsAnalysisPage] = useState(false);
+
+  useEffect(() => {
+    // Check if we're on an analysis page
+    const analysisMarker = document.getElementById('analysis-page');
+    setIsAnalysisPage(!!analysisMarker);
+  }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen((v) => !v);
@@ -15,7 +22,11 @@ export default function Header() {
   };
 
   return (
-    <header id="topnav" className="defaultscroll scroll-active" role="banner">
+    <header
+      id="topnav"
+      className={isAnalysisPage ? "defaultscroll" : "defaultscroll scroll-active"}
+      role="banner"
+    >
       {/* WARSTWA TŁA – CAŁA SZEROKOŚĆ */}
       <div className="topnav-bg">
         <div className="container">
@@ -73,7 +84,7 @@ export default function Header() {
                 onMouseEnter={(e) => e.currentTarget.style.color = '#00aaf9'}
                 onMouseLeave={(e) => e.currentTarget.style.color = '#ffffff'}
               >
-                <i className="mdi mdi-email mr-1 text-custom" style={{ fontSize: '18px' }} aria-hidden="true"></i>
+                <i className="mdi mdi-email mr-1 text-custom" aria-hidden="true"></i>
                 p.balcerowski@sluzbaniepodleglej.pl
               </a>
 
