@@ -33,7 +33,7 @@ export default function HomePage() {
   return (
     <main>
       {/* HOME START */}
-      <section className="contact-us-home section" id="home">
+      <section className="contact-us-home section" id="home" style={{ minHeight: '380px' }}>
         {/* Desktop hero */}
         <Image
           src="/images/home2.webp"

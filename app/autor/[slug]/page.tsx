@@ -74,8 +74,8 @@ export default async function AuthorPage(props: any) {
 
   return (
     <main>
-      <section className="contact-us-home section" id="home">
-        <div className="relative" style={{ minHeight: 380 }}>
+      <section className="contact-us-home section" id="home" style={{ minHeight: '380px' }}>
+        <div className="relative">
           <Image src="/images/home2.webp" alt="Tło" fill priority sizes="100vw"
                  className="hero-bg hero-desktop" style={{ objectFit: "cover", objectPosition: "center 35%" }} unoptimized />
           <Image src="/images/logo.jpg" alt="CASN" fill sizes="100vw"

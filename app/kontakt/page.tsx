@@ -10,7 +10,7 @@ export default function KontaktPage() {
   return (
     <main className="bg-[#222f3e] min-h-screen pb-12">
       {/* CONTACT US HOME START */}
-      <section className="contact-us-home section" id="home">
+      <section className="contact-us-home section" id="home" style={{ minHeight: '380px' }}>
 
         {/* Desktop hero */}
         <Image

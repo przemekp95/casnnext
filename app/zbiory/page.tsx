@@ -23,7 +23,7 @@ export default function AnnualReportsPage() {
   return (
     <main className="bg-gray-100 min-h-screen pb-12">
       {/* CASES HOME START */}
-      <section className="contact-us-home section" id="home">
+      <section className="contact-us-home section" id="home" style={{ minHeight: '380px' }}>
         {/* wrapper dla <Image fill /> */}
         <div className="relative">
           {/* Desktop hero */}
