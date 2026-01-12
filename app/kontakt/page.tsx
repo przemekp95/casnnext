@@ -3,64 +3,21 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
+import Hero from "@/components/Hero";
 
 export const metadata: Metadata = { title: "Kontakt - Centrum Analiz Służby Niepodległej" };
 
 export default function KontaktPage() {
   return (
     <main className="bg-[#222f3e] min-h-screen pb-12">
-      {/* CONTACT US HOME START */}
-      <section className="contact-us-home section" id="home" style={{ minHeight: '380px' }}>
-
-        {/* Desktop hero */}
-        <Image
-          src="/images/home2.webp"
-          alt=""
-          fill
-          priority
-          fetchPriority="high"
-          sizes="(max-width: 768px) 0px, 100vw"   // nie ładuj na mobile
-          className="hero-bg hero-desktop"
-          style={{ objectFit: "cover", objectPosition: "center 35%" }}
-        />
-
-        {/* Mobile hero (logo) */}
-        <Image
-          src="/images/logo.jpg"
-          alt="CASN"
-          fill
-          sizes="(max-width: 768px) 100vw, 0px"   // nie ładuj na desktopie
-          className="hero-bg hero-mobile"
-          style={{ objectFit: "contain" }}
-        />
-
-        <div className="bg-overlay"></div>
-
-        <div className="home-center">
-          <div className="home-desc-center">
-            <div className="container">
-              <div className="row justify-content-center">
-                <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
-                  <div className="home-page-title text-center">
-                    <h1 className="text-white mb-2">Kontakt</h1>
-                    {/* Standardized breadcrumb positioning */}
-                    <nav aria-label="breadcrumb" style={{ marginTop: '20px', marginBottom: '20px' }}>
-                      <ol className="breadcrumb justify-content-center bg-transparent">
-                        <li className="breadcrumb-item text-white">
-                          <Link href="/" className="text-white">Strona główna</Link>
-                        </li>
-                        <li className="breadcrumb-item active" aria-current="page">
-                          <a href="/kontakt" className="text-custom">Kontakt</a>
-                        </li>
-                      </ol>
-                    </nav>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Global Hero */}
+      <Hero
+        title="Kontakt"
+        breadcrumbs={[
+          { label: "Strona główna", href: "/" },
+          { label: "Kontakt", active: true },
+        ]}
+      />
       {/* CONTACT US HOME END */}
 
       {/* MAP START */}

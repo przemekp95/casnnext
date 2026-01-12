@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getAuthorBySlug } from "@/lib/authors";
+import Hero from "@/components/Hero";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,36 +75,14 @@ export default async function AuthorPage(props: any) {
 
   return (
     <main>
-      <section className="contact-us-home section" id="home" style={{ minHeight: '380px' }}>
-        <div className="relative">
-          <Image src="/images/home2.webp" alt="Tło" fill priority sizes="100vw"
-                 className="hero-bg hero-desktop" style={{ objectFit: "cover", objectPosition: "center 35%" }} unoptimized />
-          <Image src="/images/logo.jpg" alt="CASN" fill sizes="100vw"
-                 className="hero-bg hero-mobile" style={{ objectFit: "contain" }} unoptimized />
-          <div className="bg-overlay"></div>
-          <div className="home-center">
-            <div className="home-desc-center">
-              <div className="container">
-                <div className="row justify-content-center">
-                  <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
-                    <div className="home-page-title text-center">
-                      <h1 className="text-white mb-2">{author.displayName}</h1>
-                      {/* Standardized breadcrumb positioning */}
-                      <nav aria-label="breadcrumb" style={{ marginTop: '20px', marginBottom: '20px' }}>
-                        <ol className="breadcrumb justify-content-center bg-transparent">
-                          <li className="breadcrumb-item text-white"><Link href="/" className="text-white">Strona główna</Link></li>
-                          <li className="breadcrumb-item"><Link href="/autorzy" className="text-custom">Nasi autorzy</Link></li>
-                          <li className="breadcrumb-item active" aria-current="page">{author.displayName}</li>
-                        </ol>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>{/* home-desc-center */}
-          </div>{/* home-center */}
-        </div>
-      </section>
+      <Hero
+        title={author.displayName}
+        breadcrumbs={[
+          { label: "Strona główna", href: "/" },
+          { label: "Nasi autorzy", href: "/autorzy" },
+          { label: author.displayName, active: true },
+        ]}
+      />
 
       <section className="section">
         <div className="container">
