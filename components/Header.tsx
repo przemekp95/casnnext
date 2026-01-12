@@ -24,7 +24,7 @@ export default function Header() {
   return (
     <header
       id="topnav"
-      className={isAnalysisPage ? "defaultscroll" : "defaultscroll scroll-active"}
+      className="defaultscroll scroll-active"
       role="banner"
     >
       {/* WARSTWA TŁA – CAŁA SZEROKOŚĆ */}
