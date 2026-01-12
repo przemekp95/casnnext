@@ -41,7 +41,8 @@ export default function Hero({
         minHeight: variant === 'home' ? '100vh' : '380px',
         padding: variant === 'home' ? '200px 0 120px' : '0',
         display: variant === 'background-only' ? 'block' : 'flex',
-        alignItems: variant === 'background-only' ? 'initial' : 'center',
+        alignItems: variant === 'background-only' ? 'initial' : 'flex-end',
+        paddingBottom: variant === 'background-only' ? '0' : '40px',
         position: 'relative',
         overflow: 'hidden'
       }}
