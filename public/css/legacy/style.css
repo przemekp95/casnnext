@@ -5,6 +5,53 @@
 */
 
 
+/* ===== HEADER FULL WIDTH BACKGROUND ===== */
+
+.topnav-bg {
+  width: 100%;
+  background: rgba(30, 30, 30, 0.65);
+}
+
+/* ===== FLEX LAYOUT ===== */
+
+.topnav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.topnav-left {
+  flex: 0 0 auto;
+}
+
+.topnav-menu {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+}
+
+.topnav-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ===== EMAIL ===== */
+
+.topnav-email {
+  color: #f6f6f6;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* (opcjonalnie hover) */
+.topnav-email:hover {
+  opacity: 0.85;
+}
+
+
+
 /*===================
 1. Basic
 2. Helper

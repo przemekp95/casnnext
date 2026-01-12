@@ -1,10 +1,13 @@
 // app/layout.tsx
 import "./globals.css";
 import Script from "next/script";
+import Head from "next/head";
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CtaSection from "@/components/CtaSection";
+import LegacyScripts from "@/app/_components/LegacyScripts";
+import { MdiShim } from "@/app/ui/icons/MdiShim";
 
 import { Roboto, Rubik } from "next/font/google";
 
@@ -61,12 +64,23 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pl" className={`${roboto.variable} ${rubik.variable}`}>
+      <head>
+        <link rel="stylesheet" href="/css/legacy/bootstrap.min.css" />
+        <link rel="stylesheet" href="/css/legacy/style.css" />
+        <link rel="stylesheet" href="/css/legacy/menu.css" />
+        <link rel="stylesheet" href="/css/legacy/owl.carousel.css" />
+        <link rel="stylesheet" href="/css/legacy/owl.theme.css" />
+        <link rel="stylesheet" href="/css/legacy/owl.transitions.css" />
+        <link rel="stylesheet" href="/css/legacy/themify-icons.css" />
+        <link rel="stylesheet" href="/css/legacy/magnific-popup.css" />
+      </head>
       <body className="bg-white text-black">
+        <MdiShim />
         <Header />
         <main className="w-full min-h-screen">{children}</main>
         <CtaSection />
         <Footer />
-        {/* <LegacyScripts /> */}
+        <LegacyScripts />
 
         {/* istniejący inline script na navbar zostaje */}
 
