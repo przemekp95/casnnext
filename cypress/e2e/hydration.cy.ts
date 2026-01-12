@@ -82,7 +82,7 @@ describe('Hydration Tests', () => {
 
       // Log warnings for debugging
       if (warnings.length > 0) {
-        console.log('Hydration warnings:', warnings);
+        void console.log('Hydration warnings:', warnings);
       }
 
       // Fail if there are hydration errors
@@ -99,7 +99,6 @@ describe('Hydration Tests', () => {
     cy.visit('/autorzy');
 
     // Wait for page to load
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     cy.contains('Nasi autorzy').should('be.visible');
 
     // Check for hydration errors
@@ -250,7 +249,6 @@ describe('Hydration Tests', () => {
 
       if ($body.find('a[href="/"]').length > 0) {
         cy.get('a[href="/"]').first().click();
-        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
         cy.url().should('not.include', '/autorzy').and('not.include', '/zbiory');
       }
     });
