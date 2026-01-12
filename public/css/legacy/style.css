@@ -1901,7 +1901,7 @@ CONTACT US HOME
   /* układ jak wcześniej */
   padding: 72px 0;
   display: grid;
-  place-items: center;
+  /*place-items: center;*/
 }
 
 /* overlay dla czytelności (lekki gradient) */

@@ -88,7 +88,8 @@ export default async function AuthorPage(props: any) {
                   <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
                     <div className="home-page-title text-center">
                       <h1 className="text-white mb-2">{author.displayName}</h1>
-                      <nav aria-label="breadcrumb">
+                      {/* Standardized breadcrumb positioning */}
+                      <nav aria-label="breadcrumb" style={{ marginTop: '20px', marginBottom: '20px' }}>
                         <ol className="breadcrumb justify-content-center bg-transparent">
                           <li className="breadcrumb-item text-white"><Link href="/" className="text-white">Strona główna</Link></li>
                           <li className="breadcrumb-item"><Link href="/autorzy" className="text-custom">Nasi autorzy</Link></li>
