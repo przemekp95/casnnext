@@ -3,6 +3,104 @@ import { initializeDatabase } from "./init-db";
 import { AnalysisSchema } from "./entities";
 import { AnalysisRow, AnalysisDetail } from "../types/analysis";
 
+// Mock data for development/testing
+const mockAnalyses: AnalysisRow[] = [
+  {
+    id: "1",
+    title: "Geopolityka Europy Zrodkowej",
+    slug: "geopolityka-europy-srodkowej",
+    authorId: "1",
+    author: {
+      id: "1",
+      slug: "piotr-balcerowski",
+      name: "Piotr Balcerowski",
+      img: "/images/Balcerowski.png"
+    }
+  },
+  {
+    id: "2",
+    title: "Transformacje polityczne w regionie",
+    slug: "transformacje-polityczne-region",
+    authorId: "1",
+    author: {
+      id: "1",
+      slug: "piotr-balcerowski",
+      name: "Piotr Balcerowski",
+      img: "/images/Balcerowski.png"
+    }
+  },
+  {
+    id: "3",
+    title: "BezpieczeDstwo cybernetyczne",
+    slug: "bezpieczenstwo-cybernetyczne",
+    authorId: "2",
+    author: {
+      id: "2",
+      slug: "anna-domanska",
+      name: "Anna DomaDska",
+      img: "/images/Domanska.png"
+    }
+  },
+  {
+    id: "4",
+    title: "Transformacja cyfrowa w administracji",
+    slug: "transformacja-cyfrowa-administracji",
+    authorId: "2",
+    author: {
+      id: "2",
+      slug: "anna-domanska",
+      name: "Anna DomaDska",
+      img: "/images/Domanska.png"
+    }
+  },
+  {
+    id: "5",
+    title: "Prawo midzynarodowe w erze cyfrowej",
+    slug: "prawo-miedzynarodowe-era-cyfrowa",
+    authorId: "3",
+    author: {
+      id: "3",
+      slug: "marek-feszler",
+      name: "Marek Feszler",
+      img: "/images/Feszler.png"
+    }
+  },
+  {
+    id: "6",
+    title: "Rynek energii w Europie",
+    slug: "rynek-energii-europie",
+    authorId: "4",
+    author: {
+      id: "4",
+      slug: "katarzyna-gursztyn",
+      name: "Katarzyna Gursztyn",
+      img: "/images/Gursztyn.png"
+    }
+  }
+];
+
+// Mock analysis details
+const mockAnalysisDetails: Record<string, AnalysisDetail> = {
+  "geopolityka-europy-srodkowej": {
+    id: "1",
+    title: "Geopolityka Europy Zrodkowej",
+    slug: "geopolityka-europy-srodkowej",
+    author: {
+      name: "Piotr Balcerowski",
+      bio: "Analityk polityczny specjalizujcy si w geopolityce Europy Zrodkowej i Wschodniej."
+    }
+  },
+  "bezpieczenstwo-cybernetyczne": {
+    id: "3",
+    title: "BezpieczeDstwo cybernetyczne",
+    slug: "bezpieczenstwo-cybernetyczne",
+    author: {
+      name: "Anna DomaDska",
+      bio: "Ekspertka ds. bezpieczeDstwa midzynarodowego i transformacji cyfrowej."
+    }
+  }
+};
+
 export async function getAnalyses(): Promise<AnalysisRow[]> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
@@ -15,7 +113,8 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
   }
 
   if (!AppDataSource || !AppDataSource.isInitialized) {
-    return [];
+    console.warn('Database not available for getAnalyses(), using mock data');
+    return mockAnalyses;
   }
 
   const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
@@ -56,7 +155,8 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
   }
 
   if (!AppDataSource || !AppDataSource.isInitialized) {
-    return null;
+    console.warn('Database not available for getAnalysisBySlug(), using mock data');
+    return mockAnalysisDetails[slug] || null;
   }
 
   const analysisRepository = AppDataSource.getRepository(AnalysisSchema);

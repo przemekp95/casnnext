@@ -3,6 +3,74 @@ import { initializeDatabase } from "./init-db";
 import { AuthorSchema, AnalysisSchema } from "./entities";
 import { AuthorRow, AuthorDetail } from "../types/author";
 
+// Mock data for development/testing
+const mockAuthors: AuthorRow[] = [
+  {
+    id: "1",
+    slug: "piotr-balcerowski",
+    name: "Piotr Balcerowski",
+    displayName: "Piotr Balcerowski",
+    img: "/images/Balcerowski.png",
+    bio: "Analityk polityczny specjalizujcy si w geopolityce Europy Zrodkowej i Wschodniej."
+  },
+  {
+    id: "2",
+    slug: "anna-domanska",
+    name: "Anna DomaDska",
+    displayName: "Anna DomaDska",
+    img: "/images/Domanska.png",
+    bio: "Ekspertka ds. bezpieczeDstwa midzynarodowego i transformacji cyfrowej."
+  },
+  {
+    id: "3",
+    slug: "marek-feszler",
+    name: "Marek Feszler",
+    displayName: "Marek Feszler",
+    img: "/images/Feszler.png",
+    bio: "Specjalista w zakresie prawa midzynarodowego i europejskiego."
+  },
+  {
+    id: "4",
+    slug: "katarzyna-gursztyn",
+    name: "Katarzyna Gursztyn",
+    displayName: "Katarzyna Gursztyn",
+    img: "/images/Gursztyn.png",
+    bio: "Analityczka rynku energii i polityki klimatycznej."
+  }
+];
+
+// Mock author details with analyses
+const mockAuthorDetails: Record<string, AuthorDetail> = {
+  "piotr-balcerowski": {
+    author: {
+      id: "1",
+      slug: "piotr-balcerowski",
+      name: "Piotr Balcerowski",
+      displayName: "Piotr Balcerowski",
+      img: "/images/Balcerowski.png",
+      bio: "Analityk polityczny specjalizujcy si w geopolityce Europy Zrodkowej i Wschodniej."
+    },
+    analyses: [
+      { id: "1", title: "Geopolityka Europy Zrodkowej", slug: "geopolityka-europy-srodkowej" },
+      { id: "2", title: "Transformacje polityczne w regionie", slug: "transformacje-polityczne-region" }
+    ]
+  },
+  "anna-domanska": {
+    author: {
+      id: "2",
+      slug: "anna-domanska",
+      name: "Anna DomaDska",
+      displayName: "Anna DomaDska",
+      img: "/images/Domanska.png",
+      bio: "Ekspertka ds. bezpieczeDstwa midzynarodowego i transformacji cyfrowej."
+    },
+    analyses: [
+      { id: "3", title: "BezpieczeDstwo cybernetyczne", slug: "bezpieczenstwo-cybernetyczne" },
+      { id: "4", title: "Transformacja cyfrowa w administracji", slug: "transformacja-cyfrowa-administracji" }
+    ]
+  }
+};
+
 export async function getAuthors(): Promise<AuthorRow[]> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
@@ -15,8 +83,8 @@ export async function getAuthors(): Promise<AuthorRow[]> {
   }
 
   if (!AppDataSource || !AppDataSource.isInitialized) {
-    console.warn('Database not available for getAuthors()');
-    return [];
+    console.warn('Database not available for getAuthors(), using mock data');
+    return mockAuthors;
   }
 
   try {
@@ -54,7 +122,8 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
   }
 
   if (!AppDataSource || !AppDataSource.isInitialized) {
-    return null;
+    console.warn('Database not available for getAuthorBySlug(), using mock data');
+    return mockAuthorDetails[slug] || null;
   }
 
   const authorRepository = AppDataSource.getRepository(AuthorSchema);
