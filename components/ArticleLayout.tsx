@@ -68,9 +68,9 @@ export default function ArticleLayout({
                     <div className="home-page-title text-center">
                       <h1 className="text-white mb-2">{title}</h1>
 
-                      {/* Standardized breadcrumb positioning - adjusted for additional content below */}
+                      {/* Standardized breadcrumb positioning - matching authors page */}
                       {breadcrumbs?.length > 0 && (
-                        <nav aria-label="breadcrumb" style={{ marginTop: '40px', marginBottom: '10px' }}>
+                        <nav aria-label="breadcrumb" style={{ marginTop: '20px', marginBottom: '20px' }}>
                           <ol className="breadcrumb justify-content-center bg-transparent">
                             {breadcrumbs.map((c, i) => (
                               <li
