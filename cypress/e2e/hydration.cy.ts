@@ -99,6 +99,7 @@ describe('Hydration Tests', () => {
     cy.visit('/autorzy');
 
     // Wait for page to load
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     cy.contains('Nasi autorzy').should('be.visible');
 
     // Check for hydration errors
@@ -249,6 +250,7 @@ describe('Hydration Tests', () => {
 
       if ($body.find('a[href="/"]').length > 0) {
         cy.get('a[href="/"]').first().click();
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
         cy.url().should('not.include', '/autorzy').and('not.include', '/zbiory');
       }
     });
