@@ -23,6 +23,7 @@ export default function Header() {
                 <a
                   href="mailto:p.balcerowski@sluzbaniepodleglej.pl"
                   aria-label="Wyślij email do Piotra Balcerowskiego"
+                  suppressHydrationWarning
                 >
                   <i className="mdi mdi-email mr-1 text-custom" aria-hidden="true"></i>
                   Email : p.balcerowski@sluzbaniepodleglej.pl
