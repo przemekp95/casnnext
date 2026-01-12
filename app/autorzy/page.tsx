@@ -74,15 +74,13 @@ function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
 }
 
 export default async function AuthorsPage() {
-  // Skip during build time to avoid database connection issues
+  // Always try to load authors, but handle errors gracefully
   let authors: AuthorRow[] = [];
-  if (process.env.NEXT_PHASE !== 'phase-production-build') {
-    try {
-      authors = await getAuthors();
-    } catch (error) {
-      console.warn('Failed to load authors during build:', error);
-      // Return empty array for build time
-    }
+  try {
+    authors = await getAuthors();
+  } catch (error) {
+    console.warn('Failed to load authors:', error);
+    // Return empty array as fallback
   }
 
   return (
