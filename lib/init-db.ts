@@ -68,7 +68,7 @@ export async function initializeDatabase() {
           // Check if tables exist first
           const queryRunner = AppDataSource.createQueryRunner();
           const tables = await queryRunner.query('SHOW TABLES');
-          const tableNames = tables.map((row: any) => Object.values(row)[0]);
+          const tableNames = tables.map((row: Record<string, unknown>) => Object.values(row)[0] as string);
 
           console.log('Available tables:', tableNames);
 

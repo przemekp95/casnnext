@@ -130,8 +130,7 @@ describe('Hydration Tests', () => {
     cy.visit('/zbiory');
 
     // Wait for page to load
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    void cy.contains('Zbiory analiz').should('be.visible');
+    cy.contains('Zbiory analiz').should('be.visible');
 
     // Check for hydration errors
     cy.window().then((win) => {
