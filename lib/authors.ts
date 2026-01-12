@@ -52,7 +52,8 @@ const mockAuthorDetails: Record<string, AuthorDetail> = {
     },
     analyses: [
       { id: "1", title: "Geopolityka Europy Zrodkowej", slug: "geopolityka-europy-srodkowej" },
-      { id: "2", title: "Transformacje polityczne w regionie", slug: "transformacje-polityczne-region" }
+      { id: "2", title: "Transformacje polityczne w regionie", slug: "transformacje-polityczne-region" },
+      { id: "3", title: "O pojciu Nacjonalizmu", slug: "balcerowski-nacjonalizm" }
     ]
   },
   "anna-domanska": {
