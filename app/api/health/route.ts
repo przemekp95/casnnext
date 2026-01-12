@@ -10,7 +10,7 @@ export async function GET() {
     if (AppDataSource && AppDataSource.isInitialized) {
       dbInitialized = true;
     } else {
-      console.log('<å Health check: Database not initialized, triggering initialization...');
+      console.log('Health check: Database not initialized, triggering initialization...');
       const result = await initializeDatabase();
       dbInitialized = !!result;
     }
@@ -38,7 +38,7 @@ export async function GET() {
     return NextResponse.json(healthData);
 
   } catch (error) {
-    console.error('L Health check failed:', error);
+    console.error('Health check failed:', error);
 
     return NextResponse.json({
       status: 'unhealthy',
