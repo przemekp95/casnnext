@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { EmailLink } from "./EmailLink";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -20,14 +21,11 @@ export default function Header() {
           <div className="float-right">
             <ul className="topbar-list list-unstyled d-flex" style={{ margin: "11px 0px" }} role="list">
               <li className="list-inline-item" role="listitem">
-                <a
-                  href="mailto:p.balcerowski@sluzbaniepodleglej.pl"
-                  aria-label="Wyślij email do Piotra Balcerowskiego"
-                  suppressHydrationWarning
-                >
-                  <i className="mdi mdi-email mr-1 text-custom" aria-hidden="true"></i>
-                  Email : p.balcerowski@sluzbaniepodleglej.pl
-                </a>
+                <EmailLink
+                  email="p.balcerowski@sluzbaniepodleglej.pl"
+                  label="Email"
+                  ariaLabel="Wyślij email do Piotra Balcerowskiego"
+                />
               </li>
             </ul>
           </div>
