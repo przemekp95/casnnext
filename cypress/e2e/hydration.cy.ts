@@ -239,12 +239,12 @@ describe('Hydration Tests', () => {
       // Check if we can find any navigation links
       if ($body.find('a[href*="/autorzy"]').length > 0) {
         cy.get('a[href*="/autorzy"]').first().click();
-        void cy.url().should('include', '/autorzy');
+        cy.url().should('include', '/autorzy');
       }
 
       if ($body.find('a[href*="/zbiory"]').length > 0) {
         cy.get('a[href*="/zbiory"]').first().click();
-        void cy.url().should('include', '/zbiory');
+        cy.url().should('include', '/zbiory');
       }
 
       if ($body.find('a[href="/"]').length > 0) {
