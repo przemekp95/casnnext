@@ -33,9 +33,9 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <main>
-      {/* Global Hero - Home variant with full viewport height */}
+      {/* Global Hero - Background only variant for home page */}
       <Hero
-        variant="home"
+        variant="background-only"
         title="Centrum Analiz Służby Niepodległej"
         showBreadcrumbs={false}
       />

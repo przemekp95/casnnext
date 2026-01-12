@@ -12,7 +12,7 @@ type HeroProps = {
   backgroundImage?: string;
   backgroundPosition?: string;
   children?: React.ReactNode;
-  variant?: 'home' | 'page' | 'article';
+  variant?: 'home' | 'page' | 'article' | 'background-only';
 };
 
 export default function Hero({
@@ -38,11 +38,10 @@ export default function Hero({
       id="home"
       className="section"
       style={{
-        minHeight: variant === 'home' ? '100vh' : '380px',
+        minHeight: variant === 'home' ? '100vh' : variant === 'background-only' ? '100vh' : '380px',
         padding: variant === 'home' ? '200px 0 120px' : '0',
-        display: 'flex',
-        alignItems: 'center',
-        background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.8), rgba(30, 30, 30, 0.6))',
+        display: variant === 'background-only' ? 'block' : 'flex',
+        alignItems: variant === 'background-only' ? 'initial' : 'center',
         position: 'relative',
         overflow: 'hidden'
       }}
@@ -88,59 +87,61 @@ export default function Hero({
         }}
       />
 
-      {/* Content */}
-      <div className="home-center" style={{ position: "relative", zIndex: 1, width: "100%" }}>
-        <div className="home-desc-center">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div
-                className="col-lg-8"
-                style={{
-                  background: "rgba(30, 30, 30, 0.65)",
-                  padding: variant === 'home' ? '40px' : '30px',
-                  borderRadius: '8px'
-                }}
-              >
-                <div className="home-page-title text-center">
-                  <h1 className="text-white mb-2">{title}</h1>
+      {/* Content - only render if not background-only variant */}
+      {variant !== 'background-only' && (
+        <div className="home-center" style={{ position: "relative", zIndex: 1, width: "100%" }}>
+          <div className="home-desc-center">
+            <div className="container">
+              <div className="row justify-content-center">
+                <div
+                  className="col-lg-8"
+                  style={{
+                    background: "rgba(30, 30, 30, 0.65)",
+                    padding: variant === 'home' ? '40px' : '30px',
+                    borderRadius: '8px'
+                  }}
+                >
+                  <div className="home-page-title text-center">
+                    <h1 className="text-white mb-2">{title}</h1>
 
-                  {subtitle && (
-                    <p className="text-white-50 mb-4" style={{ fontSize: '1.1rem' }}>
-                      {subtitle}
-                    </p>
-                  )}
+                    {subtitle && (
+                      <p className="text-white-50 mb-4" style={{ fontSize: '1.1rem' }}>
+                        {subtitle}
+                      </p>
+                    )}
 
-                  {/* Breadcrumbs */}
-                  {showBreadcrumbs && finalBreadcrumbs.length > 0 && (
-                    <nav aria-label="breadcrumb" style={{ marginTop: '20px', marginBottom: '20px' }}>
-                      <ol className="breadcrumb justify-content-center bg-transparent">
-                        {finalBreadcrumbs.map((c, i) => (
-                          <li
-                            key={i}
-                            className={"breadcrumb-item " + (c.active ? "active" : "text-white")}
-                            aria-current={c.active ? "page" : undefined}
-                          >
-                            {c.href && !c.active ? (
-                              <Link href={c.href} className="text-white">
-                                {c.label}
-                              </Link>
-                            ) : (
-                              <span className={c.active ? "text-custom" : ""}>{c.label}</span>
-                            )}
-                          </li>
-                        ))}
-                      </ol>
-                    </nav>
-                  )}
+                    {/* Breadcrumbs */}
+                    {showBreadcrumbs && finalBreadcrumbs.length > 0 && (
+                      <nav aria-label="breadcrumb" style={{ marginTop: '20px', marginBottom: '20px' }}>
+                        <ol className="breadcrumb justify-content-center bg-transparent">
+                          {finalBreadcrumbs.map((c, i) => (
+                            <li
+                              key={i}
+                              className={"breadcrumb-item " + (c.active ? "active" : "text-white")}
+                              aria-current={c.active ? "page" : undefined}
+                            >
+                              {c.href && !c.active ? (
+                                <Link href={c.href} className="text-white">
+                                  {c.label}
+                                </Link>
+                              ) : (
+                                <span className={c.active ? "text-custom" : ""}>{c.label}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </nav>
+                    )}
 
-                  {/* Additional content */}
-                  {children}
+                    {/* Additional content */}
+                    {children}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
