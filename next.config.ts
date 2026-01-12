@@ -6,7 +6,7 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
   // output: "standalone",        // REMOVED - causing deployment issues
-  images: { unoptimized: true } // <- naprawia 400 na /_next/image
+  images: { unoptimized: true }, // <- naprawia 400 na /_next/image
 } satisfies NextConfig;
 
 const withMDX = createMDX({
