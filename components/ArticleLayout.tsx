@@ -91,8 +91,9 @@ export default function ArticleLayout({
                         </nav>
                       )}
 
+                      {/* Additional content positioned below breadcrumbs */}
                       {(lead || author || date) && (
-                        <div className="mt-3">
+                        <div style={{ marginTop: '30px' }}>
                           {lead && <p className="text-white mb-2">{lead}</p>}
                           {(author || date) && (
                             <p className="text-white-50 mb-0">
