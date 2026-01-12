@@ -86,8 +86,8 @@ export default async function AuthorsPage() {
   return (
     <main className="bg-gray-100 min-h-screen pb-12">
       {/* HERO */}
-      <section className="contact-us-home section" id="home">
-        <div className="relative" style={{ minHeight: 380 }}>
+      <section className="contact-us-home section" id="home" style={{ minHeight: '380px' }}>
+        <div className="relative">
           <Image
             src="/images/home2.webp"
             alt="Tło"
