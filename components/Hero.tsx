@@ -38,7 +38,7 @@ export default function Hero({
       id="home"
       className="section"
       style={{
-        minHeight: variant === 'home' ? '100vh' : variant === 'background-only' ? '100vh' : '380px',
+        minHeight: variant === 'home' ? '100vh' : '380px',
         padding: variant === 'home' ? '200px 0 120px' : '0',
         display: variant === 'background-only' ? 'block' : 'flex',
         alignItems: variant === 'background-only' ? 'initial' : 'center',
