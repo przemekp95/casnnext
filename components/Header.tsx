@@ -95,14 +95,49 @@ export default function Header() {
                 aria-label="Przełącz menu nawigacyjne"
                 type="button"
                 onClick={toggleMenu}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
               >
                 <div
                   className={`lines${isMenuOpen ? " open" : ""}`}
                   aria-hidden="true"
+                  style={{
+                    width: '24px',
+                    height: '20px',
+                    position: 'relative'
+                  }}
                 >
-                  <span></span>
-                  <span></span>
-                  <span></span>
+                  <span style={{
+                    position: 'absolute',
+                    height: '2px',
+                    width: '100%',
+                    backgroundColor: '#7a7d84',
+                    transition: 'all 0.3s ease'
+                  }}></span>
+                  <span style={{
+                    position: 'absolute',
+                    height: '2px',
+                    width: '100%',
+                    backgroundColor: '#7a7d84',
+                    top: '6px',
+                    transition: 'all 0.3s ease'
+                  }}></span>
+                  <span style={{
+                    position: 'absolute',
+                    height: '2px',
+                    width: '100%',
+                    backgroundColor: '#7a7d84',
+                    top: '12px',
+                    transition: 'all 0.3s ease'
+                  }}></span>
                 </div>
               </button>
             </div>
