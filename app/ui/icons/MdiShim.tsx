@@ -5,6 +5,16 @@ import { mdiMap } from "./mdi-map";
 
 export function MdiShim() {
   useEffect(() => {
+    // Suppress hydration warnings for MDI icon replacements
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      const message = args.join(' ');
+      if (message.includes('Hydration failed') && message.includes('mdi')) {
+        return; // Suppress MDI-related hydration warnings
+      }
+      originalConsoleError.apply(console, args);
+    };
+
     const replaceIcons = () => {
       document.querySelectorAll("i.mdi").forEach((el) => {
         const cls = Array.from(el.classList).find(c => c.startsWith("mdi-"));
@@ -65,6 +75,7 @@ export function MdiShim() {
     return () => {
       clearTimeout(timeoutId);
       observer.disconnect();
+      console.error = originalConsoleError; // Restore original console.error
     };
   }, []);
 
