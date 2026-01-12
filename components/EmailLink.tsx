@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
 type Props = {
   email: string;
   label?: string;
@@ -15,6 +17,17 @@ export function EmailLink({
   className = '',
   iconClass = 'mdi mdi-email mr-1 text-custom',
 }: Props) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Don't render anything on the server to prevent Cloudflare obfuscation
+  if (!isMounted) {
+    return null;
+  }
+
   return (
     <a
       href={`mailto:${email}`}
