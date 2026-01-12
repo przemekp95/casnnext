@@ -99,7 +99,7 @@ describe('Hydration Tests', () => {
     cy.visit('/autorzy');
 
     // Wait for page to load
-    void cy.contains('Nasi autorzy').should('be.visible');
+    cy.contains('Nasi autorzy').should('be.visible');
 
     // Check for hydration errors
     cy.window().then((win) => {
@@ -249,7 +249,7 @@ describe('Hydration Tests', () => {
 
       if ($body.find('a[href="/"]').length > 0) {
         cy.get('a[href="/"]').first().click();
-        void cy.url().should('not.include', '/autorzy').and('not.include', '/zbiory');
+        cy.url().should('not.include', '/autorzy').and('not.include', '/zbiory');
       }
     });
   });
