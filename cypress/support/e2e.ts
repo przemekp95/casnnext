@@ -16,14 +16,22 @@
 // Import commands.js using ES2015 syntax:
 import './commands'
 
-// Handle React hydration errors specifically for Cypress testing environment
+// NOTE: Cypress (Electron) mutates DOM before React hydration (simulating Cloudflare-like behavior).
+// This causes false-positive React #418 hydration errors.
+// Ignored intentionally – production is unaffected.
+// For future maintainers: This is NOT a production bug - only Cypress testing artifact.
+
+// Future-proofing: Feature flag for runtime-specific behavior
+const RUNTIME_ENV = process.env.NEXT_PUBLIC_RUNTIME || 'production';
+
 Cypress.on('uncaught:exception', (err) => {
   // React error #418 = hydration mismatch
   // This occurs in Cypress due to DOM mutations from test environment (Cloudflare simulation, Electron, etc.)
   // In production, this error doesn't occur - it's specific to Cypress testing
-  if (err.message.includes('Minified React error #418') ||
+  if (RUNTIME_ENV === 'cypress' && (
+      err.message.includes('Minified React error #418') ||
       err.message.includes('Hydration failed') ||
-      err.message.includes('hydration')) {
+      err.message.includes('hydration'))) {
     console.warn('⚠️  Ignoring React hydration error #418 in Cypress test environment');
     console.warn('This error does not occur in production - only in Cypress/Electron');
     return false; // Prevent Cypress from failing the test
