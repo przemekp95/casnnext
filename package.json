@@ -22,9 +22,9 @@
     "test:e2e:hydration": "cypress run --spec 'cypress/e2e/hydration.cy.ts'",
     "check:posts": "bash scripts/check-posts.sh",
     "db:seed": "echo 'Seeding handled by migrations - data included in InitialSetup migration'",
-    "migration:run": "tsx node_modules/.bin/typeorm migration:run -d lib/db.ts",
+    "migration:run": "tsx node_modules/.bin/typeorm migration:run -d lib/db.datasource.ts",
     "migration:create": "tsx node_modules/.bin/typeorm migration:create",
-    "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.ts"
+    "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.datasource.ts"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.0",

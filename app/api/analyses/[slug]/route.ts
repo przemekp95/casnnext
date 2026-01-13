@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { AppDataSource } from "@/lib/db";
+import { AppDataSource } from "@/lib/db.server";
 import { initializeDatabase } from "@/lib/init-db";
 import { AnalysisSchema } from "@/lib/entities";
 
