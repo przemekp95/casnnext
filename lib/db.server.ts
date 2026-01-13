@@ -98,3 +98,23 @@ export const AppDataSource = getDataSource();
 
 // Helper function to check if database is configured
 export const isDatabaseConfigured = () => hasDatabaseConfig;
+
+// Query helper for tests (only available in test environment)
+export const query = async (sql: string, params?: any[]): Promise<any[]> => {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('query() is only available in test environment');
+  }
+
+  const dataSource = getDataSource();
+  if (!dataSource || !dataSource.isInitialized) {
+    throw new Error('Database not initialized');
+  }
+
+  const queryRunner = dataSource.createQueryRunner();
+  try {
+    const result = await queryRunner.query(sql, params);
+    return result;
+  } finally {
+    await queryRunner.release();
+  }
+};
