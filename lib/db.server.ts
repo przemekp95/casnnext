@@ -36,7 +36,7 @@ if (databaseUrl) {
     username: url.username,
     password: url.password,
     database: url.pathname.slice(1), // Remove leading slash
-    synchronize: false, // Never synchronize - use migrations
+    synchronize: true, // TEMPORARY: Enable auto-sync to create missing tables
     logging: !isProduction && !isTest,
     // Remove charset/collation to use MySQL defaults and avoid encoding conflicts
   };
