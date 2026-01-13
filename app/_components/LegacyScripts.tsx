@@ -4,7 +4,7 @@ export default function LegacyScripts() {
   return (
     <>
       {/* Legacy scripts */}
-      <Script src="/js/legacy/bootstrap.js" strategy="beforeInteractive" />
+      <Script src="/js/legacy/bootstrap.js" strategy="beforeInteractive" type="module" />
       <Script src="/js/legacy/app.js" strategy="beforeInteractive" />
 
       {/* Custom mobile menu code */}
