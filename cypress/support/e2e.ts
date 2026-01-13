@@ -16,6 +16,9 @@
 // Import commands.js using ES2015 syntax:
 import './commands'
 
+// Debug: Verify support file is loaded
+console.log('[cypress] support file loaded successfully')
+
 // NOTE: Cypress (Electron) mutates DOM before React hydration (simulating Cloudflare-like behavior).
 // This causes false-positive React #418 hydration errors.
 // Ignored intentionally – production is unaffected.
