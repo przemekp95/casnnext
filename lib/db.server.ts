@@ -63,7 +63,7 @@ if (databaseUrl) {
     username: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'casn',
-    synchronize: false, // Never synchronize - use migrations
+    synchronize: true, // TEMPORARY: Enable auto-sync to create missing tables
     logging: !isProduction,
     // Remove charset/collation to use MySQL defaults and avoid encoding conflicts
   };
