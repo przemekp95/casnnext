@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db";
-import { initializeDatabase } from "@/lib/init-db";
+import { initializeDatabase } from "@/lib/server/init-db";
 import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
 
 // Typy danych
