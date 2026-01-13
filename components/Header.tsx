@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { EmailLink } from "./EmailLink";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -63,23 +64,23 @@ export default function Header() {
 
             {/* PRAWA STRONA – EMAIL + HAMBURGER */}
             <div className="topnav-right">
-              {/* Email ukryty na mobile */}
-              <a
-                href="mailto:p.balcerowski@sluzbaniepodleglej.pl"
-                aria-label="Wyślij email do Piotra Balcerowskiego"
+              {/* Email ukryty na mobile - client-only to prevent Cloudflare obfuscation hydration mismatch */}
+              <div
                 className="topnav-email d-none d-lg-inline"
+                suppressHydrationWarning
                 style={{
                   fontSize: '20px',
                   fontFamily: "'Rubik', sans-serif",
-                  transition: 'all 0.3s ease',
-                  color: '#ffffff'
+                  transition: 'all 0.3s ease'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#00aaf9'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#ffffff'}
               >
-                <i className="mdi mdi-email mr-1 text-custom" aria-hidden="true"></i>
-                p.balcerowski@sluzbaniepodleglej.pl
-              </a>
+                <EmailLink
+                  email="p.balcerowski@sluzbaniepodleglej.pl"
+                  ariaLabel="Wyślij email do Piotra Balcerowskiego"
+                  className="text-white"
+                  iconClass="mdi mdi-email mr-1 text-custom"
+                />
+              </div>
 
               <button
                 className="navbar-toggle"
