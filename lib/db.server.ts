@@ -100,7 +100,7 @@ export const AppDataSource = getDataSource();
 export const isDatabaseConfigured = () => hasDatabaseConfig;
 
 // Query helper for tests (only available in test environment)
-export const query = async (sql: string, params?: any[]): Promise<any[]> => {
+export const query = async (sql: string, params?: unknown[]): Promise<unknown[]> => {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error('query() is only available in test environment');
   }
