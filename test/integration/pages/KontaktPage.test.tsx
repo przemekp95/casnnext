@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 
 let PageComponent: any;
 let hasComponent = false;
@@ -23,8 +23,9 @@ try {
   it('renderuje breadcrumb navigation', () => {
     render(<PageComponent />);
 
-    expect(screen.getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Kontakt' })).toHaveAttribute('href', '/kontakt');
+    const breadcrumb = screen.getByRole('navigation', { name: /breadcrumb/i });
+    expect(within(breadcrumb).getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
+    expect(within(breadcrumb).getByText('Kontakt')).toBeInTheDocument();
   });
 
   it('renderuje mapę Google z prawidłowym iframe', () => {
@@ -94,7 +95,7 @@ try {
   it('ma odpowiednie klasy CSS dla sekcji', () => {
     const { container } = render(<PageComponent />);
 
-    expect(container.querySelector('.contact-us-home')).toBeInTheDocument();
+    expect(container.querySelector('.section')).toBeInTheDocument();
     expect(container.querySelector('[class*="bg-"]')).toBeInTheDocument();
     expect(container.querySelector('.min-h-screen')).toBeInTheDocument();
   });
@@ -117,7 +118,7 @@ try {
     expect(sections.length).toBe(4); // hero, map, contact info, address
 
     // Check for specific sections
-    expect(sections[0]).toHaveClass('contact-us-home');
+    expect(sections[0]).toHaveClass('section');
     expect(sections[1].querySelector('.map')).toBeInTheDocument();
     expect(sections[2]).toHaveClass('section', 'bg-light');
     expect(sections[3]).toHaveClass('section');

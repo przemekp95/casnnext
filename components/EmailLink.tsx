@@ -32,10 +32,11 @@ export function EmailLink({
     <a
       href={`mailto:${email}`}
       aria-label={ariaLabel ?? `Wyślij email do ${email}`}
-      className={className}
+      className={`${className} d-flex align-items-center`}
+      style={{ whiteSpace: 'nowrap' }}
     >
-      {iconClass && <i className={iconClass} aria-hidden="true"></i>}
-      {label}: {email}
+      {iconClass && <i className={iconClass} aria-hidden="true" style={{ marginRight: '4px' }}></i>}
+      <span style={{ fontSize: '13px' }}>{email}</span>
     </a>
   );
 }

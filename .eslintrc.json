@@ -1,6 +1,47 @@
 {
   "root": true,
   "extends": ["next/core-web-vitals"],
+  "plugins": ["boundaries"],
+  "settings": {
+    "boundaries/elements": [
+      {
+        "type": "server",
+        "pattern": "lib/server/**/*"
+      },
+      {
+        "type": "client",
+        "pattern": "lib/client/**/*"
+      }
+    ]
+  },
+  "rules": {
+    "boundaries/no-unknown": "error",
+    "boundaries/no-unknown-files": "error",
+    "boundaries/element-types": [
+      "error",
+      {
+        "default": "disallow",
+        "rules": [
+          {
+            "from": ["client"],
+            "allow": ["client"]
+          },
+          {
+            "from": ["server"],
+            "allow": ["server"]
+          },
+          {
+            "from": ["app"],
+            "allow": ["server", "client"]
+          },
+          {
+            "from": ["components"],
+            "allow": ["client"]
+          }
+        ]
+      }
+    ]
+  },
   "ignorePatterns": [
     "app/generated/**"
   ],
