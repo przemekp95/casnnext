@@ -6,7 +6,6 @@ import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CtaSection from "@/components/CtaSection";
-import LegacyScripts from "@/app/_components/LegacyScripts";
 import { MdiShim } from "@/app/ui/icons/MdiShim";
 
 import { Roboto, Rubik } from "next/font/google";
@@ -80,7 +79,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="w-full min-h-screen">{children}</main>
         <CtaSection />
         <Footer />
-        <LegacyScripts />
 
         {/* istniejący inline script na navbar zostaje */}
 
