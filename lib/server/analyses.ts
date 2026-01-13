@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { AppDataSource } from "../db";
+import { AppDataSource } from "../db.server";
 import { initializeDatabase } from "./init-db";
 import { AnalysisSchema } from "../entities";
 import { AnalysisRow, AnalysisDetail } from "../../types/analysis";

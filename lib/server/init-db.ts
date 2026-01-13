@@ -5,7 +5,7 @@ import 'server-only';
 
 export const runtime = "nodejs";
 
-import { AppDataSource } from '../db';
+import { AppDataSource } from '../db.server';
 
 // Import entities to ensure they're registered with TypeORM
 import '../entities/Author';
