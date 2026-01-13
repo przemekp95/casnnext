@@ -1,17 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isAnalysisPage, setIsAnalysisPage] = useState(false);
-
-  useEffect(() => {
-    // Check if we're on an analysis page
-    const analysisMarker = document.getElementById('analysis-page');
-    setIsAnalysisPage(!!analysisMarker);
-  }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen((v) => !v);
