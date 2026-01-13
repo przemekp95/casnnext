@@ -1,3 +1,5 @@
+import 'server-only';
+
 export const runtime = "nodejs";
 
 import { DataSource } from 'typeorm';

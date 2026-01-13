@@ -1,6 +1,8 @@
 // Database initialization file to ensure entities are registered
 // This file should be imported in the main application to ensure
 // TypeORM entities are available in production builds
+import 'server-only';
+
 export const runtime = "nodejs";
 
 import { AppDataSource } from '../db';

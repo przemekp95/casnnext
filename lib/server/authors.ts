@@ -1,12 +1,9 @@
+import 'server-only';
+
 import { AppDataSource } from "../db";
 import { initializeDatabase } from "./init-db";
 import { AuthorSchema, AnalysisSchema } from "../entities";
 import { AuthorRow, AuthorDetail } from "../../types/author";
-
-// Prevent client-side import of server-side utilities
-if (typeof window !== 'undefined') {
-  throw new Error('authors.ts cannot be imported on the client side');
-}
 
 // Mock data for development/testing
 const mockAuthors: AuthorRow[] = [
