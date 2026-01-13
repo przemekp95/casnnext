@@ -1,6 +1,20 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+// Mock server-side data loading to avoid client-side import issues
+jest.mock('@/lib/server/authors.loader', () => ({
+  loadAuthors: async () => [
+    {
+      id: "1",
+      slug: "piotr-balcerowski",
+      name: "Piotr Balcerowski",
+      displayName: "Piotr Balcerowski",
+      img: "/images/Balcerowski.png",
+      bio: "Analityk polityczny specjalizujący się w geopolityce Europy Środkowej i Wschodniej."
+    }
+  ],
+}));
+
 describe('Hydration and Data Integration Tests', () => {
   let isDatabaseAvailable = false;
 

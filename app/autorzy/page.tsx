@@ -1,84 +1,19 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
-import { getAuthors } from "@/lib/authors";
+import { loadAuthors } from "@/lib/server/authors.loader";
 import { AuthorRow } from "@/types/author";
 import Hero from "@/components/Hero";
+import AuthorsClient from "./AuthorsClient";
 
 export const runtime = "nodejs";
 export const revalidate = 3600; // ISR - odśwież co godzinę
 
 export const metadata: Metadata = { title: "Nasi autorzy - Centrum Analiz Służby Niepodległej" };
 
-// Build-time safe component - handles database gracefully
-function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
-  // Bezpieczne funkcje pomocnicze - zawsze zwracają spójne wyniki
-  const getAvatarSrc = (img?: string | null) =>
-    img && (img.startsWith("/") || img.startsWith("http"))
-      ? img
-      : "/images/placeholder.png";
-
-  return (
-    <section className="section">
-      <div className="container">
-        <div className="row">
-          {authors.length > 0 ? (
-            authors.map((a: AuthorRow) => {
-              const avatarSrc = getAvatarSrc(a.img);
-
-              return (
-                <div className="col-lg-3 col-md-6" key={String(a.id)}>
-                  <div className="our-team-box mt-2 mb-4">
-                    <div className="team-img">
-                      <Image
-                        src={String(avatarSrc)}
-                        alt={String(a.displayName)}
-                        className="img-fluid d-block rounded"
-                        width={600}
-                        height={600}
-                        unoptimized
-                      />
-                      <div className="our-team-name text-center">
-                        <h6 className="mb-0 text-white">
-                          {String(a.displayName)}
-                        </h6>
-                      </div>
-                    </div>
-                    <div className="our-team-overlay">
-                      <div className="item-content text-white text-center p-2">
-                        <div className="item-desc">
-                          <h5 className="text-white mb-0">
-                            <Link
-                              href={`/autor/${String(a.slug)}`}
-                              style={{ color: "inherit", textDecoration: "none" }}
-                            >
-                              {String(a.displayName)}
-                            </Link>
-                          </h5>
-                          <div className="our-team-box-border mt-3 mb-3" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="col-12 text-center py-5">
-              <p className="text-muted">Autorzy będą wkrótce dodani.</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default async function AuthorsPage() {
   // Always try to load authors, but handle errors gracefully
   let authors: AuthorRow[] = [];
   try {
-    authors = await getAuthors();
+    authors = await loadAuthors();
   } catch (error) {
     console.warn('Failed to load authors:', error);
     // Return empty array as fallback
@@ -96,7 +31,7 @@ export default async function AuthorsPage() {
       />
 
       {/* LISTA AUTORÓW */}
-      <AuthorsGrid authors={authors} />
+      <AuthorsClient authors={authors} />
     </main>
   );
 }
