@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { getAuthors } from "./authors";
 
 export async function loadAuthors() {
