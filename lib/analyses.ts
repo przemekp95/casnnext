@@ -3,6 +3,11 @@ import { initializeDatabase } from "./init-db";
 import { AnalysisSchema } from "./entities";
 import { AnalysisRow, AnalysisDetail } from "../types/analysis";
 
+// Prevent client-side import of server-side utilities
+if (typeof window !== 'undefined') {
+  throw new Error('analyses.ts cannot be imported on the client side');
+}
+
 // Mock data for development/testing
 const mockAnalyses: AnalysisRow[] = [
   {
