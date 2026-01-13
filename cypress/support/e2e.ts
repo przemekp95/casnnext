@@ -13,8 +13,7 @@
 // https://on.cypress.io/configuration
 // ***********************************************************
 
-// Debug: Verify support file is loaded
-console.log('[cypress] support file loaded successfully')
+// Cypress support file loaded
 
 // NOTE: Cypress (Electron) mutates DOM before React hydration (simulating Cloudflare-like behavior).
 // This causes false-positive React #418 hydration errors.
