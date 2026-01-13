@@ -3,6 +3,8 @@ import Script from "next/script";
 export default function LegacyScripts() {
   return (
     <>
+      {/* Load axios from CDN for legacy bootstrap script */}
+      <Script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js" strategy="beforeInteractive" />
       {/* Legacy scripts */}
       <Script src="/js/legacy/bootstrap.js" strategy="beforeInteractive" type="module" />
       <Script src="/js/legacy/app.js" strategy="beforeInteractive" />
