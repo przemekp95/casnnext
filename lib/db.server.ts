@@ -82,7 +82,7 @@ const getDataSource = (): DataSource | null => {
     _appDataSource = new DataSource({
       ...dbConfig,
       entities: [AuthorSchema, AnalysisSchema],
-      migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
+      migrations: isProduction ? ['migrations/*.js'] : ['migrations/*.ts'],
       subscribers: [],
     });
   }
