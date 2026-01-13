@@ -1,5 +1,5 @@
  
-import { AppDataSource } from '@/lib/db';
+import { AppDataSource } from '@/lib/db.server';
 import { initializeDatabase } from '@/lib/init-db';
 import { AuthorSchema, AnalysisSchema } from '@/lib/entities';
 
@@ -60,7 +60,7 @@ describe.skip('Database Seeding', () => {
   beforeAll(async () => {
     // Check if database is available for seeding tests
     try {
-      const { getPool } = await import('@/lib/db');
+      const { getPool } = await import('@/lib/db.server');
       const pool = getPool();
       if (pool) {
         await pool.execute('SELECT 1');

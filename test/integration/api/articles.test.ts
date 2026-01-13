@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 /** @jest-environment node */
-import { query } from '@/lib/db';
+import { query } from '@/lib/db.server';
 
 interface RouteModule {
   GET: () => Promise<Response>;
