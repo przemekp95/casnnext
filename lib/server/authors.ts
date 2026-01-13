@@ -1,7 +1,7 @@
-import { AppDataSource } from "./db";
+import { AppDataSource } from "../db";
 import { initializeDatabase } from "./init-db";
-import { AuthorSchema, AnalysisSchema } from "./entities";
-import { AuthorRow, AuthorDetail } from "../types/author";
+import { AuthorSchema, AnalysisSchema } from "../entities";
+import { AuthorRow, AuthorDetail } from "../../types/author";
 
 // Prevent client-side import of server-side utilities
 if (typeof window !== 'undefined') {

@@ -1,0 +1,1 @@
+export { getAuthors, getAuthorBySlug } from './server/authors';

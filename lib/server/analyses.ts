@@ -1,7 +1,7 @@
-import { AppDataSource } from "./db";
+import { AppDataSource } from "../db";
 import { initializeDatabase } from "./init-db";
-import { AnalysisSchema } from "./entities";
-import { AnalysisRow, AnalysisDetail } from "../types/analysis";
+import { AnalysisSchema } from "../entities";
+import { AnalysisRow, AnalysisDetail } from "../../types/analysis";
 
 // Prevent client-side import of server-side utilities
 if (typeof window !== 'undefined') {

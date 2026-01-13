@@ -3,11 +3,11 @@
 // TypeORM entities are available in production builds
 export const runtime = "nodejs";
 
-import { AppDataSource } from './db';
+import { AppDataSource } from '../db';
 
 // Import entities to ensure they're registered with TypeORM
-import './entities/Author';
-import './entities/Analysis';
+import '../entities/Author';
+import '../entities/Analysis';
 
 export async function initializeDatabase() {
   // Check for database configuration

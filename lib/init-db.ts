@@ -1,0 +1,1 @@
+export { initializeDatabase, AppDataSource } from './server/init-db';
