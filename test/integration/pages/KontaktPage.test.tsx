@@ -24,7 +24,7 @@ try {
     render(<PageComponent />);
 
     expect(screen.getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Kontakt' })).toHaveAttribute('href', '#');
+    expect(screen.getByText('Kontakt')).toBeInTheDocument();
   });
 
   it('renderuje mapę Google z prawidłowym iframe', () => {

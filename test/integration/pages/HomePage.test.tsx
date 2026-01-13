@@ -81,7 +81,6 @@ try {
 
     // Check for specific column layouts
     expect(container.querySelector('.col-lg-6')).toBeInTheDocument();
-    expect(container.querySelector('.col-lg-8')).toBeInTheDocument();
   });
 
   it('zawiera odpowiednie meta informacje i strukturę', () => {

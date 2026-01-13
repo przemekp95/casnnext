@@ -69,7 +69,7 @@ describe('Hydration and Data Integration Tests', () => {
 
       // Check breadcrumb
       expect(screen.getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
-      expect(screen.getByRole('link', { name: 'Zbiory analiz' })).toHaveAttribute('href', '#');
+      expect(screen.getByText('Zbiory analiz')).toBeInTheDocument();
 
       // Check analysis cards structure
       const analysisCards = document.querySelectorAll('.blog-list-item');

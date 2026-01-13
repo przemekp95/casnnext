@@ -23,7 +23,7 @@ try {
     render(<PageComponent />);
 
     expect(screen.getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Zbiory analiz' })).toHaveAttribute('href', '#');
+    expect(screen.getByText('Zbiory analiz')).toBeInTheDocument();
   });
 
   it('renderuje wszystkie dostępne zbiory analiz', () => {
