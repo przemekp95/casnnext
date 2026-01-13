@@ -53,6 +53,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 # Copy production dependencies
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
+# Copy lib directory for runtime entities and utilities
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
+
 # Copy migrations for production database initialization
 COPY --from=builder --chown=nextjs:nodejs /app/migrations ./migrations
 
