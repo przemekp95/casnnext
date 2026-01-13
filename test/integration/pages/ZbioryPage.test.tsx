@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 
 let PageComponent: any;
 let hasComponent = false;
@@ -22,8 +22,9 @@ try {
   it('renderuje breadcrumb navigation', () => {
     render(<PageComponent />);
 
-    expect(screen.getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
-    expect(screen.getByText('Zbiory analiz')).toBeInTheDocument();
+    const breadcrumb = screen.getByRole('navigation', { name: /breadcrumb/i });
+    expect(within(breadcrumb).getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
+    expect(within(breadcrumb).getByText('Zbiory analiz')).toBeInTheDocument();
   });
 
   it('renderuje wszystkie dostępne zbiory analiz', () => {

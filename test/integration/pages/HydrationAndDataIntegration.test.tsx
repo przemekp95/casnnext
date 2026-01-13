@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 describe('Hydration and Data Integration Tests', () => {
@@ -68,8 +68,9 @@ describe('Hydration and Data Integration Tests', () => {
       expect(screen.getByRole('heading', { name: 'Zbiory analiz' })).toBeInTheDocument();
 
       // Check breadcrumb
-      expect(screen.getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
-      expect(screen.getByText('Zbiory analiz')).toBeInTheDocument();
+      const breadcrumb = screen.getByRole('navigation', { name: /breadcrumb/i });
+      expect(within(breadcrumb).getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
+      expect(within(breadcrumb).getByText('Zbiory analiz')).toBeInTheDocument();
 
       // Check analysis cards structure
       const analysisCards = document.querySelectorAll('.blog-list-item');
