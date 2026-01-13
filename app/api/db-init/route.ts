@@ -1,4 +1,5 @@
 import { initializeDatabase } from '@/lib/init-db';
+import { AppDataSource } from '@/lib/db.server';
 import { NextResponse } from 'next/server';
 
 export async function GET() {

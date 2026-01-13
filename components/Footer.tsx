@@ -5,70 +5,70 @@ export default function Footer() {
   return (
     <section className="bg-footer">
       <div className="container">
-        <div className="row">
-          {/* Kolumna 1 */}
-          <div className="col-lg-3 col-sm-6">
-            <h4 className="text-uppercase footer-title mt-2 d-flex align-items-center gap-2">
-              <Image
-                src="/images/logo.jpg"
-                alt="CASN logo"
-                width={280}   // oryginalna szerokość pliku logo.jpg
-                height={65}   // oryginalna wysokość pliku logo.jpg
-                className="logo-light"
-                style={{ height: "28px", width: "auto" }} // dopasowanie jak w starym <img>
-                priority
-              />
+        {/* Ekosystem CASN - narracyjny flow */}
+        <div className="footer-ecosystem">
+          {/* Rząd 1: Tożsamość i podmioty */}
+          <div className="row footer-brands">
+            {/* Kolumna 1 - CASN (źródło) */}
+            <div className="col-lg-3 col-sm-6 footer-col">
               <Link href="/" className="text-white text-decoration-none">
-                CASN
+                <h5 className="text-white footer-title mt-2 mb-3">
+                  Centrum Analiz Służby Niepodległej
+                </h5>
+                <Image
+                  src="/images/logo.jpg"
+                  alt="CASN logo"
+                  width={280}
+                  height={65}
+                  className="logo-light"
+                  priority
+                />
               </Link>
-            </h4>
 
-            <ul className="footer-icons text-white-50 list-inline mt-3">
-              <li className="list-inline-item">
-                <a
-                  href="https://www.facebook.com/100094527270878"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <i className="mdi mdi-facebook" />
-                </a>
-              </li>
-              <li className="list-inline-item">
-                <a
-                  href="https://twitter.com/fundacjasluzba"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <i className="mdi mdi-twitter" />
-                </a>
-              </li>
-              <li className="list-inline-item">
-                <a
-                  href="https://www.instagram.com/fundacja_sluzba_niepodleglej/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <i className="mdi mdi-instagram" />
-                </a>
-              </li>
-            </ul>
-          </div>
+              <ul className="footer-icons text-white-50 list-inline mt-3">
+                <li className="list-inline-item">
+                  <a
+                    href="https://www.facebook.com/100094527270878"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <i className="mdi mdi-facebook" />
+                  </a>
+                </li>
+                <li className="list-inline-item">
+                  <a
+                    href="https://twitter.com/fundacjasluzba"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <i className="mdi mdi-twitter" />
+                  </a>
+                </li>
+                <li className="list-inline-item">
+                  <a
+                    href="https://www.instagram.com/fundacja_sluzba_niepodleglej/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <i className="mdi mdi-instagram" />
+                  </a>
+                </li>
+              </ul>
+            </div>
 
-          {/* Kolumna 2 */}
-          <div className="col-lg-3 col-sm-6">
-            <div className="d-flex flex-column align-items-center align-items-sm-start text-center text-sm-start">
-              <h6 className="text-white footer-title mt-2 mb-3">
+            {/* Kolumna 2 - Fundacja (organizacja) */}
+            <div className="col-lg-3 col-sm-6 footer-col">
+              <h5 className="text-white footer-title mt-2 mb-3">
                 Fundacja Służba Niepodległej
-              </h6>
+              </h5>
               <Image
                 src="/images/sn.webp"
                 alt="Fundacja Służba Niepodległej logo"
                 width={400}
                 height={134}
                 className="logo-light"
-                style={{ height: "40px", width: "auto" }}
               />
-              <ul className="list-unstyled company-sub-menu mt-2">
+              <ul className="list-unstyled company-sub-menu">
                 <li>
                   <a href="https://sluzbaniepodleglej.pl" className="text-white-50">
                     Strona Główna
@@ -100,22 +100,18 @@ export default function Footer() {
                 </li>
               </ul>
             </div>
-          </div>
 
-
-          {/* Kolumna 3 */}
-          <div className="col-lg-3 col-sm-6">
-            <div className="d-flex flex-column align-items-center align-items-sm-start text-center text-sm-start">
-              <h6 className="text-white footer-title mt-2 mb-3">Mazowieści</h6>
+            {/* Kolumna 3 - Mazowieści (media) */}
+            <div className="col-lg-3 col-sm-6 footer-col">
+              <h5 className="text-white footer-title mt-2 mb-3">Mazowieści</h5>
               <Image
                 src="/images/mazo.png"
                 alt="Mazowieści logo"
                 width={400}
                 height={134}
                 className="logo-light"
-                style={{ height: "40px", width: "auto" }}
               />
-              <ul className="list-unstyled company-sub-menu mt-2 mb-0">
+              <ul className="list-unstyled company-sub-menu mb-0">
                 <li>
                   <a href="https://mazowiesci.pl" className="text-white-50">
                     Strona Główna
@@ -140,22 +136,28 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Szeroki baner */}
-          <div className="col-lg-12 mt-3">
-            <Image
-              src="/images/PROO_zestawienie_1_plik_edytowalny_KOLOR_CASN.webp"
-              alt="Baner PROO"
-              width={1920}
-              height={500}
-              className="logo-light w-100 h-auto"
-              priority
-              sizes="100vw" // pełna szerokość viewportu
-            />
+          {/* Rząd 2: Finansowanie (PROO) */}
+          <div className="row footer-funding">
+            <div className="col-lg-12">
+              <div className="proo-footer-hero">
+                <Image
+                  src="/images/PROO_zestawienie_1_plik_edytowalny_KOLOR_CASN.webp"
+                  alt="Baner PROO - program dotacji"
+                  width={11056}
+                  height={16142}
+                  className="w-100 h-auto"
+                  unoptimized
+                  priority
+                  sizes="100vw"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
         <hr className="footer-border" />
 
+        {/* Formalności prawne */}
         <div className="row">
           <div className="col-lg-12">
             <div className="text-white-50 d-flex justify-content-between flex-wrap">

@@ -4,7 +4,6 @@ import path from "path";
 import matter from "gray-matter";
 import type { Metadata } from "next";
 import ArticleLayout from "@/components/ArticleLayout";
-import Header from "@/components/Header";
 import { notFound } from "next/navigation";
 import { getAnalyses, getAnalysisBySlug } from "@/lib/analyses";
 
@@ -167,8 +166,8 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
     // 3) Render (MDX renderuje komponent MDXContent — bez sieciowych pluginów)
     return (
-      <main>
-        <Header />
+      <>
+        <div id="analysis-page" data-page-type="analysis"></div>
         <ArticleLayout
           title={title ?? "Artykuł"}
           date={data.date}
@@ -182,7 +181,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
         >
           <MDXContent source={replacedContent} />
         </ArticleLayout>
-      </main>
+      </>
     );
   } catch (e: any) {
     logDbg("FATAL error in Page:", e?.stack || e);

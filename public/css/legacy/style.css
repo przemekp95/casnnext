@@ -5,6 +5,53 @@
 */
 
 
+/* ===== HEADER FULL WIDTH BACKGROUND ===== */
+
+.topnav-bg {
+  width: 100%;
+  background: rgba(30, 30, 30, 0.65);
+}
+
+/* ===== FLEX LAYOUT ===== */
+
+.topnav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.topnav-left {
+  flex: 0 0 auto;
+}
+
+.topnav-menu {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+}
+
+.topnav-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ===== EMAIL ===== */
+
+.topnav-email {
+  color: #f6f6f6;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* (opcjonalnie hover) */
+.topnav-email:hover {
+  opacity: 0.85;
+}
+
+
+
 /*===================
 1. Basic
 2. Helper
@@ -543,6 +590,97 @@ p {
     position: relative;
     border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* PROO Footer Hero - highlighted campaign section */
+.proo-footer-hero {
+    margin-top: 3rem;
+    padding: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .02);
+}
+
+.proo-label {
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: .7rem;
+    opacity: .6;
+    margin-bottom: .5rem;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Enhanced social icon hover effects */
+.footer-icons a {
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+.footer-icons a:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    color: #FF0000 !important;
+}
+
+/* Narrative flow structure */
+.footer-ecosystem {
+    margin-bottom: 3rem;
+}
+
+.footer-brands {
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(255, 255, 255, .1);
+    padding-bottom: 2rem;
+    margin-bottom: 2rem;
+}
+
+/* Unified footer title styling */
+.footer-title {
+    min-height: 32px;
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 12px;
+}
+
+/* Unified logo heights */
+.bg-footer img.logo-light {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+}
+
+/* Unified list spacing */
+.company-sub-menu {
+    margin-top: 12px;
+}
+
+/* Footer column responsive alignment */
+.footer-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+/* Desktop: align to left (Bootstrap lg breakpoint) */
+@media (min-width: 992px) {
+    .footer-col {
+        align-items: flex-start;
+        text-align: left;
+    }
+}
+
+/* Logo spacing */
+.footer-col img.logo-light {
+    margin-bottom: 12px;
+}
+
+/* PROO always centered */
+.proo-footer-hero {
+    text-align: center;
+}
+
+
 
 
 /****************
@@ -1854,7 +1992,7 @@ CONTACT US HOME
   /* układ jak wcześniej */
   padding: 72px 0;
   display: grid;
-  place-items: center;
+  /*place-items: center;*/
 }
 
 /* overlay dla czytelności (lekki gradient) */
@@ -1972,6 +2110,24 @@ CONTACT US HOME
 /******************
     21. RESPONSIVE
 *******************/
+
+/* Mobile responsive for footer ecosystem */
+@media (max-width: 768px) {
+    .footer-title::after {
+        display: none; /* hide arrows on mobile */
+    }
+
+    .footer-brands {
+        border-bottom: none;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .proo-label {
+        font-size: 0.6rem;
+        margin-bottom: 0.25rem;
+    }
+}
 
 @media (min-width: 200px) and (max-width: 768px) {
     .home-title h1 {

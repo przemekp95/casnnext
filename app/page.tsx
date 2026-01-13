@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { Metadata } from "next";
+import Hero from "@/components/Hero";
 
 export const metadata: Metadata = {
   title: "Centrum Analiz Służby Niepodległej",
@@ -32,49 +33,12 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <main>
-      {/* HOME START */}
-      <section className="contact-us-home section" id="home">
-        {/* Desktop hero */}
-        <Image
-          src="/images/home2.webp"
-          alt=""
-          fill
-          priority
-          fetchPriority="high"
-          sizes="(max-width: 768px) 0px, 100vw"   // nie ładuj na mobile
-          className="hero-bg hero-desktop"
-          style={{ objectFit: "cover", objectPosition: "center 35%" }}
-        />
-
-        {/* Mobile hero (logo) */}
-        <Image
-          src="/images/logo.jpg"
-          alt="CASN"
-          fill
-          sizes="(max-width: 768px) 100vw, 0px"   // nie ładuj na desktopie
-          className="hero-bg hero-mobile"
-          style={{ objectFit: "contain" }}
-        />
-
-        <div className="bg-overlay" />
-
-        <div className="home-center" style={{ position: "relative", zIndex: 1 }}>
-          <div className="home-desc-center">
-            <div className="container">
-              <div className="row justify-content-center">
-                <div
-                  className="col-lg-8"
-                  style={{ background: "rgba(30, 30, 30, 0.65)" }}
-                >
-                  <div className="home-page-title text-center">
-                    {/* (opcjonalnie) <h1>Centrum Analiz Służby Niepodległej</h1> */}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Global Hero - Background only variant for home page */}
+      <Hero
+        variant="background-only"
+        title="Centrum Analiz Służby Niepodległej"
+        showBreadcrumbs={false}
+      />
       {/* HOME END */}
 
       {/* ABOUT START — DODANE: section-below-fold */}

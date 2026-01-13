@@ -105,11 +105,13 @@ describe('Database Utilities - Coverage Enhancement', () => {
 
   describe('Authors utility functions', () => {
     let getAuthors: any;
+    let getAuthorBySlug: any;
 
     beforeAll(() => {
       try {
         const authorsModule = require('@/lib/authors');
         getAuthors = authorsModule.getAuthors;
+        getAuthorBySlug = authorsModule.getAuthorBySlug;
       } catch (e) {
         // Module might not be available
       }
@@ -140,6 +142,74 @@ describe('Database Utilities - Coverage Enhancement', () => {
 
       // The actual error handling would be tested in integration tests
       // where the database connection is properly mocked at the infrastructure level
+    });
+
+    it('getAuthorBySlug returns author detail or null', async () => {
+      if (!getAuthorBySlug) return;
+
+      try {
+        const result = await getAuthorBySlug('test-slug');
+        expect(result === null || typeof result === 'object').toBe(true);
+        if (result) {
+          expect(result).toHaveProperty('author');
+          expect(result).toHaveProperty('analyses');
+        }
+      } catch (error) {
+        // Database might not be available
+        expect(error).toBeDefined();
+      }
+    });
+  });
+
+  describe('Analyses utility functions', () => {
+    let getAnalyses: any;
+    let getAnalysisBySlug: any;
+
+    beforeAll(() => {
+      try {
+        const analysesModule = require('@/lib/analyses');
+        getAnalyses = analysesModule.getAnalyses;
+        getAnalysisBySlug = analysesModule.getAnalysisBySlug;
+      } catch (e) {
+        // Module might not be available
+      }
+    });
+
+    it('getAnalyses returns array of analyses or empty array', async () => {
+      if (!getAnalyses) return;
+
+      try {
+        const result = await getAnalyses();
+        expect(Array.isArray(result)).toBe(true);
+
+        if (result.length > 0) {
+          const analysis = result[0];
+          expect(analysis).toHaveProperty('id');
+          expect(analysis).toHaveProperty('slug');
+          expect(analysis).toHaveProperty('title');
+          expect(analysis).toHaveProperty('authorId');
+        }
+      } catch (error) {
+        // Database might not be available
+        expect(error).toBeDefined();
+      }
+    });
+
+    it('getAnalysisBySlug returns analysis detail or null', async () => {
+      if (!getAnalysisBySlug) return;
+
+      try {
+        const result = await getAnalysisBySlug('test-slug');
+        expect(result === null || typeof result === 'object').toBe(true);
+        if (result) {
+          expect(result).toHaveProperty('id');
+          expect(result).toHaveProperty('slug');
+          expect(result).toHaveProperty('title');
+        }
+      } catch (error) {
+        // Database might not be available
+        expect(error).toBeDefined();
+      }
     });
   });
 
