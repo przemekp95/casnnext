@@ -58,6 +58,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 
 # Copy migrations for production database initialization
 # Note: TypeORM loads migrations at runtime, so .ts files are fine
+# Test workflow commit - subbranch/test-workflow
 COPY --from=builder --chown=nextjs:nodejs /app/migrations ./migrations
 
 # Create posts directory with correct permissions before copying
