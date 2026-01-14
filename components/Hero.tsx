@@ -108,8 +108,8 @@ export default function Hero({
                     <h1
                       className="text-white mb-2"
                       style={{
-                        fontSize: titleSize === 'small' ? '2.5rem' : undefined,
-                        lineHeight: titleSize === 'small' ? '1.2' : undefined
+                        fontSize: titleSize === 'small' ? '1.8rem' : '2.2rem',
+                        lineHeight: titleSize === 'small' ? '1.2' : '1.3'
                       }}
                     >
                       {title}
