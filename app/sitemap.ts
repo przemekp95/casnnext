@@ -1,5 +1,9 @@
 import { MetadataRoute } from 'next'
-import mysql from 'mysql2/promise'
+import { executeRscQuery } from '@/lib/db.rsc'
+import { AnalysisSchema } from '@/lib/entities'
+
+// Ensure dynamic generation
+export const dynamic = 'force-dynamic';
 
 // Typy danych dla artykułów i autorów
 type ArticleRow = {
@@ -17,57 +21,33 @@ type AuthorRow = {
   slug: string;
 };
 
-// Funkcja do pobierania artykułów z bazy danych podczas builda lub z API w runtime
+// Funkcja do pobierania artykułów z bazy danych przy użyciu RSC approach
 async function getArticles(): Promise<ArticleRow[]> {
-  // Podczas builda użyj bezpośredniego dostępu do bazy danych
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
-    try {
-      const connection = await mysql.createConnection({
-        host: process.env.DB_HOST || 'localhost',
-        user: process.env.DB_USER || 'casn_user',
-        password: process.env.DB_PASS || 'casn_pass',
-        database: process.env.DB_NAME || 'casn',
-        port: parseInt(process.env.DB_PORT || '3306'),
+  try {
+    return await executeRscQuery(async (dataSource) => {
+      const analysisRepository = dataSource.getRepository(AnalysisSchema);
+      const analyses = await analysisRepository.find({
+        relations: {
+          author: true,
+        },
+        order: { id: 'DESC' },
       });
 
-      const [rows] = await connection.execute(`
-        SELECT
-          a.id,
-          a.title,
-          a.slug,
-          a.authorId,
-          au.name as author_name,
-          au.slug as author_slug
-        FROM Analysis a
-        LEFT JOIN Author au ON a.authorId = au.id
-        ORDER BY a.id DESC
-      `);
+      // Transform to UI-friendly format
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = analyses.map((analysis: any) => ({
+        id: analysis.id,
+        title: analysis.title,
+        slug: analysis.slug,
+        authorId: analysis.authorId,
+        author_name: analysis.author?.name || null,
+        author_slug: analysis.author?.slug || null,
+      }));
 
-      await connection.end();
-
-      return rows as ArticleRow[];
-    } catch {
-      // Database not available during Docker build - this is expected
-      // Sitemap will be generated with dynamic data at runtime
-      return [];
-    }
-  }
-
-  // W runtime użyj API
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/articles`, {
-      next: { revalidate: 3600 } // Revalidate co godzinę
+      return result;
     });
-
-    if (!response.ok) {
-      console.warn('Nie udało się pobrać artykułów dla sitemapy');
-      return [];
-    }
-
-    return await response.json();
   } catch (error) {
-    console.warn('Błąd podczas pobierania artykułów dla sitemapy:', error);
+    console.warn('Database not available for sitemap articles:', error);
     return [];
   }
 }
