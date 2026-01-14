@@ -84,6 +84,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CtaSection />
         <Footer />
 
+        {/* Organization Structured Data */}
+        <Script
+          id="organization-structured-data"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "Centrum Analiz Służby Niepodległej",
+              "url": "https://casn.pl",
+              "logo": "https://casn.pl/images/logo.png",
+              "description": "Strona Centrum Analiz Fundacji Służby Niepodległej - analizy polityki i społeczeństwa",
+              "sameAs": [
+                "https://www.facebook.com/casn",
+                "https://www.twitter.com/casn",
+                "https://www.linkedin.com/company/casn"
+              ],
+              "contactPoint": {
+                "@type": "ContactPoint",
+                "telephone": "+48-XXX-XXX-XXX",
+                "contactType": "customer service",
+                "availableLanguage": "Polish"
+              },
+              "address": {
+                "@type": "PostalAddress",
+                "addressCountry": "PL",
+                "addressLocality": "Warszawa"
+              },
+              "foundingDate": "2023"
+            })
+          }}
+        />
+
         {/* istniejący inline script na navbar zostaje */}
 
         {/* 🔻 client error logger */}

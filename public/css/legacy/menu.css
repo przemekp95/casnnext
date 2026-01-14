@@ -426,7 +426,7 @@
         color: #7a7d84;
     }
     #topnav .navbar-toggle span {
-        background-color: #7a7d84;
+        background-color: #ffffff;
     }
     #topnav .navbar-header {
         float: left;
@@ -442,15 +442,13 @@
     }
     #navigation {
         position: absolute;
-        top: 70px;
+        top: 100%;
         left: 0;
         width: 100%;
         display: none;
         height: auto;
         padding-bottom: 0;
         overflow: auto;
-        border-top: 1px solid #f0f0f0;
-        border-bottom: 1px solid #f0f0f0;
         background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
@@ -478,8 +476,8 @@
 }
 
 @media (max-width: 768px) {
-    #topnav {
-        background: #fff;
+    #topnav .topnav-bg {
+        background: rgba(30, 30, 30, 0.9);
         box-shadow: 0 -3px 31px 0 rgba(0, 0, 0, 0.05), 0 6px 20px 0 rgba(0, 0, 0, 0.02);
     }
     .logo {

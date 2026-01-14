@@ -106,11 +106,7 @@ export default function Hero({
                 >
                   <div className="home-page-title text-center">
                     <h1
-                      className="text-white mb-2"
-                      style={{
-                        fontSize: titleSize === 'small' ? '2.5rem' : undefined,
-                        lineHeight: titleSize === 'small' ? '1.2' : undefined
-                      }}
+                      className={`text-white mb-2 ${titleSize === 'small' ? 'hero-title-small' : 'hero-title-normal'}`}
                     >
                       {title}
                     </h1>
