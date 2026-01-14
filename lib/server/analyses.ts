@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { AppDataSource } from "../db.server";
-import { initializeDatabase } from "./init-db";
 import { AnalysisSchema } from "../entities";
 import { AnalysisRow, AnalysisDetail } from "../../types/analysis";
 
@@ -109,11 +108,6 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
     return [];
   }
 
-  // Ensure database is initialized
-  if (AppDataSource && !AppDataSource.isInitialized) {
-    await initializeDatabase();
-  }
-
   if (!AppDataSource || !AppDataSource.isInitialized) {
     console.warn('Database not available for getAnalyses(), using mock data');
     return mockAnalyses;
@@ -149,11 +143,6 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return null;
-  }
-
-  // Ensure database is initialized
-  if (AppDataSource && !AppDataSource.isInitialized) {
-    await initializeDatabase();
   }
 
   if (!AppDataSource || !AppDataSource.isInitialized) {

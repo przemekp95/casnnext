@@ -2,7 +2,6 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { AppDataSource } from "@/lib/db.server";
-import { initDatabase } from "@/lib/server/db";
 import { AnalysisSchema } from "@/lib/entities";
 
 export async function GET() {
@@ -11,9 +10,6 @@ export async function GET() {
     if (process.env.NEXT_PHASE === 'phase-production-build') {
       return NextResponse.json([]);
     }
-
-    // Ensure database is initialized
-    await initDatabase();
 
     if (!AppDataSource || !AppDataSource.isInitialized) {
       return NextResponse.json([]);

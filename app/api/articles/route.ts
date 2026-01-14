@@ -4,7 +4,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db.server";
-import { initDatabase } from "@/lib/server/db";
 import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
 
 // Typy danych
@@ -63,19 +62,7 @@ export async function GET() {
       });
     }
 
-    // Ensure database is initialized
-    try {
-      await initDatabase();
-    } catch (error) {
-      console.error('Database initialization failed in GET:', error);
-      return NextResponse.json([], {
-        status: 200,
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'CDN-Cache-Control': 'max-age=300',
-        },
-      });
-    }
+
 
     if (!AppDataSource || !AppDataSource.isInitialized) {
       return NextResponse.json([], {
@@ -193,18 +180,6 @@ export async function POST(req: Request) {
   if (isBodyWithId(body)) {
     authorId = body.authorId;
   } else if (isBodyWithSlug(body)) {
-    // Ensure database is initialized
-    try {
-      await initDatabase();
-    } catch (error) {
-      console.error('Database initialization failed in POST:', error);
-      return NextResponse.json({ error: "Database not available" }, { status: 503 });
-    }
-
-    if (!AppDataSource || !AppDataSource.isInitialized) {
-      return NextResponse.json({ error: "Database not available" }, { status: 503 });
-    }
-
     const authorRepository = AppDataSource.getRepository(AuthorSchema);
     const author = await authorRepository.findOne({
       where: { slug: body.authorSlug },
@@ -218,14 +193,6 @@ export async function POST(req: Request) {
       { error: "authorId or authorSlug required" },
       { status: 400 }
     );
-  }
-
-  // Ensure database is initialized for saving
-  try {
-    await initDatabase();
-  } catch (error) {
-    console.error('Database initialization failed in POST save:', error);
-    return NextResponse.json({ error: "Database not available" }, { status: 503 });
   }
 
   if (!AppDataSource || !AppDataSource.isInitialized) {

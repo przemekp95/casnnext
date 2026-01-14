@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { AppDataSource } from "../db.server";
-import { initializeDatabase } from "./init-db";
 import { AuthorSchema, AnalysisSchema } from "../entities";
 import { AuthorRow, AuthorDetail } from "../../types/author";
 
@@ -80,11 +79,6 @@ export async function getAuthors(): Promise<AuthorRow[]> {
     return [];
   }
 
-  // Ensure database is initialized
-  if (AppDataSource && !AppDataSource.isInitialized) {
-    await initializeDatabase();
-  }
-
   if (!AppDataSource || !AppDataSource.isInitialized) {
     console.warn('Database not available for getAuthors(), using mock data');
     return mockAuthors;
@@ -117,11 +111,6 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return null;
-  }
-
-  // Ensure database is initialized
-  if (AppDataSource && !AppDataSource.isInitialized) {
-    await initializeDatabase();
   }
 
   if (!AppDataSource || !AppDataSource.isInitialized) {
