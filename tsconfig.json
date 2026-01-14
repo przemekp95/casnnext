@@ -50,6 +50,7 @@
     "jest.config.ts",
     ".next/cache",
     "dist",
-    "capacitor.config.ts"
+    "capacitor.config.ts",
+    "lib/prisma.ts"
   ]
 }
