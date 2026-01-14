@@ -12,6 +12,26 @@
   background: rgba(30, 30, 30, 0.65);
 }
 
+/* ===== HERO TITLE RESPONSIVE SIZES ===== */
+
+.hero-title-normal {
+  font-size: 2.2rem;
+  line-height: 1.3;
+}
+
+.hero-title-small {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+/* Mobile hero title adjustments */
+@media (max-width: 768px) {
+  .hero-title-normal {
+    font-size: 1.2rem;
+    line-height: 1.2;
+  }
+}
+
 /* ===== FLEX LAYOUT ===== */
 
 .topnav-inner {
