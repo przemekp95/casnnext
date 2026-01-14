@@ -36,10 +36,26 @@ export default function ArticleLayout({
       >
         {/* Additional content positioned below breadcrumbs */}
         {(lead || author || date) && (
-          <div style={{ marginTop: '30px' }}>
-            {lead && <p className="text-white mb-2">{lead}</p>}
+          <div style={{ marginTop: '20px' }}>
+            {lead && (
+              <p
+                className="text-white mb-2"
+                style={{
+                  fontSize: breadcrumbs.some(crumb => crumb.href?.includes('/analizy/')) ? '0.95rem' : undefined,
+                  lineHeight: '1.4'
+                }}
+              >
+                {lead}
+              </p>
+            )}
             {(author || date) && (
-              <p className="text-white-50 mb-0">
+              <p
+                className="text-white-50 mb-0"
+                style={{
+                  fontSize: breadcrumbs.some(crumb => crumb.href?.includes('/analizy/')) ? '0.85rem' : undefined,
+                  lineHeight: '1.3'
+                }}
+              >
                 {author && (
                   <span className="mr-2">
                     <b>Autor:</b> {author}
