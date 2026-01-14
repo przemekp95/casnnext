@@ -107,11 +107,13 @@ fi
 # Test 6: Check TypeORM entities
 echo "6. Validating TypeORM entities..."
 if [ -f "lib/entities/Author.ts" ] && [ -f "lib/entities/Analysis.ts" ]; then
-    if grep -q "@Entity" lib/entities/Author.ts && \
-       grep -q "@Entity" lib/entities/Analysis.ts; then
-        echo "✅ PASS: TypeORM entities are properly configured"
+    if grep -q "EntitySchema" lib/entities/Author.ts && \
+       grep -q "EntitySchema" lib/entities/Analysis.ts && \
+       grep -q "AuthorSchema" lib/entities/Author.ts && \
+       grep -q "AnalysisSchema" lib/entities/Analysis.ts; then
+        echo "✅ PASS: TypeORM entities are properly configured with EntitySchema"
     else
-        echo "❌ FAIL: TypeORM entities missing @Entity decorators"
+        echo "❌ FAIL: TypeORM entities missing EntitySchema configuration"
         exit 1
     fi
 else
