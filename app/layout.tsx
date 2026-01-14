@@ -10,6 +10,10 @@ import { MdiShim } from "@/app/ui/icons/MdiShim";
 
 import { Roboto, Rubik } from "next/font/google";
 
+// Ensure TypeORM entities are loaded in production builds
+import "@/lib/entities/Author";
+import "@/lib/entities/Analysis";
+
 const roboto = Roboto({
   weight: ["400", "500", "700"],
   subsets: ["latin", "latin-ext"],

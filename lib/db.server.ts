@@ -22,7 +22,7 @@ interface DatabaseConfig {
   collation?: string;
 }
 
-// Support for DATABASE_URL environment variable (used in CI/testing)
+// Production-ready configuration with automatic migrations
 const databaseUrl = process.env.DATABASE_URL;
 let dbConfig: DatabaseConfig;
 
@@ -36,7 +36,7 @@ if (databaseUrl) {
     username: url.username,
     password: url.password,
     database: url.pathname.slice(1), // Remove leading slash
-    synchronize: true, // TEMPORARY: Enable auto-sync to create missing tables
+    synchronize: false, // Production: never use synchronize
     logging: !isProduction && !isTest,
     // Remove charset/collation to use MySQL defaults and avoid encoding conflicts
   };
@@ -49,13 +49,13 @@ if (databaseUrl) {
     username: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'casn_test',
-    synchronize: false, // Don't synchronize in tests - use migrations
+    synchronize: false, // Tests: use migrations, not synchronize
     logging: false,
     dropSchema: false,
     // Remove charset/collation to use MySQL defaults and avoid encoding conflicts
   };
 } else {
-  // Fallback to individual environment variables
+  // Development: fallback to individual environment variables
   dbConfig = {
     type: 'mysql' as const,
     host: process.env.DB_HOST || 'localhost',
@@ -63,7 +63,7 @@ if (databaseUrl) {
     username: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'casn',
-    synchronize: true, // TEMPORARY: Enable auto-sync to create missing tables
+    synchronize: false, // Development: use migrations for consistency
     logging: !isProduction,
     // Remove charset/collation to use MySQL defaults and avoid encoding conflicts
   };
@@ -82,7 +82,8 @@ const getDataSource = (): DataSource | null => {
     _appDataSource = new DataSource({
       ...dbConfig,
       entities: [AuthorSchema, AnalysisSchema],
-      migrations: isProduction ? ['migrations/*.js'] : ['migrations/*.ts'],
+      migrations: ['migrations/*.ts'], // TypeORM can handle .ts files directly
+      migrationsRun: true, // Automatically run migrations on startup
       subscribers: [],
     });
   }
