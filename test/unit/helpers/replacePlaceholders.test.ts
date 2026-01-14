@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-
 let mod: unknown;
 try {
   // jeśli helper zostanie przeniesiony do lib/, zaktualizuj import
   // np. require('@/lib/strings')
   // na razie próbujemy tam, gdzie jest teraz:
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   mod = require('@/app/analizy/[slug]/page');
 } catch {
   // brak modułu – obsłużymy poniżej
@@ -14,14 +13,14 @@ type RP = (s: string, m: Record<string, string>) => string;
 const hasFn =
   typeof mod === 'object' &&
   mod !== null &&
-  // @ts-ignore – dostęp do właściwości dynamicznej
-  typeof (mod as any).replacePlaceholders === 'function';
+  // @ts-expect-error – dostęp do właściwości dynamicznej
+  typeof (mod as Record<string, unknown>).replacePlaceholders === 'function';
 
 if (!hasFn) {
   test.skip('replacePlaceholders: moduł nieobecny – test pominięty', () => {});
 } else {
-  // @ts-ignore – mamy pewność po warunku
-  const replacePlaceholders: RP = (mod as any).replacePlaceholders;
+  // @ts-expect-error – mamy pewność po warunku
+  const replacePlaceholders: RP = (mod as Record<string, unknown>).replacePlaceholders as RP;
 
   describe('replacePlaceholders', () => {
     it('podstawia pojedynczy placeholder', () => {
