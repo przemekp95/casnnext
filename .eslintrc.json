@@ -45,6 +45,7 @@
   "ignorePatterns": [
     "app/generated/**",
     "lib/db.server.js",
+    "lib/db.node.js",
     "lib/entities/*.js",
     "lib/migrations/*.js",
     "migrations/*.js"
