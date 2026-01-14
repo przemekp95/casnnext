@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db.server";
-import { initializeDatabase } from "@/lib/server/init-db";
+import { initDatabase } from "@/lib/server/db";
 import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
 
 // Typy danych
@@ -65,9 +65,7 @@ export async function GET() {
 
     // Ensure database is initialized
     try {
-      if (AppDataSource && !AppDataSource.isInitialized) {
-        await initializeDatabase();
-      }
+      await initDatabase();
     } catch (error) {
       console.error('Database initialization failed in GET:', error);
       return NextResponse.json([], {
@@ -197,9 +195,7 @@ export async function POST(req: Request) {
   } else if (isBodyWithSlug(body)) {
     // Ensure database is initialized
     try {
-      if (AppDataSource && !AppDataSource.isInitialized) {
-        await initializeDatabase();
-      }
+      await initDatabase();
     } catch (error) {
       console.error('Database initialization failed in POST:', error);
       return NextResponse.json({ error: "Database not available" }, { status: 503 });
@@ -226,9 +222,7 @@ export async function POST(req: Request) {
 
   // Ensure database is initialized for saving
   try {
-    if (AppDataSource && !AppDataSource.isInitialized) {
-      await initializeDatabase();
-    }
+    await initDatabase();
   } catch (error) {
     console.error('Database initialization failed in POST save:', error);
     return NextResponse.json({ error: "Database not available" }, { status: 503 });

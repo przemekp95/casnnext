@@ -1,4 +1,4 @@
-import { initializeDatabase } from '@/lib/init-db';
+import { initDatabase } from '@/lib/server/db';
 import { AppDataSource } from '@/lib/db.server';
 import { NextResponse } from 'next/server';
 
@@ -12,8 +12,8 @@ export async function GET() {
       dbInitialized = true;
     } else {
       console.log('Health check: Database not initialized, triggering initialization...');
-      const result = await initializeDatabase();
-      dbInitialized = !!result;
+      await initDatabase();
+      dbInitialized = AppDataSource?.isInitialized || false;
     }
 
     const responseTime = Date.now() - startTime;

@@ -1,4 +1,4 @@
-import { initializeDatabase } from '@/lib/init-db';
+import { initDatabase } from '@/lib/server/db';
 import { AppDataSource } from '@/lib/db.server';
 import { NextResponse } from 'next/server';
 
@@ -6,9 +6,9 @@ export async function GET() {
   try {
     console.log('🚀 Manual database initialization triggered via API');
 
-    const result = await initializeDatabase();
+    await initDatabase();
 
-    if (result) {
+    if (AppDataSource?.isInitialized) {
       return NextResponse.json({
         success: true,
         message: 'Database initialization completed successfully',
