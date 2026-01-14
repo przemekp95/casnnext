@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:lib && next build",
+    "build:lib": "tsc lib/db.server.ts --outDir . --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
     "prebuild": "bash scripts/check-posts.sh",
     "postbuild": "node scripts/prepare-tmp.js",
     "start": "next start -p $PORT",
