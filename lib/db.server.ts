@@ -4,6 +4,9 @@ import { DataSource } from 'typeorm';
 import { AuthorSchema } from './entities/Author';
 import { AnalysisSchema } from './entities/Analysis';
 
+// Static import of migration class (required for Next.js bundling)
+import { InitialSetup1736424470000 } from '../migrations/1736424470000-InitialSetup';
+
 const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test';
 
@@ -82,7 +85,7 @@ const getDataSource = (): DataSource | null => {
     _appDataSource = new DataSource({
       ...dbConfig,
       entities: [AuthorSchema, AnalysisSchema],
-      migrations: ['migrations/*.ts'], // TypeORM can handle .ts files directly
+      migrations: [InitialSetup1736424470000], // Static migration class import (Next.js compatible)
       migrationsRun: true, // Automatically run migrations on startup
       subscribers: [],
     });
