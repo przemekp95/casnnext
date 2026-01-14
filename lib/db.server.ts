@@ -36,7 +36,7 @@ if (databaseUrl) {
     username: url.username,
     password: url.password,
     database: url.pathname.slice(1), // Remove leading slash
-    synchronize: true, // TEMPORARY: Enable auto-sync to create missing tables
+    synchronize: true, // Enable synchronize with proper entity loading
     logging: !isProduction && !isTest,
     // Remove charset/collation to use MySQL defaults and avoid encoding conflicts
   };
@@ -63,7 +63,7 @@ if (databaseUrl) {
     username: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'casn',
-    synchronize: true, // TEMPORARY: Enable auto-sync to create missing tables
+    synchronize: true, // Enable synchronize with proper entity loading
     logging: !isProduction,
     // Remove charset/collation to use MySQL defaults and avoid encoding conflicts
   };
