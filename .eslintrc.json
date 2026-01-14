@@ -40,7 +40,8 @@
           }
         ]
       }
-    ]
+    ],
+    "@typescript-eslint/no-require-imports": "off"
   },
   "ignorePatterns": [
     "app/generated/**",
