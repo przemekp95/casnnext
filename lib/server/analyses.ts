@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { AppDataSource } from "../db.server";
+import { executeRscQuery } from "../db.rsc";
 import { AnalysisSchema } from "../entities";
 import { AnalysisRow, AnalysisDetail } from "../../types/analysis";
 
@@ -108,35 +108,37 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
     return [];
   }
 
-  if (!AppDataSource || !AppDataSource.isInitialized) {
-    console.warn('Database not available for getAnalyses(), using mock data');
+  try {
+    return await executeRscQuery(async (dataSource) => {
+      const analysisRepository = dataSource.getRepository(AnalysisSchema);
+      const analyses = await analysisRepository.find({
+        relations: {
+          author: true,
+        },
+        order: { id: 'DESC' },
+      });
+
+      // Transform to UI-friendly format
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = analyses.map((analysis: any) => ({
+        id: String(analysis.id),
+        title: String(analysis.title),
+        slug: String(analysis.slug),
+        authorId: String(analysis.authorId),
+        author: analysis.author ? {
+          id: String(analysis.author.id),
+          slug: String(analysis.author.slug),
+          name: String(analysis.author.name),
+          img: analysis.author.img ?? null,
+        } : undefined,
+      }));
+
+      return result;
+    });
+  } catch (error) {
+    console.warn('Database not available for getAnalyses(), using mock data:', error);
     return mockAnalyses;
   }
-
-  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-  const analyses = await analysisRepository.find({
-    relations: {
-      author: true,
-    },
-    order: { id: 'DESC' },
-  });
-
-  // Transform to UI-friendly format
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = analyses.map((analysis: any) => ({
-    id: String(analysis.id),
-    title: String(analysis.title),
-    slug: String(analysis.slug),
-    authorId: String(analysis.authorId),
-    author: analysis.author ? {
-      id: String(analysis.author.id),
-      slug: String(analysis.author.slug),
-      name: String(analysis.author.name),
-      img: analysis.author.img ?? null,
-    } : undefined,
-  }));
-
-  return result;
 }
 
 export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | null> {
@@ -145,35 +147,37 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
     return null;
   }
 
-  if (!AppDataSource || !AppDataSource.isInitialized) {
-    console.warn('Database not available for getAnalysisBySlug(), using mock data');
+  try {
+    return await executeRscQuery(async (dataSource) => {
+      const analysisRepository = dataSource.getRepository(AnalysisSchema);
+
+      // U|yj findOne zamiast query builder dla prostoty i niezawodno[ci
+      const analysis = await analysisRepository.findOne({
+        where: { slug },
+        relations: {
+          author: true,
+        },
+      });
+
+      if (!analysis) {
+        return null;
+      }
+
+      // Transform to UI-friendly format
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const author = (analysis as any).author;
+      return {
+        id: String(analysis.id),
+        title: analysis.title,
+        slug: analysis.slug,
+        author: author ? {
+          name: author.name || undefined,
+          bio: author.bio || undefined,
+        } : undefined,
+      };
+    });
+  } catch (error) {
+    console.warn('Database not available for getAnalysisBySlug(), using mock data:', error);
     return mockAnalysisDetails[slug] || null;
   }
-
-  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-
-  // U|yj findOne zamiast query builder dla prostoty i niezawodno[ci
-  const analysis = await analysisRepository.findOne({
-    where: { slug },
-    relations: {
-      author: true,
-    },
-  });
-
-  if (!analysis) {
-    return null;
-  }
-
-  // Transform to UI-friendly format
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const author = (analysis as any).author;
-  return {
-    id: String(analysis.id),
-    title: analysis.title,
-    slug: analysis.slug,
-    author: author ? {
-      name: author.name || undefined,
-      bio: author.bio || undefined,
-    } : undefined,
-  };
 }
