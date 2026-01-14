@@ -29,8 +29,8 @@ echo "1b. Validating docker-compose.portainer.yml..."
 if [ -f "docker-compose.portainer.yml" ]; then
     if grep -q "mysql:" docker-compose.portainer.yml && \
        grep -q "app:" docker-compose.portainer.yml && \
-       grep -q "80:3000" docker-compose.portainer.yml && \
-       grep -q 'PORT: "3000"' docker-compose.portainer.yml; then
+       grep -q "18080:80" docker-compose.portainer.yml && \
+       grep -q 'PORT: "80"' docker-compose.portainer.yml; then
         echo "✅ PASS: docker-compose.portainer.yml has correct structure"
     else
         echo "❌ FAIL: docker-compose.portainer.yml missing required services, port mapping, or PORT environment variable"
