@@ -95,7 +95,7 @@ export default function Hero({
             <div className="container">
               <div className="row justify-content-center">
                 <div
-                  className="col-lg-8"
+                  className="col-lg-10 col-xl-9"
                   style={{
                     background: "rgba(30, 30, 30, 0.65)",
                     padding: variant === 'home' ? '40px' : '30px',
