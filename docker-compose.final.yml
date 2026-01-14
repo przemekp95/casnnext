@@ -16,7 +16,7 @@ services:
       TZ: Europe/Warsaw
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./casn.sql:/docker-entrypoint-initdb.d/casn.sql:ro
+      # - ./casn.sql:/docker-entrypoint-initdb.d/casn.sql:ro  # Disabled seeding for dev/prod
     command: >
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
@@ -31,7 +31,7 @@ services:
       - casn-network
 
   app:
-    image: ghcr.io/przemekp95/casnnext:main
+    image: ghcr.io/przemekp95/casnnext:dev
     container_name: casn-app
     restart: unless-stopped
     depends_on:
@@ -49,7 +49,7 @@ services:
       NEXTAUTH_SECRET: "your-secret-key-here"
       NEXTAUTH_URL: "http://localhost:3001"  # Fixed: External URL uses port 3001
       TZ: Europe/Warsaw
-      # Automatic migrations via docker-entrypoint.sh
+    command: ["node", "server.js"]  # Use custom server with DB bootstrap
     ports:
       - "3001:3000"                # Fixed: Host port 3001, Container port 3000
     healthcheck:

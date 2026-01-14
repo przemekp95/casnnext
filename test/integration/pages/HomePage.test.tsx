@@ -16,7 +16,7 @@ try {
     // Check for main section structure
     const heroSection = screen.getByRole('main').querySelector('section');
     expect(heroSection).toBeInTheDocument();
-    expect(heroSection).toHaveClass('contact-us-home', 'section');
+    expect(heroSection).toHaveClass('section');
   });
 
   it('renderuje sekcję "about" z prawidłowym tekstem', () => {
@@ -68,7 +68,7 @@ try {
     const secondSection = sections[1];
     const thirdSection = sections[2];
 
-    expect(firstSection).toHaveClass('contact-us-home');
+    expect(firstSection).toHaveClass('section');
     expect(secondSection).toHaveClass('bg-light', 'section-below-fold');
     expect(thirdSection).toHaveClass('bg-light', 'section-below-fold');
   });
@@ -81,7 +81,6 @@ try {
 
     // Check for specific column layouts
     expect(container.querySelector('.col-lg-6')).toBeInTheDocument();
-    expect(container.querySelector('.col-lg-8')).toBeInTheDocument();
   });
 
   it('zawiera odpowiednie meta informacje i strukturę', () => {

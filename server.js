@@ -1,42 +1,58 @@
-// server.js — stały entrypoint (Passenger odpala TYLKO ten plik)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const fs = require("fs");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const path = require("path");
+/* eslint-disable @typescript-eslint/no-require-imports */
+const { createServer } = require('http');
+const next = require('next');
 
-// ENV + katalogi
-process.env.NODE_ENV = process.env.NODE_ENV || "production";
-process.env.NEXT_CACHE_DIR = process.env.NEXT_CACHE_DIR || path.join(__dirname, "tmp", "next-cache");
-process.env.__NEXT_DISABLE_FS_CACHE = process.env.__NEXT_DISABLE_FS_CACHE || "1";
-process.env.NEXT_DISABLE_HTTP_FILE_CACHE = process.env.NEXT_DISABLE_HTTP_FILE_CACHE || "1";
+// Import database initialization
+const { initializeDatabase } = require('./lib/init-db');
 
-const tmpDir = path.join(__dirname, "tmp");
-const logFile = path.join(tmpDir, "runtime.log");
-for (const p of [tmpDir, process.env.NEXT_CACHE_DIR]) { try { fs.mkdirSync(p, { recursive: true }); } catch {} }
-try { fs.appendFileSync(logFile, `[${new Date().toISOString()}] BOOT wrapper\n`); } catch {}
+const dev = process.env.NODE_ENV !== 'production';
+const hostname = process.env.HOSTNAME || '0.0.0.0';
+const port = parseInt(process.env.PORT, 10) || 3000;
 
-// prosty logger do tmp/runtime.log
-const orig = { log: console.log, warn: console.warn, error: console.error };
-const append = (tag, ...a) => { try {
-  fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${tag} ` +
-    a.map(x => (x instanceof Error ? (x.stack || String(x)) : (typeof x === "object" ? JSON.stringify(x) : String(x)))).join(" ") + "\n");
-} catch {} };
-["log","warn","error"].forEach(k => { console[k] = (...a) => { append(k.toUpperCase(), ...a); try { orig[k](...a); } catch {} }; });
-process.on("uncaughtException", e => append("UNCAUGHT", e));
-process.on("unhandledRejection", r => append("UNHANDLED", r));
+const app = next({ dev, hostname, port });
+const handle = app.getRequestHandler();
 
-// shim: wyłącz TTY i zstubuj stdin (fix dla "open EEXIST" przy new Socket(stdin))
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const tty = require("tty");
-  if (tty && typeof tty.isatty === "function") { tty.isatty = () => false; append("INFO","tty.isatty -> false"); }
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { Readable } = require("stream");
-  const nullIn = new Readable({ read(){ this.push(null); } });
-  Object.defineProperty(process, "stdin", { get(){ return nullIn; }, configurable: true });
-  append("INFO","process.stdin stubbed");
-} catch (e) { append("WARN","stdin shim failed", e); }
+// Bootstrap function - runs once before starting the server
+async function bootstrap() {
+  try {
+    console.log('[BOOT] Starting database bootstrap...');
 
-// uruchom prawdziwy serwer Next (standalone)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-require("./.next/standalone/server.js");
+    await initializeDatabase();
+
+    console.log('[BOOT] Database bootstrap completed successfully');
+    console.log('[BOOT] Starting Next.js server...');
+
+  } catch (error) {
+    console.error('[BOOT] Database bootstrap failed:', error);
+    // In production, don't crash - log and continue
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[BOOT] Continuing without database connection');
+    } else {
+      throw error;
+    }
+  }
+}
+
+// Start the application
+async function startServer() {
+  try {
+    await bootstrap();
+
+    await app.prepare();
+
+    const server = createServer((req, res) => {
+      return handle(req, res);
+    });
+
+    server.listen(port, hostname, (err) => {
+      if (err) throw err;
+      console.log(`> Ready on http://${hostname}:${port}`);
+    });
+
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();

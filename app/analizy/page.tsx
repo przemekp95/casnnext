@@ -2,16 +2,19 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { prisma } from "@/lib/prisma";
+import type { Metadata } from "next";
+import { getAnalyses } from "@/lib/analyses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
+export const metadata: Metadata = { title: "Analizy - Centrum Analiz Służby Niepodległej" };
+
 export default async function AnalysesPage() {
-  // Skip Prisma during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build' || !prisma) {
+  // Skip during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
         <div className="container py-12">
@@ -25,21 +28,7 @@ export default async function AnalysesPage() {
   }
 
   try {
-    // Fetch all analyses with author data
-    const analyses = await prisma.analysis.findMany({
-      include: {
-        author: {
-          select: {
-            name: true,
-            slug: true,
-            img: true,
-          },
-        },
-      },
-      orderBy: {
-        id: 'desc',
-      },
-    });
+    const analyses = await getAnalyses();
 
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
@@ -104,7 +93,7 @@ export default async function AnalysesPage() {
                 </div>
               </div>
             </div>
-            
+
             {analyses.length === 0 ? (
               <div className="row">
                 <div className="col-12 text-center">

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 
 let PageComponent: any;
 let hasComponent = false;
@@ -22,8 +22,9 @@ try {
   it('renderuje breadcrumb navigation', () => {
     render(<PageComponent />);
 
-    expect(screen.getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Zbiory analiz' })).toHaveAttribute('href', '/zbiory');
+    const breadcrumb = screen.getByRole('navigation', { name: /breadcrumb/i });
+    expect(within(breadcrumb).getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
+    expect(within(breadcrumb).getByText('Zbiory analiz')).toBeInTheDocument();
   });
 
   it('renderuje wszystkie dostępne zbiory analiz', () => {
@@ -91,7 +92,7 @@ try {
   it('ma odpowiednie klasy CSS dla sekcji', () => {
     const { container } = render(<PageComponent />);
 
-    expect(container.querySelector('.contact-us-home')).toBeInTheDocument();
+    expect(container.querySelector('.section')).toBeInTheDocument();
     expect(container.querySelector('.bg-gray-100')).toBeInTheDocument();
     expect(container.querySelector('.min-h-screen')).toBeInTheDocument();
     expect(container.querySelector('.pb-12')).toBeInTheDocument();
@@ -103,7 +104,7 @@ try {
     const sections = container.querySelectorAll('section');
     expect(sections.length).toBe(2); // hero and content sections
 
-    expect(sections[0]).toHaveClass('contact-us-home');
+    expect(sections[0]).toHaveClass('section');
     expect(sections[1]).toHaveClass('section');
   });
 

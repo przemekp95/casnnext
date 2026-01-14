@@ -40,9 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/app/generated/prisma
-prisma/*.swp
-prisma/.~lock.*
 
 
 # raporty Lighthouse
@@ -79,9 +76,6 @@ posts_backup_*/
 # Raporty Lighthouse z localhost
 127.0.0.1_*.report.html
 analizy-wegry-desktop.html
-# Prisma temp data
-prisma/*.csv
-prisma/*.txt
 
 /deploy
 casn.sql.env.local
@@ -92,5 +86,13 @@ tmp/
 # build artifacts
 build-casn.tgz
 
+# generated JavaScript files from TypeScript compilation
+lib/db.server.js
+lib/entities/*.js
+lib/migrations/*.js
+migrations/*.js
+
+# database dumps
+*.sql
+
 .early.coverage
-/generated/prisma

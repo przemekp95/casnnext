@@ -1,14 +1,12 @@
-@import "bootstrap/dist/css/bootstrap.min.css";
-@import "@mdi/font/css/materialdesignicons.min.css";
+/* Essential legacy styles - now our primary CSS framework */
+@import "legacy.css";
 
-/* Legacy - CSS syntax errors fixed */
-@import "css/legacy/magnific-popup.css";
-@import "css/legacy/menu.css";
-@import "css/legacy/owl.carousel.css";
-@import "css/legacy/owl.theme.css";
-@import "css/legacy/owl.transitions.css";
-@import "css/legacy/style.css";
-@import "css/legacy/themify-icons.css";
+/* CSS Reset for consistent cross-browser behavior */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 /* Reset & base */
 html,

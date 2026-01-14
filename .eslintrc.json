@@ -1,0 +1,77 @@
+{
+  "root": true,
+  "extends": ["next/core-web-vitals"],
+  "plugins": ["boundaries"],
+  "settings": {
+    "boundaries/elements": [
+      {
+        "type": "server",
+        "pattern": "lib/server/**/*"
+      },
+      {
+        "type": "client",
+        "pattern": "lib/client/**/*"
+      }
+    ]
+  },
+  "rules": {
+    "@typescript-eslint/no-require-imports": "off",
+    "boundaries/no-unknown": "error",
+    "boundaries/no-unknown-files": "error",
+    "boundaries/element-types": [
+      "error",
+      {
+        "default": "disallow",
+        "rules": [
+          {
+            "from": ["client"],
+            "allow": ["client"]
+          },
+          {
+            "from": ["server"],
+            "allow": ["server"]
+          },
+          {
+            "from": ["app"],
+            "allow": ["server", "client"]
+          },
+          {
+            "from": ["components"],
+            "allow": ["client"]
+          }
+        ]
+      }
+    ]
+  },
+  "ignorePatterns": [
+    "app/generated/**",
+    "**/node_modules/**"
+  ],
+  "overrides": [
+    {
+      "files": ["**/*.d.ts"],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-empty-object-type": "off",
+        "@typescript-eslint/no-unsafe-function-type": "off",
+        "@typescript-eslint/no-unnecessary-type-constraint": "off"
+      }
+    },
+    {
+      "files": ["app/generated/**/*.js"],
+      "rules": {
+        "@typescript-eslint/no-require-imports": "off",
+        "@typescript-eslint/no-this-alias": "off",
+        "@typescript-eslint/no-unused-expressions": "off",
+        "@typescript-eslint/no-unused-vars": "off"
+      }
+    },
+    {
+      "files": ["**/*.js"],
+      "rules": {
+        "@typescript-eslint/no-require-imports": "off"
+      }
+    },
+
+  ]
+}

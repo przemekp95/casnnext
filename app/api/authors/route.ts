@@ -1,8 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { AppDataSource } from "@/lib/db";
-import { initializeDatabase } from "@/lib/init-db";
+import { AppDataSource } from "@/lib/db.server";
 import { AuthorSchema } from "@/lib/entities";
 
 export async function GET() {
@@ -10,11 +9,6 @@ export async function GET() {
     // Skip during build time
     if (process.env.NEXT_PHASE === 'phase-production-build') {
       return NextResponse.json([]);
-    }
-
-    // Ensure database is initialized
-    if (AppDataSource && !AppDataSource.isInitialized) {
-      await initializeDatabase();
     }
 
     if (!AppDataSource || !AppDataSource.isInitialized) {

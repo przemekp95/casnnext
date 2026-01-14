@@ -3,7 +3,7 @@
 import { DataSource } from 'typeorm';
 import { AuthorSchema } from '../lib/entities/Author';
 import { AnalysisSchema } from '../lib/entities/Analysis';
-import { InitialSetup1736424470000 } from '../lib/migrations/1736424470000-InitialSetup';
+import { InitialSetup1736424470000 } from '../migrations/1736424470000-InitialSetup';
 
 const AppDataSource = new DataSource({
   type: 'mysql',
