@@ -105,8 +105,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/autorzy`,
       lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.7,
+      changeFrequency: 'daily' as const, // Dynamic page - updated more frequently
+      priority: 0.8, // Increased priority since it's dynamic content
     },
   ]
 
