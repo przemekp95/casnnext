@@ -68,10 +68,10 @@ fi
 
 # Test 3: Check app command override
 echo "3. Validating app command override..."
-if grep -q "command.*npm.*start" docker-compose.final.yml; then
-    echo "✅ PASS: docker-compose.final.yml overrides command to skip migrations"
+if grep -q "command.*node.*server.js" docker-compose.final.yml; then
+    echo "✅ PASS: docker-compose.final.yml uses custom server for TypeORM bootstrap"
 else
-    echo "❌ FAIL: docker-compose.final.yml missing command override"
+    echo "❌ FAIL: docker-compose.final.yml missing proper command configuration"
     exit 1
 fi
 
