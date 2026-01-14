@@ -1,5 +1,30 @@
-import { EntitySchema } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 
+@Entity('Author')
+export class Author {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @Column({ type: 'varchar', length: 191, unique: true })
+  slug!: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  name!: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  displayName!: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  img?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  bio?: string | null;
+
+  @OneToMany('Analysis', 'author')
+  analyses?: any[];
+}
+
+// Legacy export for backward compatibility
 export interface AuthorEntity {
   id: number;
   slug: string;
@@ -10,43 +35,4 @@ export interface AuthorEntity {
   analyses?: unknown[];
 }
 
-export const AuthorSchema = new EntitySchema<AuthorEntity>({
-  name: 'Author',
-  tableName: 'Author',
-  columns: {
-    id: {
-      type: Number,
-      primary: true,
-      generated: true,
-    },
-    slug: {
-      type: String,
-      length: 191,
-      unique: true,
-    },
-    name: {
-      type: String,
-      length: 255,
-    },
-    displayName: {
-      type: String,
-      length: 255,
-    },
-    img: {
-      type: String,
-      length: 255,
-      nullable: true,
-    },
-    bio: {
-      type: String,
-      nullable: true,
-    },
-  },
-  relations: {
-    analyses: {
-      type: 'one-to-many',
-      target: 'Analysis',
-      inverseSide: 'author',
-    },
-  },
-});
+export const AuthorSchema = Author;
