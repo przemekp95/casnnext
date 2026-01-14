@@ -123,7 +123,7 @@ fi
 
 # Test 7: Check migration scripts
 echo "7. Validating TypeORM migration scripts..."
-if [ -d "lib/migrations" ] && [ "$(ls lib/migrations/*.ts 2>/dev/null | wc -l)" -gt 0 ]; then
+if [ -d "migrations" ] && [ "$(ls migrations/*.ts 2>/dev/null | wc -l)" -gt 0 ]; then
     echo "✅ PASS: TypeORM migrations directory exists and contains migration files"
 else
     echo "❌ FAIL: TypeORM migrations not found"
