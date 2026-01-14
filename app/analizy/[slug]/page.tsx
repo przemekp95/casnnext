@@ -10,9 +10,9 @@ import MDXContent from "@/components/mdx/MDXContent";
 
 // ——— RUNTIME / CACHE ————————————————————————————————————————————————
 export const runtime = "nodejs";
-// Generuj statycznie dla lepszej wydajności i SEO
-export const dynamicParams = true; // Allow dynamic params for new content
-export const revalidate = 3600; // Revalidate every hour
+export const dynamic = "force-dynamic"; // Force dynamic rendering - always fresh data
+export const revalidate = 0; // No revalidation needed for dynamic rendering
+export const fetchCache = "force-no-store"; // Disable all caching
 
 // Generuj statyczne ścieżki dla istniejących analiz
 export async function generateStaticParams() {

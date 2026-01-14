@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { AppDataSource } from "../db.server";
+import { executeRscQuery } from "../db.rsc";
 import { AuthorSchema, AnalysisSchema } from "../entities";
 import { AuthorRow, AuthorDetail } from "../../types/author";
 
@@ -79,31 +79,28 @@ export async function getAuthors(): Promise<AuthorRow[]> {
     return [];
   }
 
-  if (!AppDataSource || !AppDataSource.isInitialized) {
-    console.warn('Database not available for getAuthors(), using mock data');
-    return mockAuthors;
-  }
-
   try {
-    const authorRepository = AppDataSource.getRepository(AuthorSchema);
-    const authors = await authorRepository.find({
-      order: { name: 'ASC' },
-      // Ensure we load all required fields explicitly
-      select: ['id', 'slug', 'name', 'displayName', 'img', 'bio'],
-    });
+    return await executeRscQuery(async (dataSource) => {
+      const authorRepository = dataSource.getRepository(AuthorSchema);
+      const authors = await authorRepository.find({
+        order: { name: 'ASC' },
+        // Ensure we load all required fields explicitly
+        select: ['id', 'slug', 'name', 'displayName', 'img', 'bio'],
+      });
 
-    // Transform to UI-friendly format with explicit string conversion
-    return authors.map(author => ({
-      id: String(author.id),
-      slug: String(author.slug),
-      name: String(author.name),
-      displayName: String(author.displayName),
-      img: author.img ? String(author.img) : null,
-      bio: author.bio ? String(author.bio) : null,
-    }));
+      // Transform to UI-friendly format with explicit string conversion
+      return authors.map(author => ({
+        id: String(author.id),
+        slug: String(author.slug),
+        name: String(author.name),
+        displayName: String(author.displayName),
+        img: author.img ? String(author.img) : null,
+        bio: author.bio ? String(author.bio) : null,
+      }));
+    });
   } catch (error) {
-    console.error('Error in getAuthors():', error);
-    return [];
+    console.warn('Database not available for getAuthors(), using mock data:', error);
+    return mockAuthors;
   }
 }
 
@@ -113,43 +110,45 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
     return null;
   }
 
-  if (!AppDataSource || !AppDataSource.isInitialized) {
-    console.warn('Database not available for getAuthorBySlug(), using mock data');
+  try {
+    return await executeRscQuery(async (dataSource) => {
+      const authorRepository = dataSource.getRepository(AuthorSchema);
+      const author = await authorRepository.findOne({
+        where: { slug },
+      });
+
+      if (!author) {
+        return null;
+      }
+
+      const analysisRepository = dataSource.getRepository(AnalysisSchema);
+      const analyses = await analysisRepository.find({
+        where: { authorId: author.id },
+        order: { id: 'DESC' },
+        select: ['id', 'title', 'slug'],
+      });
+
+      // Transform to UI-friendly format
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const authorEntity = author as any;
+      return {
+        author: {
+          id: String(authorEntity.id),
+          slug: authorEntity.slug,
+          name: authorEntity.name,
+          displayName: authorEntity.displayName,
+          img: authorEntity.img || undefined,
+          bio: authorEntity.bio || undefined,
+        },
+        analyses: analyses.map(analysis => ({
+          id: String(analysis.id),
+          title: analysis.title,
+          slug: analysis.slug,
+        })),
+      };
+    });
+  } catch (error) {
+    console.warn('Database not available for getAuthorBySlug(), using mock data:', error);
     return mockAuthorDetails[slug] || null;
   }
-
-  const authorRepository = AppDataSource.getRepository(AuthorSchema);
-  const author = await authorRepository.findOne({
-    where: { slug },
-  });
-
-  if (!author) {
-    return null;
-  }
-
-  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-  const analyses = await analysisRepository.find({
-    where: { authorId: author.id },
-    order: { id: 'DESC' },
-    select: ['id', 'title', 'slug'],
-  });
-
-  // Transform to UI-friendly format
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const authorEntity = author as any;
-  return {
-    author: {
-      id: String(authorEntity.id),
-      slug: authorEntity.slug,
-      name: authorEntity.name,
-      displayName: authorEntity.displayName,
-      img: authorEntity.img || undefined,
-      bio: authorEntity.bio || undefined,
-    },
-    analyses: analyses.map(analysis => ({
-      id: String(analysis.id),
-      title: analysis.title,
-      slug: analysis.slug,
-    })),
-  };
 }
