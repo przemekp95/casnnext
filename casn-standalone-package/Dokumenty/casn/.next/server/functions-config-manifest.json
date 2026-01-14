@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "functions": {
+    "/analizy/[slug]": {},
+    "/autor/[slug]": {},
+    "/autorzy": {},
+    "/zbiory": {}
+  }
+}

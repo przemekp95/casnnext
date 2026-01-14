@@ -1,0 +1,44 @@
+name: Docker Deployment Configuration Validation
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+
+jobs:
+  validate-docker-config:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Deployment Configuration
+        run: |
+          echo "🔍 === DOCKER DEPLOYMENT CONFIGURATION VALIDATION ==="
+
+          # Make test script executable
+          chmod +x test-typeorm-config.sh
+
+          # Run the validation script
+          if ./test-typeorm-config.sh; then
+            echo "✅ Docker deployment configuration validation PASSED"
+            exit 0
+          else
+            echo "❌ Docker deployment configuration validation FAILED"
+            exit 1
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-validation-results
+          path: test-typeorm-config.sh
+          retention-days: 30

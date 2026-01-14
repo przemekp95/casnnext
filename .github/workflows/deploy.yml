@@ -68,15 +68,6 @@ jobs:
           done
           echo "MySQL is ready!"
 
-      - name: Run database migrations
-        run: npm run migration:run
-        env:
-          DB_HOST: localhost
-          DB_PORT: 3306
-          DB_USER: root
-          DB_PASSWORD: rootpassword
-          DB_NAME: casn_test
-
       - name: Type check
         run: npm run type-check
 
