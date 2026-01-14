@@ -49,6 +49,7 @@
     "jest.setup.ts",
     "jest.config.ts",
     ".next/cache",
-    "dist"
+    "dist",
+    "capacitor.config.ts"
   ]
 }
