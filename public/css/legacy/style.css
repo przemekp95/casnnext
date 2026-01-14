@@ -9,7 +9,8 @@
 
 .topnav-bg {
   width: 100%;
-  background: rgba(30, 30, 30, 0.65);
+  height: 62px;
+  background: rgb(60, 60, 60);
 }
 
 /* ===== HERO TITLE RESPONSIVE SIZES ===== */
@@ -27,8 +28,8 @@
 /* Mobile hero title adjustments */
 @media (max-width: 768px) {
   .hero-title-normal {
-    font-size: 1.2rem;
-    line-height: 1.2;
+    font-size: 1rem;
+    line-height: 1.1;
   }
 }
 
