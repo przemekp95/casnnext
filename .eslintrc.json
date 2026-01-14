@@ -43,7 +43,11 @@
     ]
   },
   "ignorePatterns": [
-    "app/generated/**"
+    "app/generated/**",
+    "lib/db.server.js",
+    "lib/entities/*.js",
+    "lib/migrations/*.js",
+    "migrations/*.js"
   ],
   "overrides": [
     {
@@ -62,6 +66,12 @@
         "@typescript-eslint/no-this-alias": "off",
         "@typescript-eslint/no-unused-expressions": "off",
         "@typescript-eslint/no-unused-vars": "off"
+      }
+    },
+    {
+      "files": ["lib/**/*.js"],
+      "rules": {
+        "@typescript-eslint/no-require-imports": "off"
       }
     }
   ]

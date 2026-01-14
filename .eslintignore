@@ -1,0 +1,3 @@
+# Generated JavaScript files from TypeScript compilation
+lib/**/*.js
+migrations/**/*.js
