@@ -32,7 +32,6 @@ export default function ArticleLayout({
       <Hero
         title={title}
         breadcrumbs={breadcrumbs}
-        titleSize={breadcrumbs.some(crumb => crumb.href?.includes('/analizy/')) ? 'small' : 'normal'}
       >
         {/* Additional content positioned below breadcrumbs */}
         {(lead || author || date) && (

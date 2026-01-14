@@ -13,7 +13,6 @@ type HeroProps = {
   backgroundPosition?: string;
   children?: React.ReactNode;
   variant?: 'home' | 'page' | 'article' | 'background-only';
-  titleSize?: 'normal' | 'small';
 };
 
 export default function Hero({
@@ -104,13 +103,7 @@ export default function Hero({
                   }}
                 >
                   <div className="home-page-title text-center">
-                    <h1
-                      className="text-white mb-2"
-                      style={{
-                        fontSize: titleSize === 'small' ? '2.5rem' : undefined,
-                        lineHeight: titleSize === 'small' ? '1.2' : undefined
-                      }}
-                    >
+                    <h1 className="text-white mb-2">
                       {title}
                     </h1>
 
