@@ -83,7 +83,7 @@ export default function Header() {
               </div>
 
               <button
-                className="navbar-toggle"
+                className="navbar-toggle d-lg-none"
                 aria-expanded={isMenuOpen}
                 aria-controls="navigation"
                 aria-label="Przełącz menu nawigacyjne"
