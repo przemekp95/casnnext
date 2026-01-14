@@ -49,7 +49,8 @@
     "lib/db.node.js",
     "lib/entities/*.js",
     "lib/migrations/*.js",
-    "migrations/*.js"
+    "migrations/*.js",
+    "**/node_modules/**"
   ],
   "overrides": [
     {
@@ -76,11 +77,6 @@
         "@typescript-eslint/no-require-imports": "off"
       }
     },
-    {
-      "files": ["lib/db.node.js"],
-      "rules": {
-        "@typescript-eslint/no-require-imports": "off"
-      }
-    }
+
   ]
 }
