@@ -57,9 +57,14 @@ export async function initializeDatabase() {
       await AppDataSource.initialize();
       console.log('Database connection established successfully');
 
-      // Always run migrations (never synchronize) - this ensures schema + data consistency
+      // Check if synchronize is enabled - if so, skip migrations to avoid conflicts
+      const synchronizeEnabled = AppDataSource.options.synchronize === true;
+      console.log('Synchronize enabled:', synchronizeEnabled);
       console.log('Checking SKIP_TYPEORM_MIGRATE:', process.env.SKIP_TYPEORM_MIGRATE);
-      if (process.env.SKIP_TYPEORM_MIGRATE !== '1') {
+
+      if (synchronizeEnabled) {
+        console.log('Synchronize is enabled - skipping migrations to avoid conflicts');
+      } else if (process.env.SKIP_TYPEORM_MIGRATE !== '1') {
         console.log('Running database migrations...');
         await AppDataSource.runMigrations();
         console.log('Database migrations completed successfully');

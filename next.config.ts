@@ -5,7 +5,7 @@ import type { NextConfig } from "next";
 const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
-  // output: "standalone",        // REMOVED - causing deployment issues
+  output: "standalone",
   images: { unoptimized: true }, // <- naprawia 400 na /_next/image
 } satisfies NextConfig;
 
