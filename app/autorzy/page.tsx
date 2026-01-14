@@ -7,7 +7,7 @@ import Hero from "@/components/Hero";
 import AuthorsClient from "./AuthorsClient";
 
 export const runtime = "nodejs";
-export const revalidate = 3600; // ISR - odśwież co godzinę
+export const dynamic = "force-dynamic"; // Force dynamic rendering - always fresh data
 
 export const metadata: Metadata = { title: "Nasi autorzy - Centrum Analiz Służby Niepodległej" };
 
@@ -16,6 +16,7 @@ export default async function AuthorsPage() {
   let authors: AuthorRow[] = [];
   try {
     authors = await getAuthors();
+    console.log('[AUTORZY] Fetched authors:', authors.length, 'items');
   } catch (error) {
     console.warn('Failed to load authors:', error);
     // Return empty array as fallback
