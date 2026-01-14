@@ -442,7 +442,7 @@
     }
     #navigation {
         position: absolute;
-        top: 62px;
+        top: 100%;
         left: 0;
         width: 100%;
         display: none;
