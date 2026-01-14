@@ -15,6 +15,7 @@
     ]
   },
   "rules": {
+    "@typescript-eslint/no-require-imports": "off",
     "boundaries/no-unknown": "error",
     "boundaries/no-unknown-files": "error",
     "boundaries/element-types": [
@@ -44,10 +45,7 @@
   },
   "ignorePatterns": [
     "app/generated/**",
-    "lib/db.server.js",
-    "lib/entities/*.js",
-    "lib/migrations/*.js",
-    "migrations/*.js"
+    "**/node_modules/**"
   ],
   "overrides": [
     {
@@ -69,10 +67,11 @@
       }
     },
     {
-      "files": ["lib/**/*.js"],
+      "files": ["**/*.js"],
       "rules": {
         "@typescript-eslint/no-require-imports": "off"
       }
-    }
+    },
+
   ]
 }
