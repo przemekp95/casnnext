@@ -29,8 +29,8 @@ echo "1b. Validating docker-compose.portainer.yml..."
 if [ -f "docker-compose.portainer.yml" ]; then
     if grep -q "mysql:" docker-compose.portainer.yml && \
        grep -q "app:" docker-compose.portainer.yml && \
-       grep -q "80:3000" docker-compose.portainer.yml && \
-       grep -q 'PORT: "3000"' docker-compose.portainer.yml; then
+       grep -q "18080:80" docker-compose.portainer.yml && \
+       grep -q 'PORT: "80"' docker-compose.portainer.yml; then
         echo "✅ PASS: docker-compose.portainer.yml has correct structure"
     else
         echo "❌ FAIL: docker-compose.portainer.yml missing required services, port mapping, or PORT environment variable"
@@ -68,8 +68,8 @@ fi
 
 # Test 3: Check app command override
 echo "3. Validating app command override..."
-if grep -q "command.*npm.*start" docker-compose.final.yml; then
-    echo "✅ PASS: docker-compose.final.yml overrides command to skip migrations"
+if grep -q "node.*server.js" docker-compose.final.yml; then
+    echo "✅ PASS: docker-compose.final.yml uses custom server for TypeORM bootstrap"
 else
     echo "❌ FAIL: docker-compose.final.yml missing command override"
     exit 1
@@ -107,11 +107,13 @@ fi
 # Test 6: Check TypeORM entities
 echo "6. Validating TypeORM entities..."
 if [ -f "lib/entities/Author.ts" ] && [ -f "lib/entities/Analysis.ts" ]; then
-    if grep -q "@Entity" lib/entities/Author.ts && \
-       grep -q "@Entity" lib/entities/Analysis.ts; then
-        echo "✅ PASS: TypeORM entities are properly configured"
+    if grep -q "EntitySchema" lib/entities/Author.ts && \
+       grep -q "EntitySchema" lib/entities/Analysis.ts && \
+       grep -q "AuthorSchema" lib/entities/Author.ts && \
+       grep -q "AnalysisSchema" lib/entities/Analysis.ts; then
+        echo "✅ PASS: TypeORM entities are properly configured with EntitySchema"
     else
-        echo "❌ FAIL: TypeORM entities missing @Entity decorators"
+        echo "❌ FAIL: TypeORM entities missing EntitySchema configuration"
         exit 1
     fi
 else
@@ -121,7 +123,7 @@ fi
 
 # Test 7: Check migration scripts
 echo "7. Validating TypeORM migration scripts..."
-if [ -d "lib/migrations" ] && [ "$(ls lib/migrations/*.ts 2>/dev/null | wc -l)" -gt 0 ]; then
+if [ -d "migrations" ] && [ "$(ls migrations/*.ts 2>/dev/null | wc -l)" -gt 0 ]; then
     echo "✅ PASS: TypeORM migrations directory exists and contains migration files"
 else
     echo "❌ FAIL: TypeORM migrations not found"
