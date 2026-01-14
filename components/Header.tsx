@@ -20,6 +20,7 @@ export default function Header() {
       id="topnav"
       className="defaultscroll scroll-active"
       role="banner"
+      style={{ position: 'relative' }}
     >
       {/* WARSTWA TŁA – CAŁA SZEROKOŚĆ */}
       <div className="topnav-bg">
