@@ -11,8 +11,8 @@ const config = {
   },
   testMatch: ['**/?(*.)+(test|spec).[jt]s?(x)'],
   transformIgnorePatterns: ['/node_modules/(?!(nanoid)/)'],
-  modulePathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/'],
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/'],
+  modulePathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/', '<rootDir>/casn-standalone-package/'],
+  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/', '<rootDir>/casn-standalone-package/'],
   // Force exit to prevent hanging due to database connections
   forceExit: true,
   // Coverage configuration

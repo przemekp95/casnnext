@@ -17,6 +17,8 @@
     "**/*.spec.ts",
     "**/*.spec.tsx",
     "prisma",
-    "prisma/**"
+    "prisma/**",
+    "capacitor.config.ts",
+    "lib/prisma.ts"
   ]
 }
