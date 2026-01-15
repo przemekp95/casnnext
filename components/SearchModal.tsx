@@ -25,7 +25,6 @@ interface SearchModalProps {
 
 export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchIndex, setSearchIndex] = useState<SearchResult[]>([]);
   const [searchFilter, setSearchFilter] = useState<SearchFilter>('all');
@@ -60,12 +59,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }
   }, [isOpen, searchIndex.length]);
 
-  // Funkcja podświetlania tekstu - zwraca bezpieczny HTML
-  const highlightText = (text: string, query: string) => {
-    if (!query.trim()) return text;
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
-  };
+
 
   // Komponent do bezpiecznego renderowania HTML
   const HighlightedText = ({ text, query }: { text: string; query: string }) => {
@@ -194,7 +188,6 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   useEffect(() => {
     if (!isOpen) {
       setQuery("");
-      setResults([]);
     }
   }, [isOpen]);
 
@@ -241,6 +234,11 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
           flexDirection: 'column'
         }}
       >
+        <style jsx>{`
+          .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.7) !important;
+          }
+        `}</style>
         {/* Header */}
         <div
           style={{
@@ -248,7 +246,9 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             borderBottom: '1px solid #eee',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px'
+            gap: '10px',
+            backgroundColor: '#007bff',
+            borderRadius: '8px 8px 0 0'
           }}
         >
           <span
@@ -264,12 +264,15 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
+            className="search-input"
             style={{
               flex: 1,
               border: 'none',
               outline: 'none',
               fontSize: '16px',
-              padding: '8px 0'
+              padding: '8px 0',
+              backgroundColor: 'transparent',
+              color: 'white'
             }}
           />
           <button
@@ -278,7 +281,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
               background: 'none',
               border: 'none',
               fontSize: '20px',
-              color: '#666',
+              color: 'white',
               cursor: 'pointer',
               padding: '4px'
             }}
@@ -369,7 +372,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             </div>
           ) : filteredResults.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-              Nie znaleziono wyników dla "{query}"
+              Nie znaleziono wyników dla &#34;{query}&#34;
             </div>
           ) : (
             <div>

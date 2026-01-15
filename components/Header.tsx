@@ -94,14 +94,22 @@ export default function Header() {
                   marginRight: '10px'
                 }}
               >
-                <span
-                  className="mdi mdi-magnify"
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   style={{
-                    fontSize: '20px',
-                    color: '#7a7d84',
                     transition: 'all 0.3s ease'
                   }}
-                ></span>
+                >
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <path d="m21 21-4.35-4.35"></path>
+                </svg>
               </button>
 
               {/* Email ukryty na mobile - client-only to prevent Cloudflare obfuscation hydration mismatch */}
