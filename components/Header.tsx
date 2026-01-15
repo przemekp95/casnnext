@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { EmailLink } from "./EmailLink";
+import SearchModal from "./SearchModal";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const toggleMenu = () => {
     setIsMenuOpen((v) => !v);
@@ -13,6 +15,14 @@ export default function Header() {
 
   const closeMenu = () => {
     setIsMenuOpen(false);
+  };
+
+  const toggleSearch = () => {
+    setIsSearchOpen((v) => !v);
+  };
+
+  const closeSearch = () => {
+    setIsSearchOpen(false);
   };
 
   return (
@@ -63,8 +73,37 @@ export default function Header() {
               </ul>
             </nav>
 
-            {/* PRAWA STRONA – EMAIL + HAMBURGER */}
+            {/* PRAWA STRONA – EMAIL + SEARCH + HAMBURGER */}
             <div className="topnav-right">
+              {/* Przycisk wyszukiwania */}
+              <button
+                className="search-toggle"
+                aria-expanded={isSearchOpen}
+                aria-label="Przełącz wyszukiwanie"
+                type="button"
+                onClick={toggleSearch}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  marginRight: '10px'
+                }}
+              >
+                <span
+                  className="mdi mdi-magnify"
+                  style={{
+                    fontSize: '20px',
+                    color: '#7a7d84',
+                    transition: 'all 0.3s ease'
+                  }}
+                ></span>
+              </button>
+
               {/* Email ukryty na mobile - client-only to prevent Cloudflare obfuscation hydration mismatch */}
               <div
                 className="topnav-email d-none d-lg-inline"
@@ -139,6 +178,9 @@ export default function Header() {
           </div>
         </div>
       </div>
+
+      {/* Search Modal */}
+      <SearchModal isOpen={isSearchOpen} onClose={closeSearch} />
     </header>
   );
 }
