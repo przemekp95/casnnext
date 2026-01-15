@@ -71,6 +71,6 @@ if (databaseUrl) {
 export default new DataSource({
   ...dbConfig,
   entities: [AuthorSchema, AnalysisSchema],
-  migrations: isProduction ? ['dist/migrations/*.js'] : ['lib/migrations/*.ts'],
+  migrations: ['migrations/*.ts'],
   subscribers: [],
 });
