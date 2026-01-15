@@ -35,8 +35,8 @@ export const metadata = {
   keywords: "centrum analiz, fundacja służba niepodległej, ngo, analizy polityczne",
   authors: [{ name: "Zoyothemes" }],
   icons: {
-    icon: "/images/favicon.ico",
-    shortcut: "/images/favicon.ico",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
   },
   verification: {
     google: "m2YyW7pzg0z3nL2idpMZ2finxS8sCwvYKOe4whiY3kA",
@@ -94,7 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               "@type": "Organization",
               "name": "Centrum Analiz Służby Niepodległej",
               "url": "https://casn.pl",
-              "logo": "https://casn.pl/images/logo.png",
+              "logo": "https://casn.pl/images/logo.jpg",
               "description": "Strona Centrum Analiz Fundacji Służby Niepodległej - analizy polityki i społeczeństwa",
               "sameAs": [
                 "https://www.facebook.com/casn",
