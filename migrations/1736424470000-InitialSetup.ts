@@ -4,6 +4,10 @@ export class InitialSetup1736424470000 implements MigrationInterface {
   name = 'InitialSetup1736424470000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Always recreate tables - drop if exists and recreate
+    await queryRunner.query(`DROP TABLE IF EXISTS \`Analysis\``);
+    await queryRunner.query(`DROP TABLE IF EXISTS \`Author\``);
+
     // Create Author table
     await queryRunner.query(`
       CREATE TABLE \`Author\` (
@@ -38,7 +42,7 @@ export class InitialSetup1736424470000 implements MigrationInterface {
       ON DELETE RESTRICT ON UPDATE CASCADE
     `);
 
-    // Insert Author data - complete author profiles with proper names and images
+    // Always insert fresh data
     await queryRunner.query(`
       INSERT INTO \`Author\` (\`id\`, \`slug\`, \`name\`, \`displayName\`, \`img\`, \`bio\`) VALUES
       (2,'balcerowski','Dr Piotr Balcerowski','Dr Piotr Balcerowski','/images/Balcerowski.png','Zawodowo związany z trzecim sektorem. Jego zainteresowania badawcze obejmują przede wszystkim bezpieczeństwo publiczne i ekonomiczne. Absolwent Instytutu Nauk Politycznych Uniwersytetu Warszawskiego oraz Kolegium Gospodarki Światowej SGH. Stypendysta na Wydziale Zarządzania Uniwersytetu im. Radbouda w Holandii. Absolwent Executive MBA University of Quebec at Montreal. Wykładowca; społecznik; m.in. wolontariusz Fundacji im. Cichociemnych Spadochroniarzy AK; z którą jest rodzinnie związany.\"'),
@@ -55,7 +59,7 @@ export class InitialSetup1736424470000 implements MigrationInterface {
       (13,'rutke','Grzegorz Rutke','Grzegorz Rutke','/images/Rutke.png','Redaktor serwisu #FakeHunter Polskiej Agencji Prasowej specjalizujący się w zagadnieniach dezinformacji z obszaru geopolityki i zdrowia w materiałach prasowych oraz mediach społecznościowych. Wcześniej związany z wydawnictwami Edipresse Polska i Egmont Polska. Absolwent Wydziału Dziennikarstwa i Nauk Politycznych Uniwersytetu Warszawskiego.'),
       (14,'bochenek','Adrian Bochenek','Adrian Bochenek','/images/Bochenek.png','Prezes Stowarzyszenia Studenci dla Rzeczypospolitej; student prawa na Uniwersytecie Jagiellońskim. Od 4 lat zaangażowany w społeczeństwo obywatelskie; koordynując m. in. Akademię Skolimowską i Namioty Wyklętych. Prywatne zainteresowania to prawo karne; szachy oraz piłka nożna.\"'),
       (15,'trochanowska','Beata Trochanowska','Beata Trochanowska','/images/Trochanowska.png','Absolwentka stosunków międzynarodowych na Collegium Civitas. Studentka prawa oraz Prezes Koła Naukowego Prawa Konstytucyjnego na Uczelni Łazarskiego. Doświadczenie zawodowe zdobywała w pracy w międzynarodowych firmach oraz poprzez działalność społeczną.'),
-      (16,'bruszewski','Michał Bruszewski','Michał Bruszewski','/images/bruszewski.png','Reporter wojenny; ekspert ds. bezpieczeństwa i publicysta. Jako reporter był w Iraku w czasie operacji mosulskiej; w 2018 roku w Donbasie oraz na granicy polsko-białoruskiej. Autor reportaży z ukraińskiej wojny obronnej 2022 roku. Odbył kilka podróży reporterskich po ogarniętej wojną Ukrainie - autor tekstów o zbrodniach rosyjskich w Buczy i Borodiance; a także o sytuacji frontowej pod Charkowem. Autor książki „Kronika Prześladowanych" o męczeństwie chrześcijan w XXI wieku oraz sytuacji Ukrainy. Współpracował m.in. z Tygodnikiem Solidarność; DoRzeczy; Gazetą Polską Codziennie; Rzeczy Wspólne; Katolicką Agencją Informacyjną. Pisze do Defence24.pl. Jest komentatorem spraw międzynarodowych w TVP; Polsat News oraz Polskim Radio. Wykładowca; szkoleniowiec; ekspert ds. mediów. Prywatnie miłośnik sportów walki; uprawia boks.\"'),
+      (16,'bruszewski','Michał Bruszewski','Michał Bruszewski','/images/bruszewski.png','Reporter wojenny; ekspert ds. bezpieczeństwa i publicysta. Jako reporter był w Iraku w czasie operacji mosulskiej; w 2018 roku w Donbasie oraz na granicy polsko-białoruskiej. Autor reportaży z ukraińskiej wojny obronnej 2022 roku. Odbył kilka podróży reporterskich po ogarniętej wojnej Ukrainie - autor tekstów o zbrodniach rosyjskich w Buczy i Borodiance; a także o sytuacji frontowej pod Charkowem. Autor książki „Kronika Prześladowanych" o męczeństwie chrześcijan w XXI wieku oraz sytuacji Ukrainy. Współpracował m.in. z Tygodnikiem Solidarność; DoRzeczy; Gazetą Polską Codziennie; Rzeczy Wspólne; Katolicką Agencją Informacyjną. Pisze do Defence24.pl. Jest komentatorem spraw międzynarodowych w TVP; Polsat News oraz Polskim Radio. Wykładowca; szkoleniowiec; ekspert ds. mediów. Prywatnie miłośnik sportów walki; uprawia boks.\"'),
       (17,'giera','Kamil Giera','Kamil Giera','/images/Giera.png','Student V roku prawa na Uniwersytecie Jagiellońskim; pracownik Departamentu Innowacji i Technologii w Ministerstwie Cyfryzacji. Członek zarządu Stowarzyszenia Studenci dla Rzeczypospolitej; zaangażowany od wielu lat w społeczeństwo obywatelskie. Koordynator projektów: Akademia Skolimowska; Namioty Wyklętych. Wyróżniony w konkursie Lider Młodego Pokolenia; w 2019 roku członek Zespołu ds. studenckich przy Ministerstwie Nauki i Szkolnictwa Wyższego.\"'),
       (18,'pietr','Wojciech Pietr','Wojciech Pietr','/images/Pietr.png','absolwent studiów prawniczych na Uniwersytecie Wrocławskim. W latach 2004-2008 funkcjonariusz Policji. W 2008 r. rozpoczął służbę w CBA w pionie analiz; w latach 2016-2023 dyrektor Departamentu Analiz CBA. Aktualnie prowadzi działalność gospodarczą; świadcząc usługi w obszarze analizy; bezpieczeństwa i informatyki.\"'),
       (19,'rak','Dr Krzysztof Rak','Dr Krzysztof Rak','/images/Rak.png','polski historyk; analityk Instytutu Zachodniego; autor licznych książek m.in. Polska — „Niespełniony sojusznik Hitlera"  „Piłsudski: między Stalinem a Hitlerem"  „Piekielni sąsiedzi. Jak Rosja i Niemcy dogadywały się kosztem Polski".\"'),
@@ -126,11 +130,8 @@ export class InitialSetup1736424470000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Remove foreign key constraint
-    await queryRunner.query(`ALTER TABLE \`Analysis\` DROP FOREIGN KEY \`FK_a1c4b0b8e8b8b8b8b8b8b8b8b\``);
-
-    // Drop tables
-    await queryRunner.query(`DROP TABLE \`Analysis\``);
-    await queryRunner.query(`DROP TABLE \`Author\``);
+    // Always drop tables - destructive rollback
+    await queryRunner.query(`DROP TABLE IF EXISTS \`Analysis\``);
+    await queryRunner.query(`DROP TABLE IF EXISTS \`Author\``);
   }
 }
