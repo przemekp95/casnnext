@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { NextResponse } from "next/server";
+import { stripMarkdown, createExcerpt, fuzzyMatch } from "@/lib/searchUtils";
 
 // Typy dla indeksu wyszukiwania
 interface SearchIndexItem {
@@ -11,55 +12,6 @@ interface SearchIndexItem {
   date: string;
   excerpt: string;
   content: string;
-}
-
-// Funkcja do usuwania składni Markdown i tworzenia excerptu
-function stripMarkdown(content: string): string {
-  // Usuń nagłówki
-  content = content.replace(/^#{1,6}\s+.*$/gm, '');
-
-  // Usuń linki [tekst](url)
-  content = content.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-
-  // Usuń obrazy ![alt](url)
-  content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
-
-  // Usuń pogrubienie **tekst** i *tekst*
-  content = content.replace(/\*\*([^*]+)\*\*/g, '$1');
-  content = content.replace(/\*([^*]+)\*/g, '$1');
-
-  // Usuń kod `inline`
-  content = content.replace(/`([^`]+)`/g, '$1');
-
-  // Usuń bloki kodu
-  content = content.replace(/```[\s\S]*?```/g, '');
-
-  // Usuń listy
-  content = content.replace(/^[\s]*[-*+]\s+/gm, '');
-  content = content.replace(/^[\s]*\d+\.\s+/gm, '');
-
-  // Usuń nadmiarowe białe znaki
-  content = content.replace(/\s+/g, ' ').trim();
-
-  return content;
-}
-
-// Funkcja do tworzenia excerptu
-function createExcerpt(content: string, maxLength: number = 150): string {
-  const cleanContent = stripMarkdown(content);
-  if (cleanContent.length <= maxLength) {
-    return cleanContent;
-  }
-
-  // Znajdź ostatnie pełne słowo przed limitem
-  const truncated = cleanContent.substring(0, maxLength);
-  const lastSpaceIndex = truncated.lastIndexOf(' ');
-
-  if (lastSpaceIndex > 0) {
-    return truncated.substring(0, lastSpaceIndex) + '...';
-  }
-
-  return truncated + '...';
 }
 
 export async function GET() {
@@ -96,6 +48,12 @@ export async function GET() {
         // Przeczytaj i sparsuj plik
         const source = fs.readFileSync(filePath, "utf8");
         const { data, content } = matter(source);
+
+        // Sprawdź czy sparsowano prawidłowo (musi mieć tytuł)
+        if (!data || !data.title) {
+          console.warn(`File ${slug}.mdx has invalid frontmatter, skipping`);
+          continue;
+        }
 
         // Wyciągnij potrzebne dane
         const title = data.title || "Bez tytułu";
