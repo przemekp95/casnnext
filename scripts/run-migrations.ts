@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { AuthorSchema } from '../lib/entities/Author';
 import { AnalysisSchema } from '../lib/entities/Analysis';
 import { InitialSetup1736424470000 } from '../migrations/1736424470000-InitialSetup';
+import { AddDisplayNameToAuthor1736424470001 } from '../migrations/1736424470001-AddDisplayNameToAuthor';
 
 const AppDataSource = new DataSource({
   type: 'mysql',
@@ -15,7 +16,7 @@ const AppDataSource = new DataSource({
   synchronize: false, // Never synchronize in migrations
   logging: true,
   entities: [AuthorSchema, AnalysisSchema],
-  migrations: [InitialSetup1736424470000],
+  migrations: [InitialSetup1736424470000, AddDisplayNameToAuthor1736424470001],
 });
 
 async function runMigrations() {
