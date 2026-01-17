@@ -4,7 +4,8 @@ import matter from "gray-matter";
 import { NextResponse } from "next/server";
 import { stripMarkdown, createExcerpt } from "@/lib/searchUtils";
 import { AppDataSource } from "@/lib/db.server";
-import { AnalysisSchema, AuthorEntity } from "@/lib/entities";
+import { AnalysisSchema } from "@/lib/entities";
+import { AuthorEntity } from "@/lib/entities/Author";
 
 // Typy dla indeksu wyszukiwania
 interface SearchIndexItem {
