@@ -17,6 +17,77 @@ interface SearchIndexItem {
   content: string;
 }
 
+// Fallback filesystem-based search index for tests when database is not available
+async function getFilesystemSearchIndex(): Promise<NextResponse> {
+  try {
+    // Ścieżka do katalogu z postami
+    const POSTS_DIR = process.env.APP_ROOT
+      ? path.join(process.env.APP_ROOT, "posts")
+      : path.join(process.cwd(), "posts");
+
+    // Sprawdź czy katalog istnieje
+    if (!fs.existsSync(POSTS_DIR)) {
+      return NextResponse.json({ error: "Posts directory not found" }, { status: 404 });
+    }
+
+    // Znajdź wszystkie pliki .mdx
+    const files = fs.readdirSync(POSTS_DIR)
+      .filter(file => file.endsWith('.mdx'))
+      .map(file => path.join(POSTS_DIR, file));
+
+    const searchIndex: SearchIndexItem[] = [];
+
+    for (const filePath of files) {
+      try {
+        // Sprawdź rozmiar pliku (bezpieczeństwo)
+        const stats = fs.statSync(filePath);
+        if (stats.size > 2_000_000) { // 2MB limit
+          console.warn(`File ${path.basename(filePath)} too large, skipping`);
+          continue;
+        }
+
+        // Przeczytaj i sparsuj plik
+        const source = fs.readFileSync(filePath, "utf8");
+        const { data: frontmatter, content } = matter(source);
+
+        // Użyj danych z frontmatter
+        const title = frontmatter.title || path.basename(filePath, '.mdx');
+        const author = frontmatter.author || "Nieznany autor";
+        const slug = frontmatter.slug || path.basename(filePath, '.mdx');
+        const date = frontmatter.date || "Brak daty";
+
+        // Przygotuj zawartość do wyszukiwania
+        const cleanContent = stripMarkdown(content);
+        const excerpt = createExcerpt(content, 200);
+
+        searchIndex.push({
+          slug,
+          title,
+          author,
+          date,
+          excerpt,
+          content: cleanContent
+        });
+
+      } catch (error) {
+        console.error(`Error processing ${filePath}:`, error);
+        // Kontynuuj przetwarzanie innych plików
+      }
+    }
+
+    // Sortuj po dacie (najnowsze pierwsze)
+    searchIndex.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return NextResponse.json(searchIndex);
+  } catch (error) {
+    console.error("Error generating filesystem search index:", error);
+    return NextResponse.json(
+      { error: "Failed to generate search index" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET() {
   try {
     // Skip during build time
@@ -26,12 +97,14 @@ export async function GET() {
 
     // Skip if database is not configured - return empty array for tests
     if (!isDatabaseConfigured()) {
-      return NextResponse.json([]);
+      // Fall back to filesystem-based search index for tests
+      return await getFilesystemSearchIndex();
     }
 
     // Skip if database is not available - return empty array for tests
     if (!AppDataSource || !AppDataSource.isInitialized) {
-      return NextResponse.json([]);
+      // Fall back to filesystem-based search index for tests
+      return await getFilesystemSearchIndex();
     }
 
     // Pobierz wszystkie analizy z bazy danych
