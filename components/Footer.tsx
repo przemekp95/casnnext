@@ -178,12 +178,12 @@ export default function Footer() {
                 <p className="mb-0">
                   Maintenance By{' '}
                   <a
-                    href="https://ppsolutions.com.pl/"
+                    href="https://pietrzakprzemyslaw.pl/"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: 'inherit', textDecoration: 'none' }}
                   >
-                    PP Solutions P.S.A.
+                    PP Solutions Przemysław Pietrzak
                   </a>
                 </p>
               </div>
