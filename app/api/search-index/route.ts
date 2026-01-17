@@ -72,7 +72,7 @@ export async function GET() {
 
         // Użyj danych z bazy danych zamiast z frontmatter
         const title = analysis.title;
-        const author = analysis.author?.name || "Nieznany autor";
+        const author = (analysis.author as any)?.name || "Nieznany autor";
 
         // Przygotuj zawartość do wyszukiwania
         const cleanContent = stripMarkdown(content);
