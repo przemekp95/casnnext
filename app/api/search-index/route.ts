@@ -2,7 +2,9 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { NextResponse } from "next/server";
-import { stripMarkdown, createExcerpt, fuzzyMatch } from "@/lib/searchUtils";
+import { stripMarkdown, createExcerpt } from "@/lib/searchUtils";
+import { AppDataSource } from "@/lib/db.server";
+import { AnalysisSchema } from "@/lib/entities";
 
 // Typy dla indeksu wyszukiwania
 interface SearchIndexItem {
@@ -16,6 +18,23 @@ interface SearchIndexItem {
 
 export async function GET() {
   try {
+    // Skip during build time
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      return NextResponse.json([]);
+    }
+
+    // Sprawdź połączenie z bazą danych
+    if (!AppDataSource || !AppDataSource.isInitialized) {
+      return NextResponse.json({ error: "Database not available" }, { status: 503 });
+    }
+
+    // Pobierz wszystkie analizy z bazy danych
+    const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
+    const analyses = await analysisRepository.find({
+      relations: ['author'],
+      order: { id: 'DESC' },
+    });
+
     // Ścieżka do katalogu z postami
     const POSTS_DIR = process.env.APP_ROOT
       ? path.join(process.env.APP_ROOT, "posts")
@@ -26,17 +45,19 @@ export async function GET() {
       return NextResponse.json({ error: "Posts directory not found" }, { status: 404 });
     }
 
-    // Przeczytaj wszystkie pliki .mdx
-    const files = fs.readdirSync(POSTS_DIR)
-      .filter(file => file.endsWith('.mdx'))
-      .map(file => file.replace('.mdx', ''));
-
     const searchIndex: SearchIndexItem[] = [];
 
-    // Przetwórz każdy plik
-    for (const slug of files) {
+    // Przetwórz tylko analizy które istnieją w bazie danych
+    for (const analysis of analyses) {
       try {
+        const slug = analysis.slug;
         const filePath = path.join(POSTS_DIR, `${slug}.mdx`);
+
+        // Sprawdź czy plik istnieje
+        if (!fs.existsSync(filePath)) {
+          console.warn(`File ${slug}.mdx not found, skipping`);
+          continue;
+        }
 
         // Sprawdź rozmiar pliku (bezpieczeństwo)
         const stats = fs.statSync(filePath);
@@ -47,34 +68,30 @@ export async function GET() {
 
         // Przeczytaj i sparsuj plik
         const source = fs.readFileSync(filePath, "utf8");
-        const { data, content } = matter(source);
+        const { content } = matter(source);
 
-        // Sprawdź czy sparsowano prawidłowo (musi mieć tytuł)
-        if (!data || !data.title) {
-          console.warn(`File ${slug}.mdx has invalid frontmatter, skipping`);
-          continue;
-        }
-
-        // Wyciągnij potrzebne dane
-        const title = data.title || "Bez tytułu";
-        const author = data.author || "Nieznany autor";
-        const date = data.date || "Brak daty";
+        // Użyj danych z bazy danych zamiast z frontmatter
+        const title = analysis.title;
+        const author = analysis.author?.name || "Nieznany autor";
 
         // Przygotuj zawartość do wyszukiwania
         const cleanContent = stripMarkdown(content);
         const excerpt = createExcerpt(content, 200);
 
+        // Użyj aktualnej daty jeśli nie ma daty w bazie
+        const date = new Date().toISOString().split('T')[0];
+
         searchIndex.push({
           slug,
           title,
           author,
-          date: typeof date === 'string' ? date : date.toISOString().split('T')[0],
+          date,
           excerpt,
           content: cleanContent
         });
 
       } catch (error) {
-        console.error(`Error processing ${slug}.mdx:`, error);
+        console.error(`Error processing ${analysis.slug}.mdx:`, error);
         // Kontynuuj przetwarzanie innych plików
       }
     }
