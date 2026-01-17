@@ -44,7 +44,7 @@ async function fixPolishData() {
       WHEN 'lempicka-wyszynska' THEN 'Dominika Łempicka-Wyszyńska'
       WHEN 'rosolowski' THEN 'Marcin Rosołowski'
       WHEN 'luczuk' THEN 'Dr Piotr Łuczuk'
-      WHEN 'domanska' THEN 'Dr Aldona Domańska'
+      WHEN 'domanska' THEN 'Dr Agnieszka Domańska'
       WHEN 'swietlik' THEN 'Wiktor Świetlik'
       WHEN 'trabinski' THEN 'Piotr Trąbiński'
       WHEN 'okolowski' THEN 'Dr hab. Paweł Okołowski'
