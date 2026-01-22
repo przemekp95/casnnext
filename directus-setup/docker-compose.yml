@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  directus:
+    image: directus/directus:latest
+    ports:
+      - "8055:8055"
+    user: "node"
+    volumes:
+      - ./database:/directus/database
+      - ./uploads:/directus/uploads
+    environment:
+      SECRET: "your-secret-key-change-this-in-production"
+      ADMIN_EMAIL: "admin@casn.pl"
+      ADMIN_PASSWORD: "admin123"
+      DB_CLIENT: "sqlite3"
+      DB_FILENAME: "/directus/database/data.db"
+      WEBSOCKETS_ENABLED: "true"
+      CACHE_ENABLED: "false"

@@ -28,6 +28,7 @@
     "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.datasource.ts"
   },
   "dependencies": {
+    "@directus/sdk": "^18.0.3",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
     "@next/mdx": "^15.5.0",
