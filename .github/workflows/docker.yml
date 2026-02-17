@@ -80,6 +80,11 @@ jobs:
       - name: Check CMS MDX media paths
         run: npm run check:cms-mdx-media
 
+      - name: Enforce dependency audit policy
+        run: npm run audit:policy
+        env:
+          AUDIT_FAIL_ON: high
+
       - name: Run unit tests with coverage
         run: npm run test:ci -- --coverage --watchAll=false
         env:

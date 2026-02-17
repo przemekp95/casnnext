@@ -3,7 +3,11 @@ FROM node:20-alpine
 WORKDIR /opt/strapi
 
 COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+RUN if [ -f package-lock.json ]; then \
+      npm ci --omit=dev --omit=optional --ignore-scripts; \
+    else \
+      npm install --omit=dev --omit=optional --ignore-scripts; \
+    fi
 
 COPY . .
 

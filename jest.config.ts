@@ -36,10 +36,10 @@ const config = {
   coverageReporters: ['text' as const, 'lcov' as const, 'json-summary' as const],
   coverageThreshold: {
     global: {
-      branches: 35,
-      functions: 50,
-      lines: 45,
-      statements: 45
+      branches: 50,
+      functions: 60,
+      lines: 65,
+      statements: 65
     }
   },
   // Set test environment

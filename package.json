@@ -23,6 +23,7 @@
     "test:e2e:hydration": "cypress run --spec 'cypress/e2e/hydration.cy.ts'",
     "check:posts": "bash scripts/check-posts.sh",
     "check:cms-mdx-media": "bash scripts/ci/check-cms-mdx-media-paths.sh",
+    "audit:policy": "bash scripts/ci/security-audit-policy.sh",
     "cms:import": "tsx scripts/cms/import-legacy-to-strapi.ts",
     "cms:verify": "tsx scripts/cms/verify-parity.ts",
     "strapi:dev": "npm --prefix strapi run develop",

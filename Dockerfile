@@ -14,7 +14,11 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 
 # Install dependencies
-RUN npm install --omit=dev --ignore-scripts
+RUN if [ -f package-lock.json ]; then \
+      npm ci --omit=dev --omit=optional --ignore-scripts; \
+    else \
+      npm install --omit=dev --omit=optional --ignore-scripts; \
+    fi
 
 # Copy source code
 COPY . .
