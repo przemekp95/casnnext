@@ -94,7 +94,9 @@ jobs:
       - name: Enforce dependency audit policy
         run: npm run audit:policy
         env:
-          AUDIT_FAIL_ON: high
+          AUDIT_FAIL_ON_APP: high
+          AUDIT_FAIL_ON_STRAPI: high
+          AUDIT_SUMMARY_FILE: ${{ github.step_summary }}
 
       - name: Build application
         run: npm run build
