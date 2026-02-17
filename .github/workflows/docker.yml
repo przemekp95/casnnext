@@ -10,6 +10,8 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  COVERAGE_MIN_LINES: '70'
+  COVERAGE_EXCELLENT_LINES: '80'
 
 jobs:
   test:
@@ -118,9 +120,9 @@ jobs:
           # Verify server is still responding
           curl -f http://localhost:3000/api/health || (echo "Server health check failed" && exit 1)
 
-          # Run hydration and data integration tests
-          echo "Running hydration and data integration tests..."
-          npm run test:integration:hydration
+          # Run live integration tests (DB + Next server)
+          echo "Running live integration tests..."
+          npm run test:integration:live
 
           # Run E2E tests including hydration tests
           echo "Starting E2E tests with hydration..."
@@ -132,6 +134,7 @@ jobs:
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
           PORT: 3000
+          RUN_LIVE_TESTS: "1"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -150,14 +153,23 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const minCoverage = Number(process.env.COVERAGE_MIN_LINES || '70');
+            const excellentCoverage = Number(process.env.COVERAGE_EXCELLENT_LINES || '80');
 
             let coverage = 'Not available';
             let coverageStatus = 'Unknown';
 
             if (fs.existsSync('coverage/coverage-summary.json')) {
               const coverageData = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
-              coverage = `${coverageData.total.lines.pct}%`;
-              coverageStatus = coverageData.total.lines.pct >= 80 ? 'Good' : 'Low';
+              const linesPct = Number(coverageData.total.lines.pct);
+
+              coverage = `${linesPct}%`;
+              coverageStatus =
+                linesPct >= excellentCoverage
+                  ? 'Excellent'
+                  : linesPct >= minCoverage
+                    ? 'Good'
+                    : 'Low';
             }
 
             const jobStatus = '${{ job.status }}';
@@ -168,6 +180,7 @@ jobs:
             const body = `## Test Results
 
             **Coverage:** ${coverageStatus} (${coverage})
+            **Coverage Policy:** Good >= ${minCoverage}% | Excellent >= ${excellentCoverage}%
             **Unit Tests:** ${unitTests}
             **E2E Tests:** ${e2eTests}
             **Quality Checks:** ${qualityChecks}

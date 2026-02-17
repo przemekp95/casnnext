@@ -8,6 +8,7 @@ import { getAnalyses, getAnalysisBySlug } from "@/lib/analyses";
 import Script from "next/script";
 import { isStrapiProvider } from "@/lib/content-provider";
 import { normalizeCmsMdxMediaPaths } from "@/lib/cms/mdx-media";
+import { replacePlaceholders } from "@/lib/cms/placeholders";
 
 import MDXContent from "@/components/mdx/MDXContent";
 
@@ -76,12 +77,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 // ——— Typy ——————————————————————————————————————————————————————————————
-
-// ——— Utils ————————————————————————————————————————————————————————————
-function replacePlaceholders(str: string | undefined, placeholders: Record<string, string>) {
-  if (!str) return "";
-  return str.replace(/{{(.*?)}}/g, (_, key) => placeholders[key.trim()] ?? "");
-}
 
 // Lekki logger (aktywny tylko w DEV na serwerze)
 const LOGFILE = path.join(process.cwd(), "tmp", "mdx-error.log");

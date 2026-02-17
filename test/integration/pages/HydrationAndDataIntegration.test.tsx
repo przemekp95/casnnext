@@ -15,22 +15,27 @@ jest.mock('@/lib/server/authors.loader', () => ({
   ],
 }));
 
-describe('Hydration and Data Integration Tests', () => {
-  let isDatabaseAvailable = false;
+const runLiveTests = process.env.RUN_LIVE_TESTS === '1';
+const describeLive = runLiveTests ? describe : describe.skip;
 
-  beforeAll(async () => {
-    // Check if database is available for integration tests
-    try {
-      const { getPool } = await import('@/lib/db');
-      const pool = getPool();
-      if (pool) {
-        await pool.execute('SELECT 1');
-        isDatabaseAvailable = true;
-      }
-    } catch (error) {
-      console.warn('Database not available for integration tests:', error.message);
+async function assertLocalServerAvailable() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 1_500);
+
+  try {
+    const response = await fetch('http://localhost:3000/api/health', {
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`Health endpoint returned HTTP ${response.status}`);
     }
-  });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+describe('Hydration and Data Integration Tests', () => {
   describe('Authors Page - Full Data Flow', () => {
     it('loads authors from MySQL and renders all attributes correctly', async () => {
       // Dynamic import to avoid build issues
@@ -119,29 +124,12 @@ describe('Hydration and Data Integration Tests', () => {
     });
   });
 
-  describe('Database Integration - Authors API', () => {
-    // Enable API tests when server is available, skip gracefully otherwise
-
-    let serverAvailable = false;
-
+  describeLive('Database Integration - Authors API', () => {
     beforeAll(async () => {
-      try {
-        // Quick check if server is responding
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1000);
-
-        const response = await fetch('http://localhost:3000/api/health', {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        serverAvailable = response.ok;
-      } catch (error) {
-        serverAvailable = false;
-      }
+      await assertLocalServerAvailable();
     });
 
-    (serverAvailable ? it : it.skip)('API /api/authors returns proper data structure with all attributes', async () => {
+    it('API /api/authors returns proper data structure with all attributes', async () => {
       const response = await fetch('http://localhost:3000/api/authors');
       expect(response.ok).toBe(true);
 
@@ -169,7 +157,7 @@ describe('Hydration and Data Integration Tests', () => {
       });
     });
 
-    (serverAvailable ? it : it.skip)('API /api/authors/[slug] returns detailed author with analyses', async () => {
+    it('API /api/authors/[slug] returns detailed author with analyses', async () => {
       // First get list of authors
       const authorsResponse = await fetch('http://localhost:3000/api/authors');
       const authors = await authorsResponse.json();
@@ -201,9 +189,10 @@ describe('Hydration and Data Integration Tests', () => {
     });
   });
 
-  describe.skip('Database Integration - Articles API', () => {
-    // Skip API tests - they require running Next.js server with database
-    // These tests are designed for integration testing with live server
+  describeLive('Database Integration - Articles API', () => {
+    beforeAll(async () => {
+      await assertLocalServerAvailable();
+    });
 
     it('API /api/articles returns articles with proper structure', async () => {
       const response = await fetch('http://localhost:3000/api/articles');
@@ -252,28 +241,12 @@ describe('Hydration and Data Integration Tests', () => {
     });
   });
 
-  describe('Hydration Testing - Client/Server Consistency', () => {
-    // Enable hydration tests with multiple error scenarios
-
-    let serverAvailable = false;
-
+  describeLive('Hydration Testing - Client/Server Consistency', () => {
     beforeAll(async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1000);
-
-        const response = await fetch('http://localhost:3000/api/health', {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        serverAvailable = response.ok;
-      } catch (error) {
-        serverAvailable = false;
-      }
+      await assertLocalServerAvailable();
     });
 
-    (serverAvailable ? it : it.skip)('server-rendered HTML matches client-rendered HTML', async () => {
+    it('server-rendered HTML matches client-rendered HTML', async () => {
       // Test static pages for hydration consistency
       const pagesToTest = ['/', '/kontakt', '/zbiory'];
 
@@ -293,7 +266,7 @@ describe('Hydration and Data Integration Tests', () => {
       }
     });
 
-    (serverAvailable ? it : it.skip)('dynamic author pages render without hydration errors', async () => {
+    it('dynamic author pages render without hydration errors', async () => {
       const authorsResponse = await fetch('http://localhost:3000/api/authors');
       const authors = await authorsResponse.json();
 
@@ -309,7 +282,7 @@ describe('Hydration and Data Integration Tests', () => {
       }
     });
 
-    (serverAvailable ? it : it.skip)('dynamic analysis pages render without hydration errors', async () => {
+    it('dynamic analysis pages render without hydration errors', async () => {
       const articlesResponse = await fetch('http://localhost:3000/api/articles');
       const articles = await articlesResponse.json();
 
@@ -326,7 +299,7 @@ describe('Hydration and Data Integration Tests', () => {
       }
     });
 
-    (serverAvailable ? it : it.skip)('pages handle missing data gracefully without hydration errors', async () => {
+    it('pages handle missing data gracefully without hydration errors', async () => {
       // Test pages that might return empty states or handle missing data
       const testPages = [
         '/autorzy', // Empty authors list
@@ -347,7 +320,7 @@ describe('Hydration and Data Integration Tests', () => {
       }
     });
 
-    (serverAvailable ? it : it.skip)('navigation between pages works without hydration errors', async () => {
+    it('navigation between pages works without hydration errors', async () => {
       // Test basic navigation flow
       const pages = ['/', '/kontakt', '/zbiory', '/autorzy'];
 
@@ -368,9 +341,10 @@ describe('Hydration and Data Integration Tests', () => {
     });
   });
 
-  describe.skip('End-to-End Data Flow', () => {
-    // Skip end-to-end tests - they require running Next.js server with database
-    // These tests are designed for integration testing with live server
+  describeLive('End-to-End Data Flow', () => {
+    beforeAll(async () => {
+      await assertLocalServerAvailable();
+    });
 
     it('complete data flow: DB → API → UI', async () => {
       // 1. Get data from database via API

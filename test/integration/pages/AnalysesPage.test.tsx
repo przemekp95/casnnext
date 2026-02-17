@@ -3,12 +3,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 
 let PageComponent: any;
 let hasComponent = false;
+const runLiveTests = process.env.RUN_LIVE_TESTS === '1';
 try {
   PageComponent = require('@/app/analizy/page').default;
   hasComponent = !!PageComponent;
 } catch {}
 
-describe.skip('Analyses Page', () => {
+(hasComponent && runLiveTests ? describe : describe.skip)('Analyses Page', () => {
   const { AppDataSource } = require('@/lib/db');
 
   beforeAll(async () => {

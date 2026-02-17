@@ -1,4 +1,3 @@
- 
 import { AppDataSource } from '@/lib/db.server';
 import { initializeDatabase } from '@/lib/init-db';
 import { AuthorSchema, AnalysisSchema } from '@/lib/entities';
@@ -6,6 +5,7 @@ import { AuthorSchema, AnalysisSchema } from '@/lib/entities';
 // Ten plik robi prawdziwe I/O (DB + seed), więc musi mieć większy timeout niż domyślne 5s.
 const FILE_TIMEOUT_MS = Number(process.env.JEST_INTEGRATION_TIMEOUT_MS ?? 120_000);
 const TEST_TIMEOUT_MS = Number(process.env.JEST_INTEGRATION_TEST_TIMEOUT_MS ?? 60_000);
+const runLiveTests = process.env.RUN_LIVE_TESTS === '1';
 
 jest.setTimeout(FILE_TIMEOUT_MS);
 
@@ -52,24 +52,7 @@ async function runSeed() {
   ]);
 }
 
-describe.skip('Database Seeding', () => {
-  // Skip database seeding tests in unit test environment
-  // These tests require a clean database and are designed for CI environment
-  let isDatabaseAvailable = false;
-
-  beforeAll(async () => {
-    // Check if database is available for seeding tests
-    try {
-      const { getPool } = await import('@/lib/db.server');
-      const pool = getPool();
-      if (pool) {
-        await pool.execute('SELECT 1');
-        isDatabaseAvailable = true;
-      }
-    } catch (error) {
-      console.warn('Database not available for seed tests:', error.message);
-    }
-  });
+(runLiveTests ? describe : describe.skip)('Database Seeding', () => {
   beforeAll(async () => {
     // Ensure database is initialized with seeding - matches workflow behavior
     await initializeDatabase();
@@ -137,7 +120,7 @@ describe.skip('Database Seeding', () => {
 
       // Try to run seed again (duplikaty/już istnieje mogą zwrócić exit!=0, ale to ok)
       try {
-        runSeed();
+        await runSeed();
       } catch (e) {
         // runSeed już filtruje "duplikaty"; jeśli tu wpadniemy, to znaczy realny błąd
         throw e;

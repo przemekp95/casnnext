@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /** @jest-environment jsdom */
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
@@ -186,10 +185,25 @@ describe('SearchModal', () => {
     }, { timeout: 3000 });
   });
 
-  // Skipped: Complex timing test for filtering - main functionality verified by other tests
-  it.skip('filters to show no results when filtering by author field that contains no matches', async () => {
-    // This test is skipped due to complex timing issues with React component state updates
-    // The main filtering functionality is verified by the 'filters by author when author filter is selected' test
+  it('filters to show no results when filtering by author field that contains no matches', async () => {
+    render(<SearchModal {...mockProps} />);
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    const input = screen.getByPlaceholderText('Szukaj w analizach...');
+    fireEvent.change(input, { target: { value: 'NoAuthorMatch' } });
+
+    const authorFilterButton = screen.getByText('Autorzy');
+    fireEvent.click(authorFilterButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Nie znaleziono wyników dla/)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Test Article One')).not.toBeInTheDocument();
+    expect(screen.queryByText('Another Test Article')).not.toBeInTheDocument();
   });
 
   it('sorts by relevance when relevance sort is selected', async () => {
