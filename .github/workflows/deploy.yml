@@ -86,6 +86,9 @@ jobs:
       - name: Check posts
         run: npm run check:posts
 
+      - name: Check CMS MDX media paths
+        run: npm run check:cms-mdx-media
+
       - name: Build application
         run: npm run build
         env:
@@ -141,10 +144,92 @@ jobs:
             cypress/screenshots/
           retention-days: 30
 
+  strapi-smoke:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: casn_test
+          MYSQL_USER: casn_user
+          MYSQL_PASSWORD: casn_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: strapi/package-lock.json
+
+      - name: Install Strapi dependencies
+        run: npm --prefix strapi ci
+
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"
+
+      - name: Build Strapi admin
+        run: npm --prefix strapi run build
+        env:
+          NODE_ENV: production
+          HOST: 127.0.0.1
+          PORT: 1337
+          DATABASE_CLIENT: mysql
+          DATABASE_HOST: 127.0.0.1
+          DATABASE_PORT: 3306
+          DATABASE_NAME: casn_test
+          DATABASE_USERNAME: root
+          DATABASE_PASSWORD: rootpassword
+          STRAPI_URL: http://127.0.0.1:1337/cms
+          STRAPI_ADMIN_PATH: /cms
+          APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
+          API_TOKEN_SALT: ci-api-token-salt
+          ADMIN_JWT_SECRET: ci-admin-jwt-secret
+          TRANSFER_TOKEN_SALT: ci-transfer-token-salt
+          JWT_SECRET: ci-jwt-secret
+          STRAPI_TELEMETRY_DISABLED: true
+
+      - name: Run Strapi smoke tests
+        run: bash scripts/ci/strapi-smoke.sh
+        env:
+          NODE_ENV: production
+          HOST: 127.0.0.1
+          PORT: 1337
+          DATABASE_CLIENT: mysql
+          DATABASE_HOST: 127.0.0.1
+          DATABASE_PORT: 3306
+          DATABASE_NAME: casn_test
+          DATABASE_USERNAME: root
+          DATABASE_PASSWORD: rootpassword
+          STRAPI_URL: http://127.0.0.1:1337/cms
+          STRAPI_ADMIN_PATH: /cms
+          APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
+          API_TOKEN_SALT: ci-api-token-salt
+          ADMIN_JWT_SECRET: ci-admin-jwt-secret
+          TRANSFER_TOKEN_SALT: ci-transfer-token-salt
+          JWT_SECRET: ci-jwt-secret
+          STRAPI_TELEMETRY_DISABLED: true
+
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    needs: test
+    needs: [test, strapi-smoke]
 
     steps:
       - name: Checkout repository

@@ -12,6 +12,8 @@ interface RequestOptions {
   retries?: number;
 }
 
+type RetryableError = Error & { retryable?: boolean };
+
 function buildUrl(path: string): string {
   const base = getStrapiInternalUrl();
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -54,6 +56,10 @@ export async function strapiRequest<T = unknown>(
   } = options;
 
   const token = getStrapiApiToken();
+  if (withToken && !token) {
+    throw new Error("Strapi API token is required for authenticated requests");
+  }
+
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
@@ -85,9 +91,12 @@ export async function strapiRequest<T = unknown>(
       if (!response.ok) {
         const payload = await parseJson<unknown>(response).catch(() => ({}));
         const message = extractErrorMessage(payload);
-        const err = new Error(`Strapi ${method} ${path} failed: ${response.status} ${message}`);
+        const err: RetryableError = new Error(
+          `Strapi ${method} ${path} failed: ${response.status} ${message}`
+        );
+        err.retryable = response.status >= 500;
 
-        if (response.status >= 500 && attempt < retries) {
+        if (err.retryable && attempt < retries) {
           lastError = err;
           continue;
         }
@@ -98,6 +107,10 @@ export async function strapiRequest<T = unknown>(
     } catch (error) {
       clearTimeout(timeout);
       lastError = error;
+      const retryable =
+        !(error instanceof Error) ||
+        (error as RetryableError).retryable !== false;
+      if (!retryable) break;
       if (attempt >= retries) break;
     }
   }

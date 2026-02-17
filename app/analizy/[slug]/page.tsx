@@ -6,6 +6,8 @@ import ArticleLayout from "@/components/ArticleLayout";
 import { notFound } from "next/navigation";
 import { getAnalyses, getAnalysisBySlug } from "@/lib/analyses";
 import Script from "next/script";
+import { isStrapiProvider } from "@/lib/content-provider";
+import { normalizeCmsMdxMediaPaths } from "@/lib/cms/mdx-media";
 
 import MDXContent from "@/components/mdx/MDXContent";
 
@@ -177,12 +179,15 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     };
 
     const replacedContent = replacePlaceholders(content, placeholders);
+    const normalizedContent = isStrapiProvider()
+      ? normalizeCmsMdxMediaPaths(replacedContent)
+      : replacedContent;
     const title = data.title ? replacePlaceholders(data.title, placeholders) : analysis.title;
     const lead = data.lead ? replacePlaceholders(data.lead, placeholders) : analysis.lead || undefined;
     const author = data.author ? replacePlaceholders(data.author, placeholders) : analysis.author?.name ?? undefined;
     const dateValue = data.date || analysis.date || undefined;
 
-    logDbg("STEP", "pre_mdx", (replacedContent || "").length);
+    logDbg("STEP", "pre_mdx", (normalizedContent || "").length);
 
     // Generate structured data
     const articleStructuredData = {
@@ -264,7 +269,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
             { label: title ?? slug, active: true },
           ]}
         >
-          <MDXContent source={replacedContent} />
+          <MDXContent source={normalizedContent} />
         </ArticleLayout>
       </>
     );

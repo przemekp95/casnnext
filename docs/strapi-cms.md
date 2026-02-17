@@ -69,3 +69,13 @@ Provide secret via one of:
 - Public URLs remain unchanged: `/analizy/[slug]`, `/autor/[slug]`, `/autorzy`, `/zbiory`.
 - Existing Next API endpoints stay available and are mapped to Strapi in Strapi mode.
 - Legacy DB tables remain archival read-only after cutover.
+
+## Editorial Rules (MDX + media)
+
+- In Strapi mode, article content comes from `analysis.contentMdx`.
+- Always publish entries in Strapi (`publishedAt`) to make them visible publicly.
+- For Strapi uploaded files, use media paths under `/cms/uploads/...`.
+- Frontend includes a safety rewrite from `/uploads/...` to `/cms/uploads/...` during MDX rendering, but the recommended format is still `/cms/uploads/...`.
+- Existing static assets in `public/images` can continue to use `/images/...`.
+- CI validates repository MDX files and fails on `/uploads/...` paths:
+  - `npm run check:cms-mdx-media`
