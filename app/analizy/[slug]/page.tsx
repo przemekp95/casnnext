@@ -122,32 +122,53 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     }
     logDbg("STEP", "db_ok", analysis.id, analysis.title);
 
-    // 2) MDX — wczytaj z dysku (async I/O, bez blokowania)
-    // W kontenerze: /app/posts
-    // W lokalnym środowisku: ./posts
-    const POSTS_DIR = process.env.APP_ROOT
-      ? path.join(process.env.APP_ROOT, "posts")
-      : path.join(process.cwd(), "posts");
-    const filePath = path.join(POSTS_DIR, `${slug}.mdx`);
+    // 2) MDX — primary source from CMS; filesystem fallback for migration period
+    let content = analysis.contentMdx || "";
+    let data: Record<string, string> = {
+      title: analysis.title,
+      date: analysis.date || "",
+      lead: analysis.lead || "",
+      author: analysis.author?.name || "",
+      description: analysis.description || "",
+      category: analysis.category || "",
+    };
 
-    try {
-      await fs.promises.access(filePath, fs.constants.R_OK);
-    } catch {
-      logDbg("STEP", "notFound_file", filePath);
-      return notFound();
+    if (content.trim().startsWith("---")) {
+      const parsed = matter(content);
+      data = { ...data, ...(parsed.data as Record<string, string>) };
+      content = parsed.content;
+      logDbg("STEP", "frontmatter_from_cms", Object.keys(parsed.data).join(","));
     }
-    logDbg("STEP", "file_exists", filePath);
 
-    const source = await fs.promises.readFile(filePath, "utf8");
-    if (source.length > 2_000_000) {
-      // zabezpieczenie przed przypadkowym wrzutem ogromnego pliku
-      logDbg("STEP", "file_too_big", source.length);
-      throw new Error("MDX too large");
+    if (!content) {
+      // W kontenerze: /app/posts
+      // W lokalnym środowisku: ./posts
+      const POSTS_DIR = process.env.APP_ROOT
+        ? path.join(process.env.APP_ROOT, "posts")
+        : path.join(process.cwd(), "posts");
+      const filePath = path.join(POSTS_DIR, `${slug}.mdx`);
+
+      try {
+        await fs.promises.access(filePath, fs.constants.R_OK);
+      } catch {
+        logDbg("STEP", "notFound_file", filePath);
+        return notFound();
+      }
+      logDbg("STEP", "file_exists", filePath);
+
+      const source = await fs.promises.readFile(filePath, "utf8");
+      if (source.length > 2_000_000) {
+        // zabezpieczenie przed przypadkowym wrzutem ogromnego pliku
+        logDbg("STEP", "file_too_big", source.length);
+        throw new Error("MDX too large");
+      }
+      logDbg("STEP", "file_read_ok", source.length);
+
+      const parsed = matter(source);
+      data = { ...data, ...(parsed.data as Record<string, string>) };
+      content = parsed.content;
+      logDbg("STEP", "frontmatter_from_file", Object.keys(parsed.data).join(","));
     }
-    logDbg("STEP", "file_read_ok", source.length);
-
-    const { data, content } = matter(source);
-    logDbg("STEP", "frontmatter_ok", Object.keys(data).join(","));
 
     const placeholders: Record<string, string> = {
       analysisTitle: analysis.title ?? "",
@@ -157,8 +178,9 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
     const replacedContent = replacePlaceholders(content, placeholders);
     const title = data.title ? replacePlaceholders(data.title, placeholders) : analysis.title;
-    const lead = data.lead ? replacePlaceholders(data.lead, placeholders) : undefined;
+    const lead = data.lead ? replacePlaceholders(data.lead, placeholders) : analysis.lead || undefined;
     const author = data.author ? replacePlaceholders(data.author, placeholders) : analysis.author?.name ?? undefined;
+    const dateValue = data.date || analysis.date || undefined;
 
     logDbg("STEP", "pre_mdx", (replacedContent || "").length);
 
@@ -180,8 +202,8 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           "url": "https://casn.pl/images/logo.png"
         }
       },
-      "datePublished": data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
-      "dateModified": data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      "datePublished": dateValue ? new Date(dateValue).toISOString() : new Date().toISOString(),
+      "dateModified": dateValue ? new Date(dateValue).toISOString() : new Date().toISOString(),
       "mainEntityOfPage": {
         "@type": "WebPage",
         "@id": `https://casn.pl/analizy/${slug}`
@@ -233,7 +255,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
         <div id="analysis-page" data-page-type="analysis"></div>
         <ArticleLayout
           title={title ?? "Artykuł"}
-          date={data.date}
+          date={dateValue}
           author={author}
           lead={lead}
           breadcrumbs={[

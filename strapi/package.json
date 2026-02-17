@@ -1,0 +1,26 @@
+{
+  "name": "casn-strapi",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CASN CMS powered by Strapi",
+  "scripts": {
+    "develop": "strapi develop",
+    "start": "strapi start",
+    "build": "strapi build",
+    "strapi": "strapi"
+  },
+  "dependencies": {
+    "@strapi/strapi": "5.36.0",
+    "mysql2": "^3.15.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.3",
+    "styled-components": "^6.3.9"
+  },
+  "engines": {
+    "node": ">=20.0.0 <=24.x.x"
+  },
+  "strapi": {
+    "uuid": "casn-strapi"
+  }
+}

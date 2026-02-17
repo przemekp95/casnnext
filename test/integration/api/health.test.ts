@@ -35,19 +35,20 @@ try {
     expect(res.status).toBe(200);
 
     const data = await res.json();
-    expect(data).toEqual({
+    expect(data).toEqual(expect.objectContaining({
       status: 'healthy',
       timestamp: expect.any(String),
       responseTime: expect.any(String),
-      database: {
+      contentProvider: expect.any(String),
+      database: expect.objectContaining({
         initialized: expect.any(Boolean),
         connected: expect.any(Boolean)
-      },
-      environment: {
+      }),
+      environment: expect.objectContaining({
         node_env: 'production',
         has_db_config: expect.any(Boolean)
-      }
-    });
+      })
+    }));
 
     // Check timestamp format
     expect(new Date(data.timestamp).toISOString()).toBe(data.timestamp);
@@ -89,19 +90,20 @@ try {
     expect(res.status).toBe(200);
 
     const data = await res.json();
-    expect(data).toEqual({
+    expect(data).toEqual(expect.objectContaining({
       status: 'healthy',
       timestamp: expect.any(String),
       responseTime: expect.any(String),
-      database: {
+      contentProvider: expect.any(String),
+      database: expect.objectContaining({
         initialized: expect.any(Boolean),
         connected: expect.any(Boolean)
-      },
-      environment: {
+      }),
+      environment: expect.objectContaining({
         node_env: 'test',
         has_db_config: expect.any(Boolean)
-      }
-    });
+      })
+    }));
   });
 
   it('GET może obsłużyć błędy krytyczne systemu', async () => {

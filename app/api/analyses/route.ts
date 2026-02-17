@@ -1,8 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { AppDataSource } from "@/lib/db.server";
-import { AnalysisSchema } from "@/lib/entities";
+import { getAnalyses } from "@/lib/analyses";
 
 export async function GET() {
   try {
@@ -11,16 +10,7 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    if (!AppDataSource || !AppDataSource.isInitialized) {
-      return NextResponse.json([]);
-    }
-
-    const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-    const analyses = await analysisRepository.find({
-      relations: ['author'],
-      order: { id: 'DESC' },
-    });
-
+    const analyses = await getAnalyses();
     return NextResponse.json(analyses);
   } catch (error) {
     console.error('Analyses API error:', error);
