@@ -3,7 +3,9 @@ set -euo pipefail
 
 STRAPI_HOST="${STRAPI_HOST:-127.0.0.1}"
 STRAPI_PORT="${STRAPI_PORT:-1337}"
-STRAPI_BASE_URL="${STRAPI_BASE_URL:-http://${STRAPI_HOST}:${STRAPI_PORT}}"
+DEFAULT_BASE_URL="http://${STRAPI_HOST}:${STRAPI_PORT}"
+STRAPI_BASE_URL="${STRAPI_BASE_URL:-${STRAPI_URL:-$DEFAULT_BASE_URL}}"
+STRAPI_BASE_URL="${STRAPI_BASE_URL%/}"
 STRAPI_START_TIMEOUT_SEC="${STRAPI_START_TIMEOUT_SEC:-120}"
 STRAPI_LOG_FILE="${STRAPI_LOG_FILE:-/tmp/strapi-smoke.log}"
 
@@ -18,6 +20,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Starting Strapi for smoke tests..."
+mkdir -p strapi/public/uploads
 npm --prefix strapi run start >"$STRAPI_LOG_FILE" 2>&1 &
 STRAPI_PID="$!"
 
@@ -28,7 +31,7 @@ wait_for_200() {
 
   while true; do
     local code
-    code="$(curl -s -o /dev/null -w "%{http_code}" "$url" || true)"
+    code="$(curl --globoff -s -o /dev/null -w "%{http_code}" "$url" || true)"
     if [[ "$code" == "200" ]]; then
       return 0
     fi
@@ -50,7 +53,7 @@ expect_status() {
   local url="$1"
   local expected="$2"
   local code
-  code="$(curl -s -o /dev/null -w "%{http_code}" "$url")"
+  code="$(curl --globoff -s -o /dev/null -w "%{http_code}" "$url")"
   if [[ "$code" != "$expected" ]]; then
     echo "Unexpected status for $url: got $code, expected $expected"
     echo "----- Strapi logs -----"
@@ -70,12 +73,13 @@ expect_status "${STRAPI_BASE_URL}/api/issue-collections?pagination[pageSize]=1" 
 echo "Verifying public role is read-only..."
 write_code="$(
   curl -s -o /dev/null -w "%{http_code}" \
+    --globoff \
     -X POST "${STRAPI_BASE_URL}/api/authors" \
     -H "Content-Type: application/json" \
     --data '{"data":{"name":"CI Author","displayName":"CI Author","slug":"ci-author"}}'
 )"
-if [[ "$write_code" != "401" && "$write_code" != "403" ]]; then
-  echo "Expected POST /api/authors to be blocked for anonymous user, got $write_code"
+if [[ "$write_code" != "401" && "$write_code" != "403" && "$write_code" != "405" ]]; then
+  echo "Expected POST ${STRAPI_BASE_URL}/api/authors to be blocked for anonymous user, got $write_code"
   echo "----- Strapi logs -----"
   tail -n 200 "$STRAPI_LOG_FILE" || true
   exit 1
