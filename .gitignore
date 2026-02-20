@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/node_modules/
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -96,3 +98,11 @@ migrations/*.js
 *.sql
 
 .early.coverage
+
+# Strapi local build/runtime artifacts
+strapi/.cache/
+strapi/.tmp/
+strapi/build/
+strapi/dist/
+strapi/.strapi/
+strapi/.strapi-updater.json

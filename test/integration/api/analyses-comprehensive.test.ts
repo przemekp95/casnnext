@@ -1,9 +1,11 @@
+/** @jest-environment node */
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
 describe('Analyses API - Comprehensive Coverage', () => {
   let analysesGET: any;
   let analysesSlugGET: any;
   let isDatabaseAvailable = false;
+  const createSlugContext = (slug: string) => ({ params: Promise.resolve({ slug }) });
 
   beforeAll(async () => {
     try {
@@ -34,7 +36,7 @@ describe('Analyses API - Comprehensive Coverage', () => {
     it('returns 200 status with analyses data structure', async () => {
       if (!analysesGET || !isDatabaseAvailable) return;
 
-      const req = new NextRequest('http://localhost:3000/api/analyses');
+      const req = new Request('http://localhost:3000/api/analyses');
       const response = await analysesGET(req);
       const data = await response.json();
 
@@ -56,7 +58,7 @@ describe('Analyses API - Comprehensive Coverage', () => {
     it('handles database unavailability gracefully', async () => {
       if (!analysesGET) return;
 
-      const req = new NextRequest('http://localhost:3000/api/analyses');
+      const req = new Request('http://localhost:3000/api/analyses');
       const response = await analysesGET(req);
 
       expect([200, 500]).toContain(response.status);
@@ -75,14 +77,14 @@ describe('Analyses API - Comprehensive Coverage', () => {
       if (!analysesSlugGET || !isDatabaseAvailable) return;
 
       // First get list of analyses to find a valid slug
-      const listReq = new NextRequest('http://localhost:3000/api/analyses');
+      const listReq = new Request('http://localhost:3000/api/analyses');
       const listResponse = await analysesGET(listReq);
       const analyses = await listResponse.json();
 
       if (analyses.length > 0) {
         const firstAnalysis = analyses[0];
-        const detailReq = new NextRequest(`http://localhost:3000/api/analyses/${firstAnalysis.slug}`);
-        const detailResponse = await analysesSlugGET(detailReq);
+        const detailReq = new Request(`http://localhost:3000/api/analyses/${firstAnalysis.slug}`);
+        const detailResponse = await analysesSlugGET(detailReq, createSlugContext(firstAnalysis.slug));
         const detailData = await detailResponse.json();
 
         expect(detailResponse.status).toBe(200);
@@ -105,8 +107,8 @@ describe('Analyses API - Comprehensive Coverage', () => {
     it('returns 404 for non-existent analysis slug', async () => {
       if (!analysesSlugGET) return;
 
-      const req = new NextRequest('http://localhost:3000/api/analyses/non-existent-slug');
-      const response = await analysesSlugGET(req);
+      const req = new Request('http://localhost:3000/api/analyses/non-existent-slug');
+      const response = await analysesSlugGET(req, createSlugContext('non-existent-slug'));
 
       expect(response.status).toBe(404);
 
@@ -118,8 +120,8 @@ describe('Analyses API - Comprehensive Coverage', () => {
     it('handles database errors gracefully', async () => {
       if (!analysesSlugGET) return;
 
-      const req = new NextRequest('http://localhost:3000/api/analyses/test-slug');
-      const response = await analysesSlugGET(req);
+      const req = new Request('http://localhost:3000/api/analyses/test-slug');
+      const response = await analysesSlugGET(req, createSlugContext('test-slug'));
 
       expect([200, 404, 500]).toContain(response.status);
 
@@ -134,7 +136,7 @@ describe('Analyses API - Comprehensive Coverage', () => {
     it('validates analysis data structure from API', async () => {
       if (!analysesGET || !isDatabaseAvailable) return;
 
-      const req = new NextRequest('http://localhost:3000/api/analyses');
+      const req = new Request('http://localhost:3000/api/analyses');
       const response = await analysesGET(req);
       const data = await response.json();
 
@@ -168,14 +170,14 @@ describe('Analyses API - Comprehensive Coverage', () => {
     it('validates detailed analysis with author relationship', async () => {
       if (!analysesSlugGET || !isDatabaseAvailable) return;
 
-      const listReq = new NextRequest('http://localhost:3000/api/analyses');
+      const listReq = new Request('http://localhost:3000/api/analyses');
       const listResponse = await analysesGET(listReq);
       const analyses = await listResponse.json();
 
       if (analyses.length > 0) {
         const firstAnalysis = analyses[0];
-        const detailReq = new NextRequest(`http://localhost:3000/api/analyses/${firstAnalysis.slug}`);
-        const detailResponse = await analysesSlugGET(detailReq);
+        const detailReq = new Request(`http://localhost:3000/api/analyses/${firstAnalysis.slug}`);
+        const detailResponse = await analysesSlugGET(detailReq, createSlugContext(firstAnalysis.slug));
         const detailData = await detailResponse.json();
 
         // Validate analysis structure

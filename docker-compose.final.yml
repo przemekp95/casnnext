@@ -30,6 +30,43 @@ services:
     networks:
       - casn-network
 
+  strapi:
+    build:
+      context: ./strapi
+    container_name: casn-strapi
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: "0.0.0.0"
+      PORT: "1337"
+      DATABASE_CLIENT: mysql
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_NAME: casn
+      DATABASE_USERNAME: casn_user
+      DATABASE_PASSWORD: casn_password123
+      STRAPI_URL: "http://localhost:3001/cms"
+      APP_KEYS: "app-key-1,app-key-2,app-key-3,app-key-4"
+      API_TOKEN_SALT: "api-token-salt-change-me"
+      ADMIN_JWT_SECRET: "admin-jwt-secret-change-me"
+      TRANSFER_TOKEN_SALT: "transfer-token-salt-change-me"
+      JWT_SECRET: "jwt-secret-change-me"
+      TZ: Europe/Warsaw
+    volumes:
+      - strapi_uploads:/opt/strapi/public/uploads
+    ports:
+      - "1337:1337"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:1337/admin >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casn-network
+
   app:
     image: ghcr.io/przemekp95/casnnext:dev
     container_name: casn-app
@@ -37,6 +74,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      strapi:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: "3000"                    # Fixed: Next.js runs on internal port 3000
@@ -46,12 +85,16 @@ services:
       DB_USER: casn_user
       DB_PASSWORD: casn_password123
       DB_NAME: casn
+      CONTENT_PROVIDER: "${CONTENT_PROVIDER:-legacy}"
+      STRAPI_INTERNAL_URL: "http://strapi:1337"
+      NEXT_PUBLIC_STRAPI_URL: "${NEXT_PUBLIC_STRAPI_URL:-http://localhost:3001/cms}"
+      STRAPI_API_TOKEN: "${STRAPI_API_TOKEN:-}"
+      STRAPI_WEBHOOK_SECRET: "${STRAPI_WEBHOOK_SECRET:-change-me}"
+      REVALIDATE_SECRET: "${REVALIDATE_SECRET:-change-me}"
       NEXTAUTH_SECRET: "your-secret-key-here"
       NEXTAUTH_URL: "http://localhost:3001"  # Fixed: External URL uses port 3001
       TZ: Europe/Warsaw
     command: ["node", "server.js"]  # Use custom server with DB bootstrap
-    ports:
-      - "3001:3000"                # Fixed: Host port 3001, Container port 3000
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]  # Fixed: Test internal port 3000
       interval: 30s
@@ -62,8 +105,25 @@ services:
     # volumes:
     #   - ./public:/app/public:ro  # REMOVED - public files are already in the image
 
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: casn-nginx
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+      strapi:
+        condition: service_started
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "3001:80"
+    networks:
+      - casn-network
+
 volumes:
   mysql_data:
+  strapi_uploads:
 
 networks:
   casn-network:

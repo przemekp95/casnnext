@@ -5,13 +5,19 @@ import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db.server";
 import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
+import { getAnalyses } from "@/lib/analyses";
+import { isStrapiProvider } from "@/lib/content-provider";
+import {
+  createCmsAnalysis,
+  fetchCmsAuthorByLegacyId,
+  fetchCmsAuthorBySlug,
+} from "@/lib/cms/strapi-client";
 
-// Typy danych
 type ArticleRow = {
-  id: number;
+  id: number | string;
   title: string;
   slug: string;
-  authorId: number;
+  authorId: number | string;
   author_name: string | null;
   author_slug: string | null;
 };
@@ -32,135 +38,216 @@ function isBodyWithId(x: unknown): x is BodyWithId {
 
 function isBodyWithSlug(x: unknown): x is BodyWithSlug {
   const y = x as Partial<BodyWithSlug>;
-  return (
-    isPostBodyBase(x) && typeof y.authorSlug === "string" && y.authorSlug.length > 0
+  return isPostBodyBase(x) && typeof y.authorSlug === "string" && y.authorSlug.length > 0;
+}
+
+function responseWithCache(payload: unknown, status = 200) {
+  return NextResponse.json(payload, {
+    status,
+    headers: {
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+      "CDN-Cache-Control": "max-age=300",
+    },
+  });
+}
+
+async function getLegacyArticles(): Promise<ArticleRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  if (!AppDataSource || !AppDataSource.isInitialized) return [];
+
+  if (typeof unstable_cache !== "undefined" && process.env.NODE_ENV !== "test") {
+    const getArticlesCached = unstable_cache(
+      async () => {
+        const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
+        const data = await analysisRepository
+          .createQueryBuilder("analysis")
+          .leftJoin("Author", "author", "author.id = analysis.authorId")
+          .select([
+            "analysis.id AS id",
+            "analysis.title AS title",
+            "analysis.slug AS slug",
+            "analysis.authorId AS authorId",
+            "author.name as author_name",
+            "author.slug as author_slug",
+          ])
+          .orderBy("analysis.id", "DESC")
+          .getRawMany();
+
+        return data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          slug: item.slug,
+          authorId: item.authorId as number,
+          author_name: item.author_name,
+          author_slug: item.author_slug,
+        }));
+      },
+      ["articles"],
+      { revalidate: 300, tags: ["articles"] }
+    );
+
+    return getArticlesCached();
+  }
+
+  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
+  const data = await analysisRepository
+    .createQueryBuilder("analysis")
+    .leftJoin("Author", "author", "author.id = analysis.authorId")
+    .select([
+      "analysis.id AS id",
+      "analysis.title AS title",
+      "analysis.slug AS slug",
+      "analysis.authorId AS authorId",
+      "author.name as author_name",
+      "author.slug as author_slug",
+    ])
+    .orderBy("analysis.id", "DESC")
+    .getRawMany();
+
+  return data.map((item: any) => ({
+    id: item.id,
+    title: item.title,
+    slug: item.slug,
+    authorId: item.authorId as number,
+    author_name: item.author_name,
+    author_slug: item.author_slug,
+  }));
+}
+
+async function getStrapiArticles(): Promise<ArticleRow[]> {
+  const analyses = await getAnalyses();
+  return analyses.map((analysis) => ({
+    id: analysis.id,
+    title: analysis.title,
+    slug: analysis.slug,
+    authorId: analysis.authorId,
+    author_name: analysis.author?.name || null,
+    author_slug: analysis.author?.slug || null,
+  }));
+}
+
+export async function GET() {
+  try {
+    if (process.env.NEXT_PHASE === "phase-production-build") {
+      return responseWithCache([]);
+    }
+
+    const articles = isStrapiProvider() ? await getStrapiArticles() : await getLegacyArticles();
+    return responseWithCache(articles);
+  } catch (error) {
+    console.error("Articles API error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlug) {
+  if (!isDatabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  }
+  if (!AppDataSource || !AppDataSource.isInitialized) {
+    return NextResponse.json({ error: "Database not available" }, { status: 503 });
+  }
+
+  let authorId: number | null = null;
+  if (isBodyWithId(body)) {
+    authorId = body.authorId;
+  } else if (isBodyWithSlug(body)) {
+    const authorRepository = AppDataSource.getRepository(AuthorSchema);
+    const author = await authorRepository.findOne({
+      where: { slug: body.authorSlug },
+      select: ["id"],
+    });
+    if (author) authorId = author.id as number;
+  }
+
+  if (!authorId) {
+    return NextResponse.json({ error: "authorId or authorSlug required" }, { status: 400 });
+  }
+
+  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
+  const newArticle = await analysisRepository.save({
+    title: body.title,
+    slug: body.slug,
+    authorId,
+  });
+
+  const articleWithAuthor = await analysisRepository
+    .createQueryBuilder("analysis")
+    .leftJoin("Author", "author", "author.id = analysis.authorId")
+    .select([
+      "analysis.id AS id",
+      "analysis.title AS title",
+      "analysis.slug AS slug",
+      "analysis.authorId AS authorId",
+      "author.name as author_name",
+      "author.slug as author_slug",
+    ])
+    .where("analysis.id = :id", { id: newArticle.id })
+    .getRawOne();
+
+  if (typeof revalidateTag !== "undefined" && process.env.NODE_ENV !== "test") {
+    revalidateTag("articles", "next");
+  }
+
+  return NextResponse.json(
+    {
+      id: articleWithAuthor.id,
+      title: articleWithAuthor.title,
+      slug: articleWithAuthor.slug,
+      authorId: articleWithAuthor.authorId as number,
+      author_name: articleWithAuthor.author_name,
+      author_slug: articleWithAuthor.author_slug,
+    },
+    { status: 201 }
   );
 }
 
-// GET: pobiera wszystkie artykuły
-export async function GET() {
-  try {
-    // Skip during build time - return empty array for build
-    if (process.env.NEXT_PHASE === 'phase-production-build') {
-      return NextResponse.json([], {
-        status: 200,
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'CDN-Cache-Control': 'max-age=300',
-        },
-      });
-    }
-
-    // Skip if database is not configured
-    if (!isDatabaseConfigured()) {
-      return NextResponse.json([], {
-        status: 200,
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'CDN-Cache-Control': 'max-age=300',
-        },
-      });
-    }
-
-
-
-    if (!AppDataSource || !AppDataSource.isInitialized) {
-      return NextResponse.json([], {
-        status: 200,
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'CDN-Cache-Control': 'max-age=300',
-        },
-      });
-    }
-
-    // Use caching only in production Next.js runtime, not in tests
-    let articles: ArticleRow[];
-    if (typeof unstable_cache !== 'undefined' && process.env.NODE_ENV !== 'test') {
-      const getArticlesCached = unstable_cache(
-        async () => {
-          const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-          const data = await analysisRepository
-            .createQueryBuilder('analysis')
-            .leftJoin('Author', 'author', 'author.id = analysis.authorId')
-            .select([
-              'analysis.id',
-              'analysis.title',
-              'analysis.slug',
-              'analysis.authorId',
-              'author.name as author_name',
-              'author.slug as author_slug'
-            ])
-            .orderBy('analysis.id', 'DESC')
-            .getRawMany();
-
-          // Transform to match existing API format
-          return data.map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            slug: item.slug,
-            authorId: item.authorId as number,
-            author_name: item.author_name,
-            author_slug: item.author_slug,
-          }));
-        },
-        ['articles'],
-        {
-          revalidate: 300, // Cache for 5 minutes
-          tags: ['articles']
-        }
-      );
-      articles = await getArticlesCached();
-    } else {
-      // Direct query for tests or when caching unavailable
-      const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-      const data = await analysisRepository
-        .createQueryBuilder('analysis')
-        .leftJoin('Author', 'author', 'author.id = analysis.authorId')
-        .select([
-          'analysis.id',
-          'analysis.title',
-          'analysis.slug',
-          'analysis.authorId',
-          'author.name as author_name',
-          'author.slug as author_slug'
-        ])
-        .orderBy('analysis.id', 'DESC')
-        .getRawMany();
-
-      articles = data.map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        slug: item.slug,
-        authorId: item.authorId as number,
-        author_name: item.author_name,
-        author_slug: item.author_slug,
-      }));
-    }
-
-    return NextResponse.json(articles, {
-      status: 200,
-      headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-        'CDN-Cache-Control': 'max-age=300',
-      },
-    });
-  } catch (error) {
-    console.error('Articles API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+async function createStrapiArticle(body: PostBodyBase | BodyWithId | BodyWithSlug) {
+  if (!process.env.STRAPI_API_TOKEN) {
+    return NextResponse.json(
+      { error: "STRAPI_API_TOKEN is required to create articles in Strapi mode" },
+      { status: 503 }
+    );
   }
+
+  let author = null;
+  if (isBodyWithId(body)) {
+    author = await fetchCmsAuthorByLegacyId(body.authorId);
+  } else if (isBodyWithSlug(body)) {
+    author = await fetchCmsAuthorBySlug(body.authorSlug);
+  }
+
+  if (!author) {
+    return NextResponse.json({ error: "authorId or authorSlug required" }, { status: 400 });
+  }
+
+  const created = await createCmsAnalysis({
+    title: body.title,
+    slug: body.slug,
+    authorStrapiId: author.id,
+  });
+
+  if (typeof revalidateTag !== "undefined" && process.env.NODE_ENV !== "test") {
+    revalidateTag("articles", "next");
+    revalidateTag("analyses", "next");
+  }
+
+  return NextResponse.json(
+    {
+      id: created.id,
+      title: created.title,
+      slug: created.slug,
+      authorId: author.legacyId ?? author.id,
+      author_name: author.name,
+      author_slug: author.slug,
+    },
+    { status: 201 }
+  );
 }
 
-// POST: dodaje nowy artykuł
 export async function POST(req: Request) {
-  // Skip during build time - return error for build
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
     return NextResponse.json({ error: "Build time - API unavailable" }, { status: 503 });
-  }
-
-  // Skip if database is not configured
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
 
   let body: unknown = null;
@@ -174,67 +261,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "title, slug required" }, { status: 400 });
   }
 
-  let authorId: number | null = null;
-  const { title, slug } = body as PostBodyBase;
+  try {
+    if (isStrapiProvider()) {
+      return await createStrapiArticle(body);
+    }
 
-  if (isBodyWithId(body)) {
-    authorId = body.authorId;
-  } else if (isBodyWithSlug(body)) {
-    const authorRepository = AppDataSource.getRepository(AuthorSchema);
-    const author = await authorRepository.findOne({
-      where: { slug: body.authorSlug },
-      select: ['id'],
-    });
-    if (author) authorId = author.id as number;
+    return await createLegacyArticle(body);
+  } catch (error) {
+    console.error("Articles POST API error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  if (!authorId) {
-    return NextResponse.json(
-      { error: "authorId or authorSlug required" },
-      { status: 400 }
-    );
-  }
-
-  if (!AppDataSource || !AppDataSource.isInitialized) {
-    return NextResponse.json({ error: "Database not available" }, { status: 503 });
-  }
-
-  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-  const newArticle = await analysisRepository.save({
-    title,
-    slug,
-    authorId,
-  });
-
-  // Load the author data for the response using query builder
-  const articleWithAuthor = await analysisRepository
-    .createQueryBuilder('analysis')
-    .leftJoin('Author', 'author', 'author.id = analysis.authorId')
-    .select([
-      'analysis.id',
-      'analysis.title',
-      'analysis.slug',
-      'analysis.authorId',
-      'author.name as author_name',
-      'author.slug as author_slug'
-    ])
-    .where('analysis.id = :id', { id: newArticle.id })
-    .getRawOne();
-
-  // Invalidate cache when new article is added (only in production)
-  if (typeof revalidateTag !== 'undefined' && process.env.NODE_ENV !== 'test') {
-    revalidateTag('articles', 'next');
-  }
-
-  // Transform to match existing API format
-  const article = {
-    id: articleWithAuthor.id,
-    title: articleWithAuthor.title,
-    slug: articleWithAuthor.slug,
-    authorId: articleWithAuthor.authorId as number,
-    author_name: articleWithAuthor.author_name,
-    author_slug: articleWithAuthor.author_slug,
-  };
-
-  return NextResponse.json(article, { status: 201 });
 }

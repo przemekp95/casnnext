@@ -6,6 +6,8 @@ import { stripMarkdown, createExcerpt } from "@/lib/searchUtils";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db.server";
 import { AnalysisSchema } from "@/lib/entities";
 import { AuthorEntity } from "@/lib/entities/Author";
+import { isStrapiProvider } from "@/lib/content-provider";
+import { fetchCmsAnalyses } from "@/lib/cms/strapi-client";
 
 // Typy dla indeksu wyszukiwania
 interface SearchIndexItem {
@@ -15,6 +17,32 @@ interface SearchIndexItem {
   date: string;
   excerpt: string;
   content: string;
+}
+
+async function getStrapiSearchIndex(): Promise<NextResponse> {
+  try {
+    const analyses = await fetchCmsAnalyses();
+    const searchIndex: SearchIndexItem[] = analyses.map((analysis) => {
+      const content = analysis.contentMdx || "";
+      return {
+        slug: analysis.slug,
+        title: analysis.title,
+        author: analysis.author?.name || "Nieznany autor",
+        date: analysis.date || "Brak daty",
+        excerpt: createExcerpt(content, 200),
+        content: stripMarkdown(content),
+      };
+    });
+
+    searchIndex.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return NextResponse.json(searchIndex);
+  } catch (error) {
+    console.error("Error generating Strapi search index:", error);
+    return NextResponse.json(
+      { error: "Failed to generate Strapi search index" },
+      { status: 500 }
+    );
+  }
 }
 
 // Fallback filesystem-based search index for tests when database is not available
@@ -110,6 +138,10 @@ export async function GET() {
     // Skip during build time
     if (process.env.NEXT_PHASE === 'phase-production-build') {
       return NextResponse.json([]);
+    }
+
+    if (isStrapiProvider()) {
+      return await getStrapiSearchIndex();
     }
 
     // Skip if database is not configured - return empty array for tests

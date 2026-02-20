@@ -1,5 +1,4 @@
-/* Essential legacy styles - now our primary CSS framework */
-@import "legacy.css";
+/* Global project styles */
 
 /* CSS Reset for consistent cross-browser behavior */
 *,

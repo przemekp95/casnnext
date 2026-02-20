@@ -2,6 +2,15 @@
 
 import { render, screen, within } from '@testing-library/react';
 
+jest.mock('@/lib/server/issues', () => ({
+  getIssueCollections: jest.fn(async () => ([
+    { id: '2025', year: 2025, file: '/wszystkie_teksty_druk_3mm_spad_04_12.pdf', title: 'Zeszyt Analiz 2025' },
+    { id: '2024', year: 2024, file: '/Katalog CASN_online_08_12_24.pdf', title: 'Zeszyt Analiz 2024' },
+    { id: '2023', year: 2023, file: '/Analizy_2023.pdf', title: 'Zeszyt Analiz 2023' },
+    { id: '2022', year: 2022, file: '/CASN_gotowa_wersja_do_druku_24.01.2023.pdf', title: 'Zeszyt Analiz 2022' },
+  ])),
+}));
+
 let PageComponent: any;
 let hasComponent = false;
 try {
@@ -9,9 +18,14 @@ try {
   hasComponent = !!PageComponent;
 } catch {}
 
+async function renderPage() {
+  const jsx = await PageComponent();
+  return render(jsx);
+}
+
 (hasComponent ? describe : describe.skip)('Zbiory Page', () => {
-  it('renderuje stronę zbiorów z hero sekcją', () => {
-    render(<PageComponent />);
+  it('renderuje stronę zbiorów z hero sekcją', async () => {
+    await renderPage();
 
     expect(screen.getByRole('heading', { name: 'Zbiory analiz' })).toBeInTheDocument();
 
@@ -19,16 +33,16 @@ try {
     expect(heroSection).toBeInTheDocument();
   });
 
-  it('renderuje breadcrumb navigation', () => {
-    render(<PageComponent />);
+  it('renderuje breadcrumb navigation', async () => {
+    await renderPage();
 
     const breadcrumb = screen.getByRole('navigation', { name: /breadcrumb/i });
     expect(within(breadcrumb).getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
     expect(within(breadcrumb).getByText('Zbiory analiz')).toBeInTheDocument();
   });
 
-  it('renderuje wszystkie dostępne zbiory analiz', () => {
-    render(<PageComponent />);
+  it('renderuje wszystkie dostępne zbiory analiz', async () => {
+    await renderPage();
 
     expect(screen.getByText('Zeszyt Analiz 2022')).toBeInTheDocument();
     expect(screen.getByText('Zeszyt Analiz 2023')).toBeInTheDocument();
@@ -36,8 +50,8 @@ try {
     expect(screen.getByText('Zeszyt Analiz 2025')).toBeInTheDocument();
   });
 
-  it('renderuje przyciski "POBIERZ" dla każdego zbioru', () => {
-    render(<PageComponent />);
+  it('renderuje przyciski "POBIERZ" dla każdego zbioru', async () => {
+    await renderPage();
 
     const downloadButtons = screen.getAllByRole('link', { name: 'POBIERZ' });
     expect(downloadButtons).toHaveLength(4);
@@ -48,8 +62,8 @@ try {
     });
   });
 
-  it('renderuje prawidłowe linki do plików PDF', () => {
-    render(<PageComponent />);
+  it('renderuje prawidłowe linki do plików PDF', async () => {
+    await renderPage();
 
     // Check specific PDF links
     expect(screen.getByRole('link', { name: /Zeszyt Analiz 2022/ })).toHaveAttribute('href', '/CASN_gotowa_wersja_do_druku_24.01.2023.pdf');
@@ -58,8 +72,8 @@ try {
     expect(screen.getByRole('link', { name: /Zeszyt Analiz 2025/ })).toHaveAttribute('href', '/wszystkie_teksty_druk_3mm_spad_04_12.pdf');
   });
 
-  it('renderuje obraz logo dla każdego zbioru', () => {
-    render(<PageComponent />);
+  it('renderuje obraz logo dla każdego zbioru', async () => {
+    await renderPage();
 
     const images = screen.getAllByRole('img');
     // Should have at least 4 logo images (one for each issue)
@@ -67,16 +81,16 @@ try {
     expect(logoImages.length).toBe(4);
   });
 
-  it('renderuje kartki zbiorów w odpowiednim layout', () => {
-    const { container } = render(<PageComponent />);
+  it('renderuje kartki zbiorów w odpowiednim layout', async () => {
+    const { container } = await renderPage();
 
     expect(container.querySelector('.projects-wrapper')).toBeInTheDocument();
     expect(container.querySelector('.col-lg-4')).toBeInTheDocument();
     expect(container.querySelector('.blog-list-item')).toBeInTheDocument();
   });
 
-  it('renderuje zbiory w odpowiedniej strukturze HTML', () => {
-    const { container } = render(<PageComponent />);
+  it('renderuje zbiory w odpowiedniej strukturze HTML', async () => {
+    const { container } = await renderPage();
 
     const cards = container.querySelectorAll('.blog-list-item');
     expect(cards.length).toBe(4);
@@ -89,8 +103,8 @@ try {
     });
   });
 
-  it('ma odpowiednie klasy CSS dla sekcji', () => {
-    const { container } = render(<PageComponent />);
+  it('ma odpowiednie klasy CSS dla sekcji', async () => {
+    const { container } = await renderPage();
 
     expect(container.querySelector('.section')).toBeInTheDocument();
     expect(container.querySelector('.bg-gray-100')).toBeInTheDocument();
@@ -98,8 +112,8 @@ try {
     expect(container.querySelector('.pb-12')).toBeInTheDocument();
   });
 
-  it('renderuje wszystkie sekcje w prawidłowej kolejności', () => {
-    const { container } = render(<PageComponent />);
+  it('renderuje wszystkie sekcje w prawidłowej kolejności', async () => {
+    const { container } = await renderPage();
 
     const sections = container.querySelectorAll('section');
     expect(sections.length).toBe(2); // hero and content sections
@@ -108,15 +122,15 @@ try {
     expect(sections[1]).toHaveClass('section');
   });
 
-  it('renderuje responsywny layout z col-lg-4', () => {
-    const { container } = render(<PageComponent />);
+  it('renderuje responsywny layout z col-lg-4', async () => {
+    const { container } = await renderPage();
 
     const columns = container.querySelectorAll('.col-lg-4');
     expect(columns.length).toBe(4); // One for each issue
   });
 
-  it('ma accessibility - obrazy mają alt text', () => {
-    render(<PageComponent />);
+  it('ma accessibility - obrazy mają alt text', async () => {
+    await renderPage();
 
     const images = screen.getAllByRole('img');
     images.forEach(img => {
@@ -125,8 +139,8 @@ try {
     });
   });
 
-  it('ma accessibility - linki zewnętrzne mają odpowiednie atrybuty', () => {
-    render(<PageComponent />);
+  it('ma accessibility - linki zewnętrzne mają odpowiednie atrybuty', async () => {
+    await renderPage();
 
     const links = screen.getAllByRole('link').filter(link =>
       link.getAttribute('href')?.endsWith('.pdf')
@@ -138,8 +152,8 @@ try {
     });
   });
 
-  it('używa Next.js Image component z odpowiednimi props', () => {
-    render(<PageComponent />);
+  it('używa Next.js Image component z odpowiednimi props', async () => {
+    await renderPage();
 
     const images = screen.getAllByRole('img');
     images.forEach(img => {

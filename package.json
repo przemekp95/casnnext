@@ -19,9 +19,17 @@
     "test:ci": "jest --runInBand",
     "test:unit": "jest",
     "test:integration:hydration": "jest --testPathPatterns=HydrationAndDataIntegration --runInBand",
+    "test:integration:live": "jest --testPathPatterns='(HydrationAndDataIntegration|AnalysesPage|AuthorsPage|seed)' --runInBand",
     "test:e2e": "cypress run --headless",
     "test:e2e:hydration": "cypress run --spec 'cypress/e2e/hydration.cy.ts'",
     "check:posts": "bash scripts/check-posts.sh",
+    "check:cms-mdx-media": "bash scripts/ci/check-cms-mdx-media-paths.sh",
+    "audit:policy": "bash scripts/ci/security-audit-policy.sh",
+    "cms:import": "tsx scripts/cms/import-legacy-to-strapi.ts",
+    "cms:verify": "tsx scripts/cms/verify-parity.ts",
+    "strapi:dev": "npm --prefix strapi run develop",
+    "strapi:build": "npm --prefix strapi run build",
+    "strapi:start": "npm --prefix strapi run start",
     "db:seed": "echo 'Seeding handled by migrations - data included in InitialSetup migration'",
     "migration:run": "tsx node_modules/.bin/typeorm migration:run -d lib/db.datasource.ts",
     "migration:create": "tsx node_modules/.bin/typeorm migration:create",
@@ -36,7 +44,7 @@
     "gray-matter": "^4.0.3",
     "mdx": "^0.3.1",
     "mysql2": "^3.15.3",
-    "next": "^16.1.1",
+    "next": "^16.1.6",
     "next-auth": "4.24.12",
     "next-mdx-remote": "^5.0.0",
     "react": "^19.2.3",
@@ -67,20 +75,29 @@
     "jest-environment-jsdom": "^30.1.1",
     "lighthouse": "^12.8.2",
     "node-fetch": "^3.3.2",
-    "sqlite3": "^5.1.7",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.4",
     "typescript": "^5.6.0",
     "wait-on": "^8.0.4"
   },
   "overrides": {
+    "axios": "^1.13.5",
+    "diff": "^4.0.4",
+    "lodash": "^4.17.23",
     "trim-newlines": "3.0.1",
     "nodemailer": "^7.0.7",
-    "qs": ">=6.14.1",
+    "qs": ">=6.15.0",
     "rimraf": "^4.4.1",
     "glob": "^9.3.5",
     "@npmcli/move-file": "npm:@npmcli/fs@^5.0.0",
     "html-encoding-sniffer": "^6.0.0",
-    "jsdom": "^27.4.0"
+    "jsdom": "^27.4.0",
+    "minimatch": "^10.2.1",
+    "@eslint/eslintrc": {
+      "minimatch": "3.1.2"
+    },
+    "test-exclude": {
+      "minimatch": "3.1.2"
+    }
   }
 }

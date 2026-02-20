@@ -202,7 +202,7 @@ describe('Hydration Tests', () => {
     // Test authors API
     cy.request('/api/authors').then((response) => {
       expect(response.status).to.equal(200);
-      expect(Array.isArray(response.body)).to.be.true;
+      expect(Array.isArray(response.body)).to.equal(true);
 
       if (response.body.length > 0) {
         const author = response.body[0];
@@ -216,7 +216,7 @@ describe('Hydration Tests', () => {
     // Test articles API
     cy.request('/api/articles').then((response) => {
       expect(response.status).to.equal(200);
-      expect(Array.isArray(response.body)).to.be.true;
+      expect(Array.isArray(response.body)).to.equal(true);
 
       if (response.body.length > 0) {
         const article = response.body[0];
