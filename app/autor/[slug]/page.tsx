@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       };
     }
 
-    const { author, analyses } = result;
+    const { author } = result;
     const title = `${author.displayName} - Centrum Analiz Służby Niepodległej`;
     const description = author.bio ? `${author.displayName} - ${author.bio}` : `Artykuły autora ${author.displayName}`;
 

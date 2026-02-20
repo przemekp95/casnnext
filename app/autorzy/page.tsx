@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
 import { getAuthors } from "@/lib/authors";
 import { AuthorRow } from "@/types/author";
 import Hero from "@/components/Hero";

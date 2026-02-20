@@ -1,3 +1,9 @@
-/* Legacy CSS now loaded directly in layout.tsx */
-/* Essential: bootstrap.min.css and style.css */
-/* Optional legacy files available in /public/css/legacy/ if needed */
+/* Legacy styles used by existing templates/components. */
+@import url("/css/legacy/bootstrap.min.css");
+@import url("/css/legacy/style.css");
+@import url("/css/legacy/menu.css");
+@import url("/css/legacy/owl.carousel.css");
+@import url("/css/legacy/owl.theme.css");
+@import url("/css/legacy/owl.transitions.css");
+@import url("/css/legacy/themify-icons.css");
+@import url("/css/legacy/magnific-popup.css");

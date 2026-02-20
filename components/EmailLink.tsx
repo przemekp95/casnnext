@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 
 type Props = {
   email: string;
-  label?: string;
   ariaLabel?: string;
   className?: string;
   iconClass?: string;
@@ -12,7 +11,6 @@ type Props = {
 
 export function EmailLink({
   email,
-  label = 'Email',
   ariaLabel,
   className = '',
   iconClass = 'mdi mdi-email mr-1 text-custom',
