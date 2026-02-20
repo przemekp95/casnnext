@@ -1,5 +1,4 @@
-import { AppDataSource } from '@/lib/db.server';
-import { initializeDatabase } from '@/lib/init-db';
+import { AppDataSource, initializeDatabase } from '@/lib/init-db';
 
 // Ten plik robi prawdziwe I/O (DB + seed), więc musi mieć większy timeout niż domyślne 5s.
 const FILE_TIMEOUT_MS = Number(process.env.JEST_INTEGRATION_TIMEOUT_MS ?? 120_000);
