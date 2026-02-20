@@ -1,7 +1,7 @@
 // app/layout.tsx
+/* eslint-disable @next/next/no-css-tags */
 import "./globals.css";
 import Script from "next/script";
-import Head from "next/head";
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";

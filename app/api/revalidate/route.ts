@@ -1,8 +1,75 @@
-import { revalidateTag } from 'next/cache';
+import { revalidateTag } from "next/cache";
+import { NextResponse } from "next/server";
+
+type RevalidatePayload = {
+  tag?: string;
+  tags?: string[];
+  model?: string;
+  event?: string;
+};
+
+function getExpectedSecret(): string {
+  return process.env.REVALIDATE_SECRET || process.env.STRAPI_WEBHOOK_SECRET || "";
+}
+
+function getProvidedSecret(request: Request, payload: RevalidatePayload): string {
+  return (
+    request.headers.get("x-revalidate-secret") ||
+    request.headers.get("x-strapi-secret") ||
+    (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "") ||
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (payload as any)?.secret ||
+    ""
+  );
+}
+
+function inferTags(payload: RevalidatePayload): string[] {
+  if (Array.isArray(payload.tags) && payload.tags.length > 0) return payload.tags;
+  if (payload.tag) return [payload.tag];
+
+  const model = (payload.model || "").toLowerCase();
+  if (!model) return ["analyses", "authors", "issues", "articles"];
+
+  if (model.includes("analysis")) return ["analyses", "articles"];
+  if (model.includes("author")) return ["authors", "analyses", "articles"];
+  if (model.includes("issue")) return ["issues"];
+  return ["analyses", "authors", "issues", "articles"];
+}
+
+function tryRevalidateTag(tag: string): void {
+  try {
+    revalidateTag(tag, "next");
+  } catch {
+    // In tests or non-Next runtime, static generation store may be unavailable.
+  }
+}
 
 export async function POST(req: Request) {
-  const { tag } = await req.json().catch(() => ({}));
-  if (!tag) return Response.json({ ok: false, error: 'Missing tag' }, { status: 400 });
-  revalidateTag(tag, 'next');
-  return Response.json({ ok: true });
+  let payload: RevalidatePayload = {};
+  try {
+    payload = await req.json();
+  } catch {
+    payload = {};
+  }
+
+  const expected = getExpectedSecret();
+  const provided = getProvidedSecret(req, payload);
+
+  if (!expected) {
+    return NextResponse.json(
+      { ok: false, error: "Revalidation secret is not configured on the server" },
+      { status: 503 }
+    );
+  }
+
+  if (expected && provided !== expected) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const tags = inferTags(payload);
+  for (const tag of tags) {
+    tryRevalidateTag(tag);
+  }
+
+  return NextResponse.json({ ok: true, tags, event: payload.event || null, model: payload.model || null });
 }

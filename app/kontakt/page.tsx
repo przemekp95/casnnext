@@ -1,7 +1,5 @@
 // src/app/kontakt/page.tsx
 import React from "react";
-import Link from "next/link";
-import Image from "next/image";
 import type { Metadata } from "next";
 import Hero from "@/components/Hero";
 import { ContactSection } from "./ContactSection";

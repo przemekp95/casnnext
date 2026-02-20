@@ -1,0 +1,52 @@
+{
+  "kind": "collectionType",
+  "collectionName": "cms_authors",
+  "info": {
+    "singularName": "author",
+    "pluralName": "authors",
+    "displayName": "Author"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "legacyId": {
+      "type": "integer",
+      "unique": true
+    },
+    "sourceHash": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true,
+      "unique": true
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "displayName": {
+      "type": "string",
+      "required": true
+    },
+    "bio": {
+      "type": "text"
+    },
+    "legacyImgPath": {
+      "type": "string"
+    },
+    "avatar": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    },
+    "analyses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::analysis.analysis",
+      "mappedBy": "author"
+    }
+  }
+}

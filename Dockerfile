@@ -13,14 +13,15 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm install --omit=dev --ignore-scripts
+# Install full dependencies for build stage (includes dev tools like TypeScript)
+RUN if [ -f package-lock.json ]; then \
+      npm ci --omit=optional --ignore-scripts; \
+    else \
+      npm install --omit=optional --ignore-scripts; \
+    fi
 
 # Copy source code
 COPY . .
-
-# Clean npm cache
-RUN npm cache clean --force
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -28,6 +29,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build Next.js application with optimized settings
 RUN npm run build
+
+# Prune build-only dependencies before copying node_modules to runtime image
+RUN npm prune --omit=dev --omit=optional && npm cache clean --force
 
 # Production image with security hardening
 FROM base AS runner

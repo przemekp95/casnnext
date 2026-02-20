@@ -10,6 +10,8 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  COVERAGE_MIN_LINES: '70'
+  COVERAGE_EXCELLENT_LINES: '80'
 
 jobs:
   test:
@@ -77,6 +79,16 @@ jobs:
       - name: Check posts
         run: npm run check:posts
 
+      - name: Check CMS MDX media paths
+        run: npm run check:cms-mdx-media
+
+      - name: Enforce dependency audit policy
+        run: npm run audit:policy
+        env:
+          AUDIT_FAIL_ON_APP: high
+          AUDIT_FAIL_ON_STRAPI: high
+          AUDIT_SUMMARY_FILE: ${{ github.step_summary }}
+
       - name: Run unit tests with coverage
         run: npm run test:ci -- --coverage --watchAll=false
         env:
@@ -110,9 +122,9 @@ jobs:
           # Verify server is still responding
           curl -f http://localhost:3000/api/health || (echo "Server health check failed" && exit 1)
 
-          # Run hydration and data integration tests
-          echo "Running hydration and data integration tests..."
-          npm run test:integration:hydration
+          # Run live integration tests (DB + Next server)
+          echo "Running live integration tests..."
+          npm run test:integration:live
 
           # Run E2E tests including hydration tests
           echo "Starting E2E tests with hydration..."
@@ -124,6 +136,7 @@ jobs:
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
           PORT: 3000
+          RUN_LIVE_TESTS: "1"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -142,14 +155,23 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const minCoverage = Number(process.env.COVERAGE_MIN_LINES || '70');
+            const excellentCoverage = Number(process.env.COVERAGE_EXCELLENT_LINES || '80');
 
             let coverage = 'Not available';
             let coverageStatus = 'Unknown';
 
             if (fs.existsSync('coverage/coverage-summary.json')) {
               const coverageData = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
-              coverage = `${coverageData.total.lines.pct}%`;
-              coverageStatus = coverageData.total.lines.pct >= 80 ? 'Good' : 'Low';
+              const linesPct = Number(coverageData.total.lines.pct);
+
+              coverage = `${linesPct}%`;
+              coverageStatus =
+                linesPct >= excellentCoverage
+                  ? 'Excellent'
+                  : linesPct >= minCoverage
+                    ? 'Good'
+                    : 'Low';
             }
 
             const jobStatus = '${{ job.status }}';
@@ -160,6 +182,7 @@ jobs:
             const body = `## Test Results
 
             **Coverage:** ${coverageStatus} (${coverage})
+            **Coverage Policy:** Good >= ${minCoverage}% | Excellent >= ${excellentCoverage}%
             **Unit Tests:** ${unitTests}
             **E2E Tests:** ${e2eTests}
             **Quality Checks:** ${qualityChecks}
@@ -174,9 +197,93 @@ jobs:
               body: body
             });
 
+  strapi-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: casn_test
+          MYSQL_USER: casn_user
+          MYSQL_PASSWORD: casn_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: strapi/package-lock.json
+
+      - name: Install Strapi dependencies
+        run: npm --prefix strapi ci
+
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"
+
+      - name: Build Strapi admin
+        run: npm --prefix strapi run build
+        env:
+          NODE_ENV: production
+          HOST: 127.0.0.1
+          PORT: 1337
+          DATABASE_CLIENT: mysql
+          DATABASE_HOST: 127.0.0.1
+          DATABASE_PORT: 3306
+          DATABASE_NAME: casn_test
+          DATABASE_USERNAME: root
+          DATABASE_PASSWORD: rootpassword
+          STRAPI_URL: http://127.0.0.1:1337/cms
+          STRAPI_ADMIN_PATH: /cms
+          APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
+          API_TOKEN_SALT: ci-api-token-salt
+          ADMIN_JWT_SECRET: ci-admin-jwt-secret
+          TRANSFER_TOKEN_SALT: ci-transfer-token-salt
+          JWT_SECRET: ci-jwt-secret
+          STRAPI_TELEMETRY_DISABLED: true
+
+      - name: Run Strapi smoke tests
+        run: bash scripts/ci/strapi-smoke.sh
+        env:
+          NODE_ENV: production
+          HOST: 127.0.0.1
+          PORT: 1337
+          DATABASE_CLIENT: mysql
+          DATABASE_HOST: 127.0.0.1
+          DATABASE_PORT: 3306
+          DATABASE_NAME: casn_test
+          DATABASE_USERNAME: root
+          DATABASE_PASSWORD: rootpassword
+          STRAPI_URL: http://127.0.0.1:1337/cms
+          STRAPI_ADMIN_PATH: /cms
+          APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
+          API_TOKEN_SALT: ci-api-token-salt
+          ADMIN_JWT_SECRET: ci-admin-jwt-secret
+          TRANSFER_TOKEN_SALT: ci-transfer-token-salt
+          JWT_SECRET: ci-jwt-secret
+          STRAPI_TELEMETRY_DISABLED: true
+
   build-and-push:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, strapi-smoke]
     permissions:
       contents: read
       packages: write

@@ -19,6 +19,7 @@ Strona internetowa [Centrum Analiz Służby Niepodległej](https://casn.pl) opar
 **Content:**
 - MDX (artykuły i analizy w `posts/`)
 - Next.js Image Optimization
+- Strapi 5 CMS (opcjonalny provider treści przez `CONTENT_PROVIDER=strapi`)
 
 **Styling:**
 - Bootstrap 5 + Custom legacy styles
@@ -60,6 +61,20 @@ npm run migration:run
 # Start serwera deweloperskiego
 npm run dev
 ```
+
+### Strapi CMS (opcjonalnie)
+```bash
+# Uruchom z Docker Compose (app + mysql + strapi)
+docker compose -f docker-compose.final.yml up --build
+
+# Import danych legacy -> Strapi
+npm run cms:import
+
+# Weryfikacja zgodności po imporcie
+npm run cms:verify
+```
+
+Szczegóły konfiguracji: `docs/strapi-cms.md`.
 
 ### Docker deployment
 ```bash

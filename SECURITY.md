@@ -2,20 +2,22 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Only the `main` branch and the latest production deployment are supported with
+security fixes.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## Dependency Risk Policy
+
+- CI enforces dependency audit checks for app and Strapi separately.
+- Build fails on `high` and `critical` vulnerabilities.
+- Accepted temporary exceptions are tracked in `SECURITY_EXCEPTIONS.md` with
+  review dates and exit criteria.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Please report vulnerabilities privately by opening a GitHub Security Advisory:
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+1. Go to the repository `Security` tab.
+2. Click `Report a vulnerability`.
+3. Provide affected version, reproduction steps, and impact.
+
+Initial triage target: 3 business days.

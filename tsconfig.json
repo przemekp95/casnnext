@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "target": "ES2022",
     "lib": [
       "dom",
@@ -29,7 +28,7 @@
         "./*"
       ],
       "@capacitor/cli": [
-        "node_modules/@capacitor/cli/dist/esm/index.d.ts"
+        "./node_modules/@capacitor/cli/dist/esm/index.d.ts"
       ]
     }
   },

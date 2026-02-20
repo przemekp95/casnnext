@@ -1,321 +1,103 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import type { ImgHTMLAttributes, ReactNode } from 'react';
+import { notFound } from 'next/navigation';
+import AuthorPage from '@/app/autor/[slug]/page';
+import { getAuthorBySlug } from '@/lib/authors';
 
-// Mock Next.js navigation
 jest.mock('next/navigation', () => ({
   notFound: jest.fn(),
 }));
 
-// Mock fetch globally
-global.fetch = jest.fn();
+jest.mock('@/lib/authors', () => ({
+  getAuthorBySlug: jest.fn(),
+}));
 
-let PageComponent: any;
-let hasComponent = false;
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ href, children }: { href: string; children: ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
 
-try {
-  PageComponent = require('@/app/autor/[slug]/page').default;
-  hasComponent = !!PageComponent;
-} catch {}
+jest.mock('next/image', () => ({
+  __esModule: true,
+  default: ({ unoptimized: _unoptimized, ...props }: ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean }) => (
+    <img {...props} alt={props.alt ?? ''} />
+  ),
+}));
 
-describe.skip('Author Page', () => {
-  const { notFound } = require('next/navigation');
-  const mockNotFound = notFound as jest.MockedFunction<typeof notFound>;
-  const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+jest.mock('next/script', () => ({
+  __esModule: true,
+  default: () => null,
+}));
 
+jest.mock('@/components/Hero', () => ({
+  __esModule: true,
+  default: ({ title }: { title: string }) => <div data-testid="hero-title">{title}</div>,
+}));
+
+const mockedNotFound = notFound as jest.MockedFunction<typeof notFound>;
+const mockedGetAuthorBySlug = getAuthorBySlug as jest.MockedFunction<typeof getAuthorBySlug>;
+
+describe('Author Page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('wywołuje notFound gdy brakuje slug', async () => {
-    const props = { params: {} };
-
-    await PageComponent(props);
-
-    expect(mockNotFound).toHaveBeenCalled();
+    await AuthorPage({ params: Promise.resolve({}) });
+    expect(mockedNotFound).toHaveBeenCalled();
   });
 
   it('wywołuje notFound gdy autor nie istnieje', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-    } as Response);
+    mockedGetAuthorBySlug.mockResolvedValueOnce(null);
 
-    const props = { params: { slug: 'non-existent-author' } };
+    await AuthorPage({ params: Promise.resolve({ slug: 'non-existent-author' }) });
 
-    await PageComponent(props);
-
-    expect(mockNotFound).toHaveBeenCalled();
+    expect(mockedGetAuthorBySlug).toHaveBeenCalledWith('non-existent-author');
+    expect(mockedNotFound).toHaveBeenCalled();
   });
 
-  it('renderuje stronę autora gdy dane są dostępne', async () => {
-    const mockAuthorData = {
+  it('renderuje dane autora i listę analiz', async () => {
+    mockedGetAuthorBySlug.mockResolvedValueOnce({
       author: {
-        slug: 'test-author',
+        id: '1',
+        slug: 'jan-kowalski',
         name: 'Jan Kowalski',
+        displayName: 'Jan Kowalski',
         bio: 'Ekspert w dziedzinie analiz politycznych',
-        img: '/images/author.jpg'
+        img: '/images/author.jpg',
       },
-      analyses: [
-        { title: 'Analiza 1', slug: 'analiza-1', id: 1 },
-        { title: 'Analiza 2', slug: 'analiza-2', id: 2 },
-      ]
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorData,
-    } as Response);
-
-    const props = { params: { slug: 'test-author' } };
-
-    render(await PageComponent(props));
-
-    await waitFor(() => {
-      expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
-      expect(screen.getByText('Ekspert w dziedzinie analiz politycznych')).toBeInTheDocument();
+      analyses: [{ id: '11', slug: 'analiza-1', title: 'Analiza 1' }],
     });
 
-    expect(screen.getByText('Analiza 1')).toBeInTheDocument();
-    expect(screen.getByText('Analiza 2')).toBeInTheDocument();
+    const page = await AuthorPage({ params: Promise.resolve({ slug: 'jan-kowalski' }) });
+    render(page);
+
+    expect(screen.getByTestId('hero-title')).toHaveTextContent('Jan Kowalski');
+    expect(screen.getByRole('heading', { name: 'Jan Kowalski' })).toBeInTheDocument();
+    expect(screen.getByText('Ekspert w dziedzinie analiz politycznych')).toBeInTheDocument();
+    expect(screen.getByText('Artykuły')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Analiza 1' })).toHaveAttribute('href', '/analizy/analiza-1');
   });
 
-  it('renderuje prawidłowe linki do analiz autora', async () => {
-    const mockAuthorData = {
+  it('używa placeholdera gdy autor nie ma zdjęcia', async () => {
+    mockedGetAuthorBySlug.mockResolvedValueOnce({
       author: {
-        slug: 'test-author',
-        name: 'Test Author',
-        bio: 'Bio text',
-        img: '/images/test.jpg'
-      },
-      analyses: [
-        { title: 'Test Analysis', slug: 'test-analysis', id: 1 },
-      ]
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorData,
-    } as Response);
-
-    const props = { params: { slug: 'test-author' } };
-
-    render(await PageComponent(props));
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Analysis')).toBeInTheDocument();
-    });
-
-    const analysisLink = screen.getByRole('link', { name: 'Test Analysis' });
-    expect(analysisLink).toHaveAttribute('href', '/analizy/test-analysis');
-  });
-
-  it('renderuje obraz autora lub placeholder', async () => {
-    // Test with image
-    const mockAuthorWithImage = {
-      author: {
-        slug: 'author-with-image',
-        name: 'Author With Image',
-        bio: 'Bio',
-        img: '/images/author.jpg'
-      },
-      analyses: []
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorWithImage,
-    } as Response);
-
-    const props1 = { params: { slug: 'author-with-image' } };
-    const { rerender } = render(await PageComponent(props1));
-
-    await waitFor(() => {
-      const img = screen.getByAltText('Zdjęcie Author With Image');
-      expect(img).toHaveAttribute('src', '/images/author.jpg');
-    });
-
-    // Test without image
-    const mockAuthorWithoutImage = {
-      author: {
-        slug: 'author-without-image',
-        name: 'Author Without Image',
-        bio: 'Bio',
-        img: null
-      },
-      analyses: []
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorWithoutImage,
-    } as Response);
-
-    const props2 = { params: { slug: 'author-without-image' } };
-    rerender(await PageComponent(props2));
-
-    await waitFor(() => {
-      const img = screen.getByAltText('Zdjęcie Author Without Image');
-      expect(img).toHaveAttribute('src', '/images/placeholder.png');
-    });
-  });
-
-  it('renderuje hero sekcję z breadcrumb', async () => {
-    const mockAuthorData = {
-      author: {
-        slug: 'test-author',
-        name: 'Test Author',
-        bio: 'Bio',
-        img: '/images/test.jpg'
-      },
-      analyses: []
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorData,
-    } as Response);
-
-    const props = { params: { slug: 'test-author' } };
-
-    render(await PageComponent(props));
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Author')).toBeInTheDocument();
-    });
-
-    expect(screen.getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Nasi autorzy' })).toHaveAttribute('href', '/autorzy');
-  });
-
-  it('renderuje sekcję artykułów tylko gdy autor ma analizy', async () => {
-    const mockAuthorData = {
-      author: {
-        slug: 'test-author',
-        name: 'Test Author',
-        bio: 'Bio',
-        img: '/images/test.jpg'
-      },
-      analyses: [
-        { title: 'Analysis 1', slug: 'analysis-1', id: 1 },
-      ]
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorData,
-    } as Response);
-
-    const props = { params: { slug: 'test-author' } };
-    const { container } = render(await PageComponent(props));
-
-    await waitFor(() => {
-      expect(container.querySelector('.section.bg-light')).toBeInTheDocument();
-      expect(screen.getByText('Artykuły')).toBeInTheDocument();
-    });
-  });
-
-  it('nie renderuje sekcji artykułów gdy autor nie ma analiz', async () => {
-    const mockAuthorData = {
-      author: {
-        slug: 'test-author',
-        name: 'Test Author',
-        bio: 'Bio',
-        img: '/images/test.jpg'
-      },
-      analyses: []
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorData,
-    } as Response);
-
-    const props = { params: { slug: 'test-author' } };
-    const { container } = render(await PageComponent(props));
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Author')).toBeInTheDocument();
-    });
-
-    // Should not have articles section
-    expect(container.querySelector('.section.bg-light')).not.toBeInTheDocument();
-  });
-
-  it('renderuje biogram autora', async () => {
-    const mockAuthorData = {
-      author: {
-        slug: 'test-author',
-        name: 'Test Author',
-        bio: 'To jest przykładowy biogram autora z wieloma informacjami.',
-        img: '/images/test.jpg'
-      },
-      analyses: []
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorData,
-    } as Response);
-
-    const props = { params: { slug: 'test-author' } };
-
-    render(await PageComponent(props));
-
-    await waitFor(() => {
-      expect(screen.getByText('To jest przykładowy biogram autora z wieloma informacjami.')).toBeInTheDocument();
-    });
-  });
-
-  it('renderuje pusty biogram gdy nie jest dostępny', async () => {
-    const mockAuthorData = {
-      author: {
-        slug: 'test-author',
-        name: 'Test Author',
+        id: '1',
+        slug: 'anna-nowak',
+        name: 'Anna Nowak',
+        displayName: 'Anna Nowak',
         bio: null,
-        img: '/images/test.jpg'
+        img: null,
       },
-      analyses: []
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorData,
-    } as Response);
-
-    const props = { params: { slug: 'test-author' } };
-
-    render(await PageComponent(props));
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Author')).toBeInTheDocument();
+      analyses: [],
     });
 
-    // Should render empty bio section - this test might need adjustment based on actual component behavior
-  });
+    const page = await AuthorPage({ params: Promise.resolve({ slug: 'anna-nowak' }) });
+    render(page);
 
-  it('ma odpowiednie klasy CSS dla layout', async () => {
-    const mockAuthorData = {
-      author: {
-        slug: 'test-author',
-        name: 'Test Author',
-        bio: 'Bio',
-        img: '/images/test.jpg'
-      },
-      analyses: []
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAuthorData,
-    } as Response);
-
-    const props = { params: { slug: 'test-author' } };
-    const { container } = render(await PageComponent(props));
-
-    await waitFor(() => {
-      expect(container.querySelector('.col-lg-4')).toBeInTheDocument();
-      expect(container.querySelector('.col-lg-8')).toBeInTheDocument();
-      expect(container.querySelector('.team-details')).toBeInTheDocument();
-    });
+    expect(screen.getByAltText('Zdjęcie Anna Nowak')).toHaveAttribute('src', '/images/placeholder.png');
+    expect(screen.queryByText('Artykuły')).not.toBeInTheDocument();
   });
 });
