@@ -4,9 +4,9 @@ WORKDIR /opt/strapi
 
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then \
-      npm ci --omit=dev --omit=optional --ignore-scripts; \
+      npm ci --omit=dev; \
     else \
-      npm install --omit=dev --omit=optional --ignore-scripts; \
+      npm install --omit=dev; \
     fi
 
 COPY . .
