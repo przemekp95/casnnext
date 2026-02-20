@@ -1,6 +1,6 @@
 // app/layout.tsx
+/* eslint-disable @next/next/no-css-tags */
 import "./globals.css";
-import "./legacy.css";
 import Script from "next/script";
 
 import Header from "@/components/Header";
@@ -67,7 +67,16 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pl" className={`${roboto.variable} ${rubik.variable}`}>
-      <head />
+      <head>
+        <link rel="stylesheet" href="/css/legacy/bootstrap.min.css" />
+        <link rel="stylesheet" href="/css/legacy/style.css" />
+        <link rel="stylesheet" href="/css/legacy/menu.css" />
+        <link rel="stylesheet" href="/css/legacy/owl.carousel.css" />
+        <link rel="stylesheet" href="/css/legacy/owl.theme.css" />
+        <link rel="stylesheet" href="/css/legacy/owl.transitions.css" />
+        <link rel="stylesheet" href="/css/legacy/themify-icons.css" />
+        <link rel="stylesheet" href="/css/legacy/magnific-popup.css" />
+      </head>
       <body className="bg-white text-black">
         <MdiShim />
         <Header />
