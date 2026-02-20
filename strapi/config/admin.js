@@ -3,6 +3,9 @@ module.exports = ({ env }) => ({
   auth: {
     secret: env('ADMIN_JWT_SECRET', 'admin-jwt-secret-change-me'),
   },
+  secrets: {
+    encryptionKey: env('ADMIN_ENCRYPTION_KEY'),
+  },
   apiToken: {
     salt: env('API_TOKEN_SALT', 'api-token-salt-change-me'),
   },
