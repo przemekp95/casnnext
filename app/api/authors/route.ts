@@ -1,8 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { AppDataSource } from "@/lib/db.server";
-import { AuthorSchema } from "@/lib/entities";
+import { getAuthors } from "@/lib/authors";
 
 export async function GET() {
   try {
@@ -11,15 +10,7 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    if (!AppDataSource || !AppDataSource.isInitialized) {
-      return NextResponse.json([]);
-    }
-
-    const authorRepository = AppDataSource.getRepository(AuthorSchema);
-    const authors = await authorRepository.find({
-      order: { name: 'ASC' },
-    });
-
+    const authors = await getAuthors();
     return NextResponse.json(authors);
   } catch (error) {
     console.error('Authors API error:', error);

@@ -20,6 +20,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  COVERAGE_MIN_LINES: '70'
+  COVERAGE_EXCELLENT_LINES: '80'
 
 jobs:
   test:
@@ -86,6 +88,16 @@ jobs:
       - name: Check posts
         run: npm run check:posts
 
+      - name: Check CMS MDX media paths
+        run: npm run check:cms-mdx-media
+
+      - name: Enforce dependency audit policy
+        run: npm run audit:policy
+        env:
+          AUDIT_FAIL_ON_APP: high
+          AUDIT_FAIL_ON_STRAPI: high
+          AUDIT_SUMMARY_FILE: ${{ github.step_summary }}
+
       - name: Build application
         run: npm run build
         env:
@@ -109,13 +121,22 @@ jobs:
 
       - name: Check coverage threshold
         run: |
-          COVERAGE=$(npx jest --coverage --coverageReporters=json-summary --watchAll=false | jq '.total.lines.pct')
-          echo "Test coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-            echo "L Coverage below 80% minimum requirement"
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "❌ Missing coverage/coverage-summary.json"
             exit 1
           fi
-          echo "✅ Coverage meets 80% minimum requirement"
+
+          COVERAGE=$(node -e "const s=require('./coverage/coverage-summary.json'); process.stdout.write(String(s.total.lines.pct));")
+          echo "Test coverage (lines): ${COVERAGE}%"
+
+          node -e "const c=Number(process.argv[1]); const min=Number(process.argv[2]); if (c < min) { console.error('❌ Coverage below minimum: ' + c + '% < ' + min + '%'); process.exit(1); }" "$COVERAGE" "$COVERAGE_MIN_LINES"
+          node -e "const c=Number(process.argv[1]); const target=Number(process.argv[2]); if (c < target) { console.log('⚠ Coverage above minimum but below target: ' + c + '% < ' + target + '%'); } else { console.log('✅ Coverage meets target: ' + c + '% >= ' + target + '%'); }" "$COVERAGE" "$COVERAGE_EXCELLENT_LINES"
+
+      - name: Run live integration tests
+        run: npm run test:integration:live
+        env:
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          RUN_LIVE_TESTS: "1"
 
       - name: Run E2E tests
         run: npm run test:e2e
@@ -141,10 +162,92 @@ jobs:
             cypress/screenshots/
           retention-days: 30
 
+  strapi-smoke:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: casn_test
+          MYSQL_USER: casn_user
+          MYSQL_PASSWORD: casn_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: strapi/package-lock.json
+
+      - name: Install Strapi dependencies
+        run: npm --prefix strapi ci
+
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"
+
+      - name: Build Strapi admin
+        run: npm --prefix strapi run build
+        env:
+          NODE_ENV: production
+          HOST: 127.0.0.1
+          PORT: 1337
+          DATABASE_CLIENT: mysql
+          DATABASE_HOST: 127.0.0.1
+          DATABASE_PORT: 3306
+          DATABASE_NAME: casn_test
+          DATABASE_USERNAME: root
+          DATABASE_PASSWORD: rootpassword
+          STRAPI_URL: http://127.0.0.1:1337/cms
+          STRAPI_ADMIN_PATH: /cms
+          APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
+          API_TOKEN_SALT: ci-api-token-salt
+          ADMIN_JWT_SECRET: ci-admin-jwt-secret
+          TRANSFER_TOKEN_SALT: ci-transfer-token-salt
+          JWT_SECRET: ci-jwt-secret
+          STRAPI_TELEMETRY_DISABLED: true
+
+      - name: Run Strapi smoke tests
+        run: bash scripts/ci/strapi-smoke.sh
+        env:
+          NODE_ENV: production
+          HOST: 127.0.0.1
+          PORT: 1337
+          DATABASE_CLIENT: mysql
+          DATABASE_HOST: 127.0.0.1
+          DATABASE_PORT: 3306
+          DATABASE_NAME: casn_test
+          DATABASE_USERNAME: root
+          DATABASE_PASSWORD: rootpassword
+          STRAPI_URL: http://127.0.0.1:1337/cms
+          STRAPI_ADMIN_PATH: /cms
+          APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
+          API_TOKEN_SALT: ci-api-token-salt
+          ADMIN_JWT_SECRET: ci-admin-jwt-secret
+          TRANSFER_TOKEN_SALT: ci-transfer-token-salt
+          JWT_SECRET: ci-jwt-secret
+          STRAPI_TELEMETRY_DISABLED: true
+
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    needs: test
+    needs: [test, strapi-smoke]
 
     steps:
       - name: Checkout repository

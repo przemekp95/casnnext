@@ -24,7 +24,6 @@ export default function ArticleLayout({
     { label: "Strona główna", href: "/" },
     { label: title, active: true },
   ],
-  innerBg = "rgba(30, 30, 30, 0.65)",
 }: Props) {
   return (
     <>

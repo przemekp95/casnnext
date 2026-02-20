@@ -18,3 +18,13 @@ runs:
     - name: Check posts
       run: npm run check:posts
       shell: bash
+
+    - name: Check CMS MDX media paths
+      run: npm run check:cms-mdx-media
+      shell: bash
+
+    - name: Enforce dependency audit policy
+      run: npm run audit:policy
+      shell: bash
+      env:
+        AUDIT_FAIL_ON: high

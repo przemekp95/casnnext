@@ -3,6 +3,9 @@ import 'server-only';
 import { executeRscQuery } from "../db.rsc";
 import { AnalysisSchema } from "../entities";
 import { AnalysisRow, AnalysisDetail } from "../../types/analysis";
+import { cmsAnalysisToAnalysisDetail, cmsAnalysisToAnalysisRow } from "@/lib/cms/mappers";
+import { fetchCmsAnalyses, fetchCmsAnalysisBySlug } from "@/lib/cms/strapi-client";
+import { isStrapiProvider } from "@/lib/content-provider";
 
 // Mock data for development/testing
 const mockAnalyses: AnalysisRow[] = [
@@ -108,6 +111,18 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
     return [];
   }
 
+  if (isStrapiProvider()) {
+    try {
+      const cmsAnalyses = await fetchCmsAnalyses();
+      if (cmsAnalyses.length > 0) {
+        return cmsAnalyses.map(cmsAnalysisToAnalysisRow);
+      }
+      console.warn('Strapi returned empty analyses list, falling back to legacy source.');
+    } catch (error) {
+      console.warn('Strapi not available for getAnalyses(), falling back to legacy source:', error);
+    }
+  }
+
   try {
     return await executeRscQuery(async (dataSource) => {
       const analysisRepository = dataSource.getRepository(AnalysisSchema);
@@ -145,6 +160,18 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return null;
+  }
+
+  if (isStrapiProvider()) {
+    try {
+      const cmsAnalysis = await fetchCmsAnalysisBySlug(slug);
+      if (cmsAnalysis) {
+        return cmsAnalysisToAnalysisDetail(cmsAnalysis);
+      }
+      console.warn(`Strapi analysis not found for slug=${slug}, falling back to legacy source.`);
+    } catch (error) {
+      console.warn('Strapi not available for getAnalysisBySlug(), falling back to legacy source:', error);
+    }
   }
 
   try {

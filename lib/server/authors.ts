@@ -3,6 +3,16 @@ import 'server-only';
 import { executeRscQuery } from "../db.rsc";
 import { AuthorSchema, AnalysisSchema } from "../entities";
 import { AuthorRow, AuthorDetail } from "../../types/author";
+import {
+  cmsAuthorToAuthorDetail,
+  cmsAuthorToAuthorRow,
+} from "@/lib/cms/mappers";
+import {
+  fetchCmsAuthorBySlug,
+  fetchCmsAnalysesByAuthorSlug,
+  fetchCmsAuthors,
+} from "@/lib/cms/strapi-client";
+import { isStrapiProvider } from "@/lib/content-provider";
 
 // Mock data for development/testing
 const mockAuthors: AuthorRow[] = [
@@ -79,6 +89,18 @@ export async function getAuthors(): Promise<AuthorRow[]> {
     return [];
   }
 
+  if (isStrapiProvider()) {
+    try {
+      const cmsAuthors = await fetchCmsAuthors();
+      if (cmsAuthors.length > 0) {
+        return cmsAuthors.map(cmsAuthorToAuthorRow);
+      }
+      console.warn('Strapi returned empty authors list, falling back to legacy source.');
+    } catch (error) {
+      console.warn('Strapi not available for getAuthors(), falling back to legacy source:', error);
+    }
+  }
+
   try {
     return await executeRscQuery(async (dataSource) => {
       const authorRepository = dataSource.getRepository(AuthorSchema);
@@ -108,6 +130,19 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return null;
+  }
+
+  if (isStrapiProvider()) {
+    try {
+      const cmsAuthor = await fetchCmsAuthorBySlug(slug);
+      if (cmsAuthor) {
+        const cmsAnalyses = await fetchCmsAnalysesByAuthorSlug(slug);
+        return cmsAuthorToAuthorDetail(cmsAuthor, cmsAnalyses);
+      }
+      console.warn(`Strapi author not found for slug=${slug}, falling back to legacy source.`);
+    } catch (error) {
+      console.warn('Strapi not available for getAuthorBySlug(), falling back to legacy source:', error);
+    }
   }
 
   try {
