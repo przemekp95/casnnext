@@ -28,7 +28,7 @@ try {
   });
 
   it('GET zwraca status healthy z prawidłową strukturą', async () => {
-    process.env.NODE_ENV = 'production';
+    (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
     process.env.npm_package_version = '2.1.0';
 
     const res = await route!.GET();

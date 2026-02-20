@@ -30,7 +30,7 @@ const createdAuthorSlug = `autor-test-${Date.now()}`;
       'INSERT INTO Author (name, slug, img, bio) VALUES (?, ?, ?, ?)',
       ['Autor Test', createdAuthorSlug, '/images/authors/test.png', 'Autor do testów API']
     );
-    const result = await query<{ id: number }>('SELECT LAST_INSERT_ID() AS id');
+    const result = (await query('SELECT LAST_INSERT_ID() AS id')) as Array<{ id: number }>;
     if (result.length > 0) {
       createdAuthorId = result[0].id;
     }

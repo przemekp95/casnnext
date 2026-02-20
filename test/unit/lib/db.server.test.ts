@@ -1,3 +1,5 @@
+export {};
+
 const ENV_KEYS = ['DATABASE_URL', 'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'] as const;
 
 type EnvSnapshot = Partial<Record<(typeof ENV_KEYS)[number], string>>;

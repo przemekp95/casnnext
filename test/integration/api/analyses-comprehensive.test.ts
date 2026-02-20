@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+import { NextRequest } from 'next/server';
 
 describe('Analyses API - Comprehensive Coverage', () => {
   let analysesGET: any;

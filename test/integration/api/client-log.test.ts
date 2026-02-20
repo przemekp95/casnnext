@@ -5,7 +5,11 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-let route: { POST: (req: Request) => Promise<Response> } | null = null;
+interface RouteModule {
+  POST: (req: Request) => Promise<Response>;
+}
+
+let route: RouteModule | null = null;
 
 try {
   route = require('@/app/api/client-log/route') as RouteModule;
