@@ -6,7 +6,7 @@
 
 set -e
 
-REPO="przemekp95/casnnext"  # Update this to match your actual repo
+REPO="${REPO:-przemekp95/casnnext}"
 OUTPUT_FILE="casn.sql"
 
 # Color codes for output
