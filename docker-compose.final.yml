@@ -48,8 +48,7 @@ services:
       DATABASE_NAME: casn
       DATABASE_USERNAME: casn_user
       DATABASE_PASSWORD: casn_password123
-      STRAPI_URL: "http://localhost:3001"
-      STRAPI_ADMIN_PATH: "/cms"
+      STRAPI_URL: "http://localhost:3001/cms"
       APP_KEYS: "app-key-1,app-key-2,app-key-3,app-key-4"
       API_TOKEN_SALT: "api-token-salt-change-me"
       ADMIN_JWT_SECRET: "admin-jwt-secret-change-me"

@@ -15,11 +15,6 @@ Set these in runtime environments:
 - `STRAPI_API_TOKEN` (required for write/import operations)
 - `STRAPI_WEBHOOK_SECRET` and/or `REVALIDATE_SECRET`
 
-For reverse proxy setup under `/cms`, also set:
-
-- `STRAPI_ADMIN_PATH=/cms`
-- `STRAPI_URL=https://casn.pl` (without `/cms`; admin path is configured separately)
-
 ## Local Runtime (Docker)
 
 1. Start services:

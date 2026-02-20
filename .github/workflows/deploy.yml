@@ -214,9 +214,8 @@ jobs:
           DATABASE_NAME: casn_test
           DATABASE_USERNAME: root
           DATABASE_PASSWORD: rootpassword
-          STRAPI_URL: http://127.0.0.1:1337
+          STRAPI_URL: http://127.0.0.1:1337/cms
           STRAPI_ADMIN_PATH: /cms
-          STRAPI_ADMIN_BACKEND_URL: /cms
           APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
           API_TOKEN_SALT: ci-api-token-salt
           ADMIN_JWT_SECRET: ci-admin-jwt-secret
@@ -236,9 +235,8 @@ jobs:
           DATABASE_NAME: casn_test
           DATABASE_USERNAME: root
           DATABASE_PASSWORD: rootpassword
-          STRAPI_URL: http://127.0.0.1:1337
+          STRAPI_URL: http://127.0.0.1:1337/cms
           STRAPI_ADMIN_PATH: /cms
-          STRAPI_ADMIN_BACKEND_URL: /cms
           APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
           API_TOKEN_SALT: ci-api-token-salt
           ADMIN_JWT_SECRET: ci-admin-jwt-secret
