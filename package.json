@@ -91,6 +91,7 @@
     "glob": "^9.3.5",
     "@npmcli/move-file": "npm:@npmcli/fs@^5.0.0",
     "html-encoding-sniffer": "^6.0.0",
-    "jsdom": "^27.4.0"
+    "jsdom": "^27.4.0",
+    "minimatch": "^10.2.1"
   }
 }
