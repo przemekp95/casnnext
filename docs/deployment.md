@@ -6,18 +6,20 @@ This document explains how to set up and use the deployment workflows for the CA
 
 After fixing the deployment issues, deployments should now work automatically when pushing to the `main` branch.
 
-### Current Status:  Deployments Fixed
+### Current Status: Deployments Fixed
 
 **What was broken:**
+
 - Port configuration mismatch between Docker and docker-compose
 - Missing deployment workflow (old Symfony workflow removed)
 - No automated deployment triggers
 
 **What was fixed:**
--  Port configuration: Both docker-compose files now use PORT=3000
--  Deployment workflow: Created `.github/workflows/deploy.yml`
--  Docker workflow: Updated to trigger on feature branches for testing
--  Documentation: Complete deployment guide created
+
+- Port configuration: Both docker-compose files now use PORT=3000
+- Deployment workflow: Created `.github/workflows/deploy.yml`
+- Docker workflow: Updated to trigger on feature branches for testing
+- Documentation: Complete deployment guide created
 
 ## Overview
 
@@ -34,7 +36,8 @@ The project uses GitHub Actions for automated deployments with the following wor
 Set up the following secrets in your GitHub repository settings:
 
 #### For SSH Deployment (Recommended)
-```
+
+```text
 DEPLOY_HOST        # Server hostname/IP
 DEPLOY_USER        # SSH username
 DEPLOY_KEY         # Private SSH key (generate with: ssh-keygen -t rsa -b 4096)
@@ -44,7 +47,8 @@ HEALTH_CHECK_URL   # URL to check after deployment (optional)
 ```
 
 #### For Portainer API Deployment
-```
+
+```text
 PORTAINER_URL      # Portainer API URL
 PORTAINER_WEBHOOK_ID # Portainer webhook ID for stack updates
 ```
@@ -56,7 +60,9 @@ PORTAINER_WEBHOOK_ID # Portainer webhook ID for stack updates
 This method connects directly to your production server via SSH and runs deployment commands.
 
 **Setup:**
+
 1. Generate SSH key pair on your local machine:
+
    ```bash
    ssh-keygen -t rsa -b 4096 -C "github-deploy@yourdomain.com"
    ```
@@ -72,6 +78,7 @@ This method connects directly to your production server via SSH and runs deploym
 If you're using Portainer, you can trigger deployments via webhooks.
 
 **Setup:**
+
 1. Create a webhook in Portainer for your stack
 2. Add the webhook URL as `PORTAINER_URL` secret
 3. The workflow will POST to this URL to trigger deployment
@@ -83,16 +90,19 @@ If no automated deployment is configured, the workflow will output deployment in
 ## Workflow Triggers
 
 ### Docker Build
+
 - **Push to main branch**: Builds and tags as `main`
 - **Push to feature branches**: Builds and tags with branch name
 - **Push tags**: Builds with semantic version tags
 - **Pull requests**: Builds for testing
 
 ### Production Deployment
+
 - **Push to main branch**: Automatically deploys to production
 - **Manual trigger**: Can be triggered manually via GitHub UI
 
 ### Release Creation
+
 - **Push version tags**: Creates GitHub releases with changelogs (e.g., `git tag v1.2.3 && git push origin v1.2.3`)
 
 ## Creating Releases
@@ -111,6 +121,7 @@ When you push a version tag (like `v1.2.3`), the release workflow automatically:
 ### How to Create a Release
 
 **Easy way (recommended):**
+
 ```bash
 # Use the provided script
 ./scripts/create-release.sh v1.2.3 "Add new features"
@@ -120,6 +131,7 @@ When you push a version tag (like `v1.2.3`), the release workflow automatically:
 ```
 
 **Manual way:**
+
 ```bash
 # Create and push a version tag
 git tag v1.2.3
@@ -226,3 +238,4 @@ git pull origin main
 docker pull ghcr.io/yourusername/casn:main
 docker-compose -f docker-compose.portainer.yml down
 docker-compose -f docker-compose.portainer.yml up -d
+```
