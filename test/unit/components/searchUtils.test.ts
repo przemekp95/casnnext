@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { stripMarkdown, createExcerpt, fuzzyMatch } from '@/lib/searchUtils';
 
 // Test data

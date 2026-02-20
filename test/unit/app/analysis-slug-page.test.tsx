@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import type { AnalysisDetail, AnalysisRow } from '@/types/analysis';
 import { getAnalyses, getAnalysisBySlug } from '@/lib/analyses';
 import { notFound } from 'next/navigation';
 import { isStrapiProvider } from '@/lib/content-provider';
@@ -67,6 +68,21 @@ const mockedIsStrapiProvider = isStrapiProvider as jest.MockedFunction<typeof is
 const mockedNormalizeCmsMdxMediaPaths =
   normalizeCmsMdxMediaPaths as jest.MockedFunction<typeof normalizeCmsMdxMediaPaths>;
 
+const createAnalysisRow = (overrides: Partial<AnalysisRow>): AnalysisRow => ({
+  id: '1',
+  title: 'Analiza testowa',
+  slug: 'analiza-testowa',
+  authorId: '1',
+  ...overrides,
+});
+
+const createAnalysisDetail = (overrides: Partial<AnalysisDetail>): AnalysisDetail => ({
+  id: '1',
+  title: 'Analiza testowa',
+  slug: 'analiza-testowa',
+  ...overrides,
+});
+
 describe('app/analizy/[slug]/page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,8 +91,8 @@ describe('app/analizy/[slug]/page', () => {
 
   it('generateStaticParams returns slugs from analyses', async () => {
     mockedGetAnalyses.mockResolvedValueOnce([
-      { slug: 'a-1' } as any,
-      { slug: 'a-2' } as any,
+      createAnalysisRow({ id: '1', title: 'A-1', slug: 'a-1' }),
+      createAnalysisRow({ id: '2', title: 'A-2', slug: 'a-2' }),
     ]);
 
     const result = await generateStaticParams();
@@ -102,17 +118,23 @@ describe('app/analizy/[slug]/page', () => {
   });
 
   it('generateMetadata builds article metadata from analysis', async () => {
-    mockedGetAnalysisBySlug.mockResolvedValueOnce({
-      title: 'Testowa analiza',
-      author: { name: 'Jan Kowalski', bio: 'Ekspert CASN' },
-    } as any);
+    mockedGetAnalysisBySlug.mockResolvedValueOnce(
+      createAnalysisDetail({
+        slug: 'testowa-analiza',
+        title: 'Testowa analiza',
+        author: { name: 'Jan Kowalski', bio: 'Ekspert CASN' },
+      }),
+    );
 
     const result = await generateMetadata({ params: Promise.resolve({ slug: 'testowa-analiza' }) });
 
+    const openGraph = result.openGraph as { authors?: string[] } | undefined;
+    const alternates = result.alternates as { canonical?: string } | undefined;
+
     expect(result.title).toBe('Testowa analiza - Centrum Analiz Służby Niepodległej');
     expect(result.description).toBe('Testowa analiza - Ekspert CASN');
-    expect((result.openGraph as any).authors).toEqual(['Jan Kowalski']);
-    expect((result.alternates as any).canonical).toBe('https://casn.pl/analizy/testowa-analiza');
+    expect(openGraph?.authors).toEqual(['Jan Kowalski']);
+    expect(alternates?.canonical).toBe('https://casn.pl/analizy/testowa-analiza');
   });
 
   it('generateMetadata falls back to site defaults on unexpected error', async () => {
@@ -127,7 +149,7 @@ describe('app/analizy/[slug]/page', () => {
   });
 
   it('Page calls notFound when slug is missing', async () => {
-    const result = await Page({ params: Promise.resolve({ slug: '' }) as any });
+    const result = await Page({ params: Promise.resolve({ slug: '' }) });
     expect(mockedNotFound).toHaveBeenCalled();
     expect(result).toBe('NOT_FOUND');
   });
@@ -143,19 +165,20 @@ describe('app/analizy/[slug]/page', () => {
 
   it('Page renders analysis and normalizes CMS media paths for strapi provider', async () => {
     mockedIsStrapiProvider.mockReturnValueOnce(true);
-    mockedGetAnalysisBySlug.mockResolvedValueOnce({
-      id: '42',
-      slug: 'test',
-      title: 'Baza tytułu',
-      lead: 'Lead bazowy',
-      description: 'Opis',
-      date: '2025-01-02',
-      category: 'geo',
-      author: {
-        name: 'Anna Autor',
-        bio: 'Bio autorki',
-      },
-      contentMdx: `---
+    mockedGetAnalysisBySlug.mockResolvedValueOnce(
+      createAnalysisDetail({
+        id: '42',
+        slug: 'test',
+        title: 'Baza tytułu',
+        lead: 'Lead bazowy',
+        description: 'Opis',
+        date: '2025-01-02',
+        category: 'geo',
+        author: {
+          name: 'Anna Autor',
+          bio: 'Bio autorki',
+        },
+        contentMdx: `---
 title: "Artykuł {{analysisTitle}}"
 lead: "Lead {{authorName}}"
 author: "{{authorName}}"
@@ -163,10 +186,11 @@ date: 2026-03-04
 ---
 ![Obraz](/uploads/cms.png)
 `,
-    } as any);
+      }),
+    );
 
     const jsx = await Page({ params: Promise.resolve({ slug: 'test' }) });
-    render(jsx as any);
+    render(jsx as ReactNode);
 
     expect(screen.getByTestId('article-layout')).toHaveAttribute('data-title', 'Artykuł Baza tytułu');
     expect(screen.getByTestId('article-layout')).toHaveAttribute('data-lead', 'Lead Anna Autor');
