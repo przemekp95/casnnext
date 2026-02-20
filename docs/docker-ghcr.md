@@ -1,78 +1,89 @@
-# Docker Images w GitHub Container Registry (GHCR)
+# Docker Images in GHCR
 
-## Automatyczne publikowanie
+This repository publishes application images to GitHub Container Registry (GHCR) through `.github/workflows/docker.yml`.
 
-Projekt automatycznie publikuje obrazy Docker do GitHub Container Registry (GHCR) przy każdym push na główną gałąź.
+## Source of Truth
 
-### Workflow `docker.yml`
+The workflow uses:
 
-Workflow automatycznie:
-- ✅ Buduje obrazy Docker z `Dockerfile`
-- ✅ Taguje obrazy na podstawie branch, PR, semver i SHA
-- ✅ Pushuje obrazy do GHCR
-- ✅ Używa cache dla szybszych buildów
+- `REGISTRY=ghcr.io`
+- `IMAGE_NAME=${{ github.repository }}`
 
-### Struktura tagów
+So published image names are:
 
-| Event | Tag | Przykład |
-|-------|-----|----------|
-| Push na `main` | `ghcr.io/przemekp95/casn:main` | `ghcr.io/przemekp95/casn:main` |
-| Push tag `v1.2.3` | `ghcr.io/przemekp95/casn:v1.2.3` | `ghcr.io/przemekp95/casn:v1.2.3` |
-| Push tag `v1.2.3` | `ghcr.io/przemekp95/casn:1.2` | `ghcr.io/przemekp95/casn:1.2` |
-| Pull Request | `ghcr.io/przemekp95/casn:pr-123` | `ghcr.io/przemekp95/casn:pr-123` |
-| SHA commit | `ghcr.io/przemekp95/casn:main-a1b2c3d` | `ghcr.io/przemekp95/casn:main-a1b2c3d` |
-
-### Używanie obrazów
-
-#### Pullowanie najnowszego obrazu z main:
-```bash
-docker pull ghcr.io/przemekp95/casn:main
+```text
+ghcr.io/<owner>/<repo>:<tag>
 ```
 
-#### Uruchamianie aplikacji z GHCR:
-```bash
-# Podstawowe uruchomienie
-docker run -d -p 3000:3000 \
-  --name casn-app \
-  ghcr.io/przemekp95/casn:main
+For this repository, that is typically:
 
-# Z zmiennymi środowiskowymi
-docker run -d -p 3000:3000 \
-  -e NODE_ENV=production \
-  -e DATABASE_URL=mysql://user:pass@host:3306/db \
-  --name casn-app \
-  ghcr.io/przemekp95/casn:main
+```text
+ghcr.io/przemekp95/casnnext:<tag>
 ```
 
-#### Używanie z docker-compose (GHCR version):
+## When Images Are Published
+
+From `docker.yml`:
+
+- Push to `main`: publishes `:main`
+- Push to `dev`: publishes `:dev`
+- Push tag `v*`: publishes tag and semver tags
+  - `:vX.Y.Z`
+  - `:X.Y.Z`
+  - `:X.Y`
+- Pull requests: build only, no push
+
+There is no SHA tag publishing in the current workflow.
+
+## Common Tags
+
+| Event | Example tags |
+|---|---|
+| Push to `main` | `ghcr.io/przemekp95/casnnext:main` |
+| Push to `dev` | `ghcr.io/przemekp95/casnnext:dev` |
+| Push tag `v1.2.3` | `ghcr.io/przemekp95/casnnext:v1.2.3`, `ghcr.io/przemekp95/casnnext:1.2.3`, `ghcr.io/przemekp95/casnnext:1.2` |
+
+## Pull and Run
+
+Pull latest `main` image:
+
+```bash
+docker pull ghcr.io/przemekp95/casnnext:main
+```
+
+Run directly:
+
+```bash
+docker run -d --name casn-app -p 3000:3000 \
+  -e PORT=3000 \
+  -e DATABASE_URL="mysql://user:pass@host:3306/casn" \
+  ghcr.io/przemekp95/casnnext:main
+```
+
+## Compose Usage
+
+Example service using the GHCR image from this workflow:
+
 ```yaml
 services:
   app:
-    image: ghcr.io/przemekp95/casn:latest
-    ports:
-      - "3000:3000"
+    image: ghcr.io/przemekp95/casnnext:main
     environment:
-      - NODE_ENV=production
+      - PORT=3000
       - DATABASE_URL=mysql://user:pass@mysql:3306/casn
-    depends_on:
-      - mysql
 ```
 
-### Dostępność obrazów
+## Repository-Specific Note
 
-Obrazy są publicznie dostępne w GHCR pod adresem:
-`https://github.com/przemekp95/casn/packages`
+Current compose files in this repo are aligned with this workflow:
 
-### Bezpieczeństwo
+- `docker-compose.final.yml` uses `ghcr.io/przemekp95/casnnext:dev`
+- `docker-compose.portainer.yml` uses `ghcr.io/przemekp95/casnnext:main`
 
-- ✅ Używa `GITHUB_TOKEN` do uwierzytelnienia
-- ✅ Publiczny dostęp do obrazów (read-only dla publicznych repozytoriów)
-- ✅ Cache builds dla bezpieczeństwa i wydajności
+## Package Location
 
-### Aktualizacja
+GHCR package page:
 
-Aby zaktualizować aplikację:
-1. Wprowadź zmiany w kodzie
-2. Push na `main` lub utwórz tag
-3. Workflow automatycznie zbuduje i opublikuje obraz
-4. Pull nowego obrazu na serwerze produkcyjnym
+```text
+https://github.com/przemekp95/casnnext/packages
+```

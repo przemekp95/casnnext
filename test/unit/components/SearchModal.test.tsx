@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /** @jest-environment jsdom */
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
