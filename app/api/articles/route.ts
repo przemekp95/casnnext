@@ -63,10 +63,10 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
           .createQueryBuilder("analysis")
           .leftJoin("Author", "author", "author.id = analysis.authorId")
           .select([
-            "analysis.id",
-            "analysis.title",
-            "analysis.slug",
-            "analysis.authorId",
+            "analysis.id AS id",
+            "analysis.title AS title",
+            "analysis.slug AS slug",
+            "analysis.authorId AS authorId",
             "author.name as author_name",
             "author.slug as author_slug",
           ])
@@ -94,10 +94,10 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
     .createQueryBuilder("analysis")
     .leftJoin("Author", "author", "author.id = analysis.authorId")
     .select([
-      "analysis.id",
-      "analysis.title",
-      "analysis.slug",
-      "analysis.authorId",
+      "analysis.id AS id",
+      "analysis.title AS title",
+      "analysis.slug AS slug",
+      "analysis.authorId AS authorId",
       "author.name as author_name",
       "author.slug as author_slug",
     ])
@@ -175,10 +175,10 @@ async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlu
     .createQueryBuilder("analysis")
     .leftJoin("Author", "author", "author.id = analysis.authorId")
     .select([
-      "analysis.id",
-      "analysis.title",
-      "analysis.slug",
-      "analysis.authorId",
+      "analysis.id AS id",
+      "analysis.title AS title",
+      "analysis.slug AS slug",
+      "analysis.authorId AS authorId",
       "author.name as author_name",
       "author.slug as author_slug",
     ])

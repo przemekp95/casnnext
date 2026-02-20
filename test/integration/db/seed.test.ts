@@ -1,6 +1,5 @@
 import { AppDataSource } from '@/lib/db.server';
 import { initializeDatabase } from '@/lib/init-db';
-import { AuthorSchema, AnalysisSchema } from '@/lib/entities';
 
 // Ten plik robi prawdziwe I/O (DB + seed), więc musi mieć większy timeout niż domyślne 5s.
 const FILE_TIMEOUT_MS = Number(process.env.JEST_INTEGRATION_TIMEOUT_MS ?? 120_000);
@@ -10,8 +9,8 @@ const runLiveTests = process.env.RUN_LIVE_TESTS === '1';
 jest.setTimeout(FILE_TIMEOUT_MS);
 
 async function runSeed() {
-  const authorRepository = AppDataSource.getRepository(AuthorSchema);
-  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
+  const authorRepository = AppDataSource.getRepository('Author');
+  const analysisRepository = AppDataSource.getRepository('Analysis');
 
   // Check if data already exists
   const authorCount = await authorRepository.count();
@@ -69,8 +68,8 @@ async function runSeed() {
     'database has proper structure and data after initialization',
     async () => {
       // Database should be initialized and potentially seeded from beforeAll
-      const authorRepository = AppDataSource.getRepository(AuthorSchema);
-      const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
+      const authorRepository = AppDataSource.getRepository('Author');
+      const analysisRepository = AppDataSource.getRepository('Analysis');
 
       // Verify that authors exist
       const authors = await authorRepository.find();
@@ -113,7 +112,7 @@ async function runSeed() {
   it(
     'seed script only runs once (idempotent)',
     async () => {
-      const articleRepository = AppDataSource.getRepository(AnalysisSchema);
+      const articleRepository = AppDataSource.getRepository('Analysis');
 
       // Count articles before second seed attempt
       const countBefore = await articleRepository.count();

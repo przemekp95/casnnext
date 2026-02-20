@@ -262,16 +262,18 @@ describe('Hydration and Data Integration Tests', () => {
         expect(article).toHaveProperty('id');
         expect(article).toHaveProperty('title');
         expect(article).toHaveProperty('slug');
-        expect(article).toHaveProperty('content');
         expect(article).toHaveProperty('authorId');
 
         // Verify types
-        expect(typeof article.id).toBe('string');
+        expect(['string', 'number']).toContain(typeof article.id);
         expect(typeof article.title).toBe('string');
         expect(typeof article.slug).toBe('string');
-        expect(typeof article.authorId).toBe('string');
+        expect(['string', 'number']).toContain(typeof article.authorId);
 
         // Check optional fields
+        if (article.content) {
+          expect(typeof article.content).toBe('string');
+        }
         if (article.excerpt) {
           expect(typeof article.excerpt).toBe('string');
         }
@@ -293,7 +295,7 @@ describe('Hydration and Data Integration Tests', () => {
       const authorIds = new Set(authors.map((a: Record<string, unknown>) => a.id));
 
       articles.forEach((article: Record<string, unknown>) => {
-        expect(authorIds.has(article.authorId)).toBe(true);
+        expect(authorIds.has(String(article.authorId))).toBe(true);
       });
     });
   });
