@@ -1,5 +1,5 @@
+/** @jest-environment node */
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-import { NextRequest } from 'next/server';
 
 describe('Articles API - Comprehensive Coverage', () => {
   let GET: any;
@@ -32,7 +32,7 @@ describe('Articles API - Comprehensive Coverage', () => {
     it('returns 200 status with articles data structure', async () => {
       if (!GET || !isDatabaseAvailable) return;
 
-      const req = new NextRequest('http://localhost:3000/api/articles');
+      const req = new Request('http://localhost:3000/api/articles');
       const response = await GET(req);
       const data = await response.json();
 
@@ -57,7 +57,7 @@ describe('Articles API - Comprehensive Coverage', () => {
       if (!GET) return;
 
       // This test assumes database might be unavailable
-      const req = new NextRequest('http://localhost:3000/api/articles');
+      const req = new Request('http://localhost:3000/api/articles');
       const response = await GET(req);
 
       // Should either return data or handle error gracefully
@@ -75,7 +75,7 @@ describe('Articles API - Comprehensive Coverage', () => {
         // Missing slug, content, authorId
       };
 
-      const req = new NextRequest('http://localhost:3000/api/articles', {
+      const req = new Request('http://localhost:3000/api/articles', {
         method: 'POST',
         body: JSON.stringify(invalidData),
         headers: { 'content-type': 'application/json' }
@@ -98,7 +98,7 @@ describe('Articles API - Comprehensive Coverage', () => {
         authorId: 'test-author-id'
       };
 
-      const req = new NextRequest('http://localhost:3000/api/articles', {
+      const req = new Request('http://localhost:3000/api/articles', {
         method: 'POST',
         body: JSON.stringify(validData),
         headers: { 'content-type': 'application/json' }
@@ -122,7 +122,7 @@ describe('Articles API - Comprehensive Coverage', () => {
     it('handles malformed JSON gracefully', async () => {
       if (!POST) return;
 
-      const req = new NextRequest('http://localhost:3000/api/articles', {
+      const req = new Request('http://localhost:3000/api/articles', {
         method: 'POST',
         body: 'invalid json',
         headers: { 'content-type': 'application/json' }
@@ -145,7 +145,7 @@ describe('Articles API - Comprehensive Coverage', () => {
         authorId: 'non-existent-author-id'
       };
 
-      const req = new NextRequest('http://localhost:3000/api/articles', {
+      const req = new Request('http://localhost:3000/api/articles', {
         method: 'POST',
         body: JSON.stringify(validData),
         headers: { 'content-type': 'application/json' }
@@ -166,7 +166,7 @@ describe('Articles API - Comprehensive Coverage', () => {
       if (!GET) return;
 
       // Test assumes database might be down
-      const req = new NextRequest('http://localhost:3000/api/articles');
+      const req = new Request('http://localhost:3000/api/articles');
       const response = await GET(req);
 
       // Should handle gracefully
