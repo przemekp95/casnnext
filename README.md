@@ -1,333 +1,196 @@
-# Centrum Analiz Służby Niepodległej (CASN)
+# CASN
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue)](https://www.docker.com/)
+CASN is a Next.js 16 application for publishing analyses and articles for Centrum Analiz Sluzby Niepodleglej.
 
-Strona internetowa [Centrum Analiz Służby Niepodległej](https://casn.pl) oparta na **Next.js 16 (App Router)**. Platforma publikująca analizy i artykuły w formacie MDX z myślą o wydajności, SEO i prostym zarządzaniu treścią.
+It supports two content sources:
+- `legacy` (default): MySQL + local MDX content in `posts/`
+- `strapi`: Strapi 5 as the CMS source
 
-## 🏗️ Architektura
+## Stack
 
-### Tech Stack
+- Next.js 16 (App Router)
+- React 19
+- TypeScript 5
+- TypeORM + MySQL 8
+- Strapi 5 (`strapi/`, optional provider)
+- Docker / Docker Compose / Nginx
 
-**Core:**
-- Next.js 16 (App Router) + React 19 + TypeScript 5.6
+## Repository Layout
 
-**Database:**
-- TypeORM + MySQL 8.0/MariaDB
+```text
+app/                Next.js routes (pages + API)
+components/         Shared UI components
+lib/                DB, CMS, server-side logic
+migrations/         TypeORM migrations
+posts/              Legacy MDX source files
+public/             Static assets
+strapi/             Strapi project
+scripts/            Utility and CI scripts
+test/               Unit and integration tests
+```
 
-**Content:**
-- MDX (artykuły i analizy w `posts/`)
-- Next.js Image Optimization
-- Strapi 5 CMS (opcjonalny provider treści przez `CONTENT_PROVIDER=strapi`)
+## Prerequisites
 
-**Styling:**
-- Bootstrap 5 + Custom legacy styles
-- Material Design Icons
-
-**Quality:**
-- ESLint + TypeScript strict checking
-- Cypress E2E testing
-- Lighthouse performance monitoring
-
-**Deployment:**
-- Docker + Docker Compose
-- Nginx reverse proxy
-- Self-hosted infrastructure
-
-## 🚀 Szybki start
-
-### Wymagania
 - Node.js 20+
-- Docker & Docker Compose (dla deploymentu)
-- MySQL/MariaDB
+- npm
+- MySQL 8 (local or Docker)
+- Docker (optional)
 
-### Instalacja lokalna
+## Content Provider Switch
+
+Set `CONTENT_PROVIDER`:
+
 ```bash
-# Klonowanie repo
-git clone <repository>
-cd casn
+CONTENT_PROVIDER=legacy
+# or
+CONTENT_PROVIDER=strapi
+```
 
-# Instalacja zależności
+If the DB is unavailable, some server paths fall back to mock/fallback data instead of hard failing.
+
+## Local Development (without Docker)
+
+1. Install dependencies:
+
+```bash
 npm install
+```
 
-# Konfiguracja środowiska
-cp docker-compose.env.example .env
-# Edytuj .env z właściwymi ustawieniami
+2. Create local runtime env file:
 
-# Uruchomienie migracji bazy danych
-npm run migration:run
+```bash
+cp .env.example .env.local
+```
 
-# Start serwera deweloperskiego
+3. Start MySQL and ensure credentials match your env values.
+
+4. Run migrations (recommended with explicit DB URL):
+
+```bash
+DATABASE_URL="mysql://casn_user:casn_password123@127.0.0.1:3306/casn" npm run migration:run
+```
+
+5. Start Next.js:
+
+```bash
 npm run dev
 ```
 
-### Strapi CMS (opcjonalnie)
+App URL: `http://localhost:3000`
+
+## Migration Safety
+
+`migrations/1736424470000-InitialSetup.ts` drops and recreates `Author` and `Analysis`, then seeds data.
+
+Treat `npm run migration:run` as destructive for those two tables.
+
+## Strapi (optional)
+
+Run Strapi:
+
 ```bash
-# Uruchom z Docker Compose (app + mysql + strapi)
-docker compose -f docker-compose.final.yml up --build
+npm run strapi:dev
+```
 
-# Import danych legacy -> Strapi
+Build/start Strapi in production mode:
+
+```bash
+npm run strapi:build
+npm run strapi:start
+```
+
+Migration helpers for moving legacy data to Strapi:
+
+```bash
 npm run cms:import
-
-# Weryfikacja zgodności po imporcie
 npm run cms:verify
 ```
 
-Szczegóły konfiguracji: `docs/strapi-cms.md`.
+More details: `docs/strapi-cms.md`.
 
-### Docker deployment
+## Docker
+
+### Local integrated stack (`docker-compose.final.yml`)
+
+Run:
+
 ```bash
-# Szybki start wszystkich usług
-./docker-start.sh
-# lub
-docker-compose up --build -d
-
-# Dostęp do aplikacji
-# - Aplikacja: http://localhost:3000
-# - Z Nginx proxy: http://localhost:80
+docker compose -f docker-compose.final.yml up --build
 ```
 
-## 🧪 Testowanie
+Services:
+- `mysql` (published on `localhost:3306`)
+- `strapi`
+- `app`
+- `nginx` (published on `localhost:3001`)
 
-### E2E Tests (Cypress)
+Default URLs:
+- App via nginx: `http://localhost:3001`
+- CMS via nginx: `http://localhost:3001/cms`
+- Strapi admin direct: `http://localhost:1337/cms`
+
+Important:
+- The `app` service uses prebuilt image `ghcr.io/przemekp95/casnnext:dev`.
+- `--build` rebuilds `strapi` (because it has `build:`), but not the app image.
+- To run your current branch in this compose setup, build/tag the app image first:
+
 ```bash
-# Uruchomienie testów E2E
-npm run test:e2e
-
-# W trybie headless (CI)
-npm run test:e2e
+docker build -t ghcr.io/przemekp95/casnnext:dev .
+docker compose -f docker-compose.final.yml up --build
 ```
 
-### Unit Tests (Jest)
-```bash
-# Uruchomienie testów jednostkowych
-npm run test
+### Portainer/server-oriented stack (`docker-compose.portainer.yml`)
 
-# Z coverage
-npm run test -- --coverage
+Run:
+
+```bash
+docker compose -f docker-compose.portainer.yml up --build -d
 ```
 
-### TypeScript Checking
-```bash
-# Sprawdzenie typów
-npm run type-check
-```
+Differences:
+- nginx port mapping: `18080:80`
+- app image: `ghcr.io/przemekp95/casnnext:main`
 
-### Linting
+## Useful Scripts
+
 ```bash
-# Sprawdzenie kodu
+npm run dev
+npm run build
+npm run start
 npm run lint
-
-# Auto-fix
 npm run lint:fix
+npm run type-check
+npm run test
+npm run test:ci
+npm run test:integration:live
+npm run test:e2e
+npm run check:posts
+npm run check:cms-mdx-media
+npm run audit:policy
 ```
 
+## Environment Variables
 
-## Help
+See:
+- `.env.example`
+- `docker-compose.env.example`
 
-W przypadku problemów sprawdź:
-- Konfigurację zmiennych środowiskowych w `.env.local`
-- Logi błędów w konsoli deweloperskiej
-- Dokumentację Next.js i TypeORM
+Most important:
+- DB: `DATABASE_URL`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- Provider: `CONTENT_PROVIDER`
+- Strapi: `STRAPI_INTERNAL_URL`, `NEXT_PUBLIC_STRAPI_URL`, `STRAPI_API_TOKEN`
+- Revalidation/webhooks: `STRAPI_WEBHOOK_SECRET`, `REVALIDATE_SECRET`
+- NextAuth: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
 
-## Authors
+## CI/CD
 
-Contributors names and contact info
+GitHub workflows:
+- `.github/workflows/docker.yml` (CI + image build/push)
+- `.github/workflows/deploy.yml` (deploy pipeline)
+- `.github/workflows/release.yml` (tag-based release)
 
-PP Solutions Przemysław Pietrzak
-contact@pietrzakprzemyslaw.pl
+## Notes
 
-## Acknowledgments
-
-Inspiration, code snippets, etc.
-* [Next.js](https://nextjs.org/)
-* [TypeORM](https://typeorm.io/)
-* [MDX](https://mdxjs.com/)
-
-## 📋 Development
-
-### Available Scripts
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run type-check   # Run TypeScript checking
-npm run test:e2e     # Run Cypress E2E tests
-```
-
-### Project Structure
-```
-casn/
-├── app/                 # Next.js App Router
-│   ├── api/            # API routes
-│   ├── _components/    # Reusable components
-│   └── (pages)/        # App pages
-├── components/         # UI components
-├── lib/               # Database, utilities
-├── posts/             # MDX articles
-├── cypress/           # E2E tests
-└── public/            # Static assets
-```
-
-## 🔧 Deployment
-
-### Docker Production Setup
-```bash
-# Build and deploy
-docker-compose -f docker-compose.final.yml up --build -d
-
-# With Portainer management
-docker-compose -f docker-compose.portainer.yml up --build -d
-```
-
-### Environment Variables
-See `docker-compose.env.example` for required configuration:
-- Database connection strings
-- NextAuth secrets
-- Application URLs
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE.md file for details
-
-## 📊 Version History
-
-- **1.1.0** (2026-01-10)
-  - Updated to Next.js 16 and React 19
-  - Added Cypress E2E testing
-  - Docker deployment improvements
-  - TypeScript strict mode enabled
-
-- **1.0.0** (2024)
-  - First production release with Next.js 15 and TypeORM
-  - MDX article system
-  - MySQL database integration
-
-- **0.1.0**
-  - Initial development release
-
-## API Documentation
-
-### Endpoints
-
-#### POST /api/articles
-Tworzenie nowego artykułu.
-
-**Request Body:**
-```json
-{
-  "title": "Tytuł artykułu",
-  "slug": "slug-artykulu",
-  "authorId": 1
-}
-// lub
-{
-  "title": "Tytuł artykułu",
-  "slug": "slug-artykulu",
-  "authorSlug": "autor-slug"
-}
-```
-
-**Response:**
-```json
-{
-  "id": 1,
-  "title": "Tytuł artykułu",
-  "slug": "slug-artykulu",
-  "authorId": 1
-}
-```
-
-#### GET /api/articles
-Pobieranie listy artykułów.
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "title": "Tytuł artykułu",
-    "slug": "slug-artykulu",
-    "authorId": 1,
-    "author_name": "Nazwa autora",
-    "author_slug": "autor-slug"
-  }
-]
-```
-
-#### POST /api/client-log
-Logowanie błędów klienta.
-
-**Request Body:**
-```json
-{
-  "type": "error",
-  "message": "Error message"
-}
-```
-
-#### POST /api/revalidate
-Invalidacja cache dla taga.
-
-**Request Body:**
-```json
-{
-  "tag": "articles"
-}
-```
-
-## Database Schema
-
-### Tabele
-
-- **Author**: Autorzy artykułów
-  - `id` (PRIMARY KEY)
-  - `slug` (UNIQUE)
-  - `name` (VARCHAR(255))
-  - `img` (VARCHAR(255))
-  - `bio` (TEXT)
-
-- **Analysis**: Analizy/artykóły
-  - `id` (PRIMARY KEY)
-  - `title` (VARCHAR(255))
-  - `slug` (UNIQUE, VARCHAR(191))
-  - `authorId` (FOREIGN KEY -> Author.id)
-
-## Architecture Diagram
-
-```
-[Browser]
-    ↓
-[Next.js App Router] → API Routes (/api) → MySQL Database
-    →
-[MDX Files (posts/)] ← Processed by MDXContent Component
-    →
-[TypeORM] → Migration + Query Builder
-```
-
-## Data Flow Diagram
-
-1. User requests page (e.g., /analiza/slug)
-2. Next.js fetches article metadata from MySQL DB
-3. Next.js reads MDX file from filesystem
-4. MDX processed by MDXContent with components (SafeImage, Chart, Map)
-5. HTML rendered and served to user
-6. Client-side JS handles mobile menu interactions (LegacyScripts)
-
-## 📝 Changelog
-
-Follows [Conventional Commits](https://conventionalcommits.org/):
-
-- `feat:` new features
-- `fix:` bug fixes
-- `docs:` documentation updates
-- `test:` testing improvements
-- `refactor:` code restructuring
-- `build:` build system changes
-
-### Recent Changes
-- `fix(build):` exclude Cypress config from TypeScript compilation
-- `test(e2e):` fix tests for plain text responses from broken app
-- `feat:` add comprehensive Docker deployment setup
+- `npm run start` is `next start -p $PORT`, so set `PORT`.
+- For reverse proxy setup under `/cms`, keep `nginx.conf` and Strapi env aligned:
+  `STRAPI_ADMIN_PATH=/cms` and `STRAPI_URL` without `/cms` (for example `https://casn.pl`).
