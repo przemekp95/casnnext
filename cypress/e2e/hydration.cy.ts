@@ -157,55 +157,85 @@ describe('Hydration Tests', () => {
     });
   });
 
-  it.skip('should render author cards with all required attributes', () => {
-    // Skip author cards test in CI - requires specific database data and UI elements
+  it('should render author cards with all required attributes', () => {
     cy.visit('/autorzy');
 
-    // If author cards exist, verify their structure
-    cy.get('.our-team-box').each(($card) => {
-      // Check for image
-      cy.wrap($card).find('img').should('have.attr', 'alt').and('have.attr', 'src');
+    cy.contains('Nasi autorzy').should('be.visible');
 
-      // Check for name
-      cy.wrap($card).find('.our-team-name h6').should('not.be.empty');
+    // In CI data can be empty depending on DB state. Validate either cards or empty-state.
+    cy.get('body').then(($body) => {
+      const cards = $body.find('.our-team-box');
+      if (cards.length === 0) {
+        cy.contains('Autorzy będą wkrótce dodani.').should('be.visible');
+        return;
+      }
 
-      // Check for link
-      cy.wrap($card).find('a').should('have.attr', 'href').and('match', /^\/autor\//);
+      cy.get('.our-team-box').each(($card) => {
+        // Check for image
+        cy.wrap($card).find('img').should('have.attr', 'alt').and('have.attr', 'src');
+
+        // Check for name
+        cy.wrap($card).find('.our-team-name h6').invoke('text').then((text) => {
+          expect(text.trim().length).to.be.greaterThan(0);
+        });
+
+        // Check for link
+        cy.wrap($card)
+          .find('a[href^="/autor/"]')
+          .first()
+          .should('have.attr', 'href')
+          .and('match', /^\/autor\/.+/);
+      });
     });
   });
 
-  it.skip('should render analysis cards with proper structure', () => {
-    // Skip analysis cards test in CI - requires specific database data and UI elements
+  it('should render analysis cards with proper structure', () => {
     cy.visit('/zbiory');
 
-    // Check analysis cards structure
-    cy.get('.blog-list-item').each(($card) => {
-      // Verify CSS classes
-      cy.wrap($card).should('have.class', 'bg-white').and('have.class', 'rounded');
+    cy.contains('Zbiory analiz').should('be.visible');
 
-      // Check for image
-      cy.wrap($card).find('img').should('have.attr', 'alt');
+    // In CI data can be empty depending on DB/filesystem state.
+    cy.get('body').then(($body) => {
+      const cards = $body.find('.blog-list-item');
+      if (cards.length === 0) {
+        cy.get('.projects-wrapper').should('exist');
+        return;
+      }
 
-      // Check for title
-      cy.wrap($card).find('.cases-desc h5').should('not.be.empty');
+      cy.get('.blog-list-item').each(($card) => {
+        // Verify CSS classes
+        cy.wrap($card).should('have.class', 'bg-white').and('have.class', 'rounded');
 
-      // Check for download button
-      cy.wrap($card).find('.learn-more a').should('contain', 'POBIERZ')
-        .and('have.attr', 'href')
-        .and('have.attr', 'target', '_blank')
-        .and('have.attr', 'rel', 'noopener noreferrer');
+        // Check for image
+        cy.wrap($card).find('img').should('have.attr', 'alt');
+
+        // Check for title
+        cy.wrap($card).find('.cases-desc h5').invoke('text').then((text) => {
+          expect(text.trim().length).to.be.greaterThan(0);
+        });
+
+        // Check for download button
+        cy.wrap($card).find('.learn-more a').should('contain.text', 'POBIERZ')
+          .and('have.attr', 'href')
+          .and('match', /\S+/);
+
+        cy.wrap($card).find('.learn-more a').should('have.attr', 'target', '_blank');
+
+        cy.wrap($card).find('.learn-more a').should('have.attr', 'rel')
+          .and('include', 'noopener')
+          .and('include', 'noreferrer');
+      });
     });
   });
 
-  it.skip('should load data from APIs without errors', () => {
-    // Skip API tests in CI - database state may vary and cause inconsistent results
+  it('should load data from APIs without errors', () => {
     // Test authors API
     cy.request('/api/authors').then((response) => {
       expect(response.status).to.equal(200);
       expect(Array.isArray(response.body)).to.equal(true);
 
       if (response.body.length > 0) {
-        const author = response.body[0];
+        const author = response.body[0] as Record<string, unknown>;
         expect(author).to.have.property('id');
         expect(author).to.have.property('slug');
         expect(author).to.have.property('name');
@@ -219,12 +249,13 @@ describe('Hydration Tests', () => {
       expect(Array.isArray(response.body)).to.equal(true);
 
       if (response.body.length > 0) {
-        const article = response.body[0];
+        const article = response.body[0] as Record<string, unknown>;
         expect(article).to.have.property('id');
         expect(article).to.have.property('title');
         expect(article).to.have.property('slug');
-        expect(article).to.have.property('content');
         expect(article).to.have.property('authorId');
+        expect(article).to.have.property('author_name');
+        expect(article).to.have.property('author_slug');
       }
     });
   });
@@ -320,28 +351,42 @@ describe('Hydration Tests', () => {
     });
   });
 
-  it.skip('should navigate between pages without hydration issues', () => {
-    // Skip navigation test in CI - navigation content may vary based on application state
-    // Start on homepage
+  it('should navigate between pages without hydration issues', () => {
+    const hydrationErrors: string[] = [];
+
+    cy.on('window:before:load', (win) => {
+      const originalError = win.console.error;
+      win.console.error = (...args: unknown[]) => {
+        const message = args.join(' ');
+        if (message.includes('Minified React error') ||
+            message.includes('hydration') ||
+            message.includes('Hydration') ||
+            message.includes('Text content does not match') ||
+            message.includes('Expected server HTML to contain') ||
+            message.includes('There was an error while hydrating')) {
+          hydrationErrors.push(message);
+        }
+        originalError.apply(win.console, args);
+      };
+    });
+
     cy.visit('/');
+    cy.get('#navigation a[href="/autorzy"]').first().click({ force: true });
+    cy.url().should('include', '/autorzy');
+    cy.contains('Nasi autorzy').should('be.visible');
 
-    // Try to navigate - check if navigation elements exist
-    cy.get('body').then(($body) => {
-      // Check if we can find any navigation links
-      if ($body.find('a[href*="/autorzy"]').length > 0) {
-        cy.get('a[href*="/autorzy"]').first().click();
-        cy.url().should('include', '/autorzy');
-      }
+    cy.get('#navigation a[href="/zbiory"]').first().click({ force: true });
+    cy.url().should('include', '/zbiory');
+    cy.contains('Zbiory analiz').should('be.visible');
 
-      if ($body.find('a[href*="/zbiory"]').length > 0) {
-        cy.get('a[href*="/zbiory"]').first().click();
-        cy.url().should('include', '/zbiory');
-      }
+    cy.get('#navigation a[href="/"]').first().click({ force: true });
+    cy.url().should('eq', `${Cypress.config('baseUrl')}/`);
 
-      if ($body.find('a[href="/"]').length > 0) {
-        cy.get('a[href="/"]').first().click();
-        cy.url().should('not.include', '/autorzy').and('not.include', '/zbiory');
-      }
+    cy.wrap(null).then(() => {
+      expect(hydrationErrors.length).to.equal(
+        0,
+        `Hydration errors found during navigation: ${hydrationErrors.join(', ')}`
+      );
     });
   });
 });
