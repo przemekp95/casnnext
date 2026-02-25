@@ -69,7 +69,7 @@
     "csv-parse": "^6.1.0",
     "cypress": "^15.11.0",
     "eslint": "^9.39.3",
-    "eslint-config-next": "15.5.12",
+    "eslint-config-next": "^16.1.6",
     "eslint-plugin-boundaries": "^5.4.0",
     "jest": "^30.1.1",
     "jest-environment-jsdom": "^30.1.1",
