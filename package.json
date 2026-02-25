@@ -67,7 +67,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "csv-parse": "^6.1.0",
-    "cypress": "^15.8.2",
+    "cypress": "^15.11.0",
     "eslint": "^9.39.3",
     "eslint-config-next": "15.5.12",
     "eslint-plugin-boundaries": "^5.4.0",
