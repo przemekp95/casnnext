@@ -1,0 +1,52 @@
+name: Refresh dev->main integration PR
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh-dev-main-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Build integration branch from main + dev
+        run: |
+          git fetch origin main dev
+          git checkout -B codex/dev-main-integration origin/main
+          git merge --no-edit -X theirs origin/dev
+
+      - name: Push refreshed integration branch
+        run: |
+          git push --force-with-lease origin codex/dev-main-integration
+
+      - name: Create or update PR to main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr_number="$(gh pr list --base main --head codex/dev-main-integration --state open --json number --jq '.[0].number')"
+          if [ -z "$pr_number" ]; then
+            gh pr create \
+              --base main \
+              --head codex/dev-main-integration \
+              --title "Dev (resolved integration branch)" \
+              --body "Auto-refreshed integration PR generated on each push to dev."
+          else
+            gh pr edit "$pr_number" \
+              --title "Dev (resolved integration branch)" \
+              --body "Auto-refreshed integration PR generated on each push to dev."
+          fi
