@@ -18,6 +18,7 @@ Set these in runtime environments:
 For reverse proxy setup under `/cms`, also set:
 
 - `STRAPI_ADMIN_PATH=/cms`
+- `STRAPI_ADMIN_BACKEND_URL=/cms`
 - `STRAPI_URL=https://casn.pl` (without `/cms`; admin path is configured separately)
 
 ## Local Runtime (Docker)

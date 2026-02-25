@@ -19,7 +19,9 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  APP_IMAGE_NAME: ${{ github.repository }}
+  STRAPI_IMAGE_NAME: ${{ github.repository_owner }}/casn-strapi
+  NGINX_IMAGE_NAME: ${{ github.repository_owner }}/casn-nginx
   COVERAGE_MIN_LINES: '70'
   COVERAGE_EXCELLENT_LINES: '80'
 
@@ -256,7 +258,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy via SSH
-        if: env.DEPLOY_HOST
+        if: ${{ secrets.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -269,8 +271,10 @@ jobs:
             # Pull latest docker-compose configuration
             git pull origin main
 
-            # Pull latest Docker image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
+            # Pull latest Docker images
+            docker pull ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:main
+            docker pull ${{ env.REGISTRY }}/${{ env.STRAPI_IMAGE_NAME }}:main
+            docker pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:main
 
             # Deploy with docker-compose
             docker-compose -f docker-compose.portainer.yml down
@@ -280,7 +284,7 @@ jobs:
             docker image prune -f
 
       - name: Deploy via Portainer API
-        if: env.PORTAINER_URL && !env.DEPLOY_HOST
+        if: ${{ secrets.PORTAINER_URL != '' && secrets.DEPLOY_HOST == '' }}
         run: |
           echo "Deploying via Portainer API"
           # Here you would add Portainer API calls
@@ -288,19 +292,23 @@ jobs:
           # curl -X POST ${{ secrets.PORTAINER_URL }}/api/stacks/webhooks/${{ secrets.PORTAINER_WEBHOOK_ID }}
 
       - name: Manual deployment notification
-        if: ${{ !env.DEPLOY_HOST && !env.PORTAINER_URL }}
+        if: ${{ secrets.DEPLOY_HOST == '' && secrets.PORTAINER_URL == '' }}
         run: |
           echo "Deployment Ready!"
           echo "Commit: ${{ github.sha }}"
-          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main"
+          echo "App image: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:main"
+          echo "Strapi image: ${{ env.REGISTRY }}/${{ env.STRAPI_IMAGE_NAME }}:main"
+          echo "Nginx image: ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:main"
           echo ""
           echo "Manual deployment steps:"
           echo "1. Pull latest code: git pull origin main"
-          echo "2. Pull Docker image: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main"
-          echo "3. Deploy: docker-compose -f docker-compose.portainer.yml up -d"
+          echo "2. Pull app image: docker pull ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:main"
+          echo "3. Pull Strapi image: docker pull ${{ env.REGISTRY }}/${{ env.STRAPI_IMAGE_NAME }}:main"
+          echo "4. Pull nginx image: docker pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:main"
+          echo "5. Deploy: docker-compose -f docker-compose.portainer.yml up -d"
 
       - name: Health check
-        if: env.HEALTH_CHECK_URL
+        if: ${{ secrets.HEALTH_CHECK_URL != '' }}
         run: |
           echo "Performing health check..."
           for i in {1..30}; do

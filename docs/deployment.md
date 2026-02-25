@@ -17,10 +17,10 @@ This document describes the deployment-related GitHub Actions workflows and how 
 
 ### `docker.yml`
 
-- Push to `main`: CI + push image tags for `main`.
-- Push to `dev`: CI + push image tags for `dev`.
-- Push tag `v*`: CI + push semver tags.
-- Pull request to `main` or `dev`: CI + build-only Docker image (no push).
+- Push to `main`: CI + push app, Strapi, and nginx image tags for `main`.
+- Push to `dev`: CI + push app, Strapi, and nginx image tags for `dev`.
+- Push tag `v*`: CI + push app, Strapi, and nginx semver tags.
+- Pull request to `main` or `dev`: CI + build-only app, Strapi, and nginx images (no push).
 
 ### `deploy.yml`
 
@@ -36,18 +36,24 @@ This document describes the deployment-related GitHub Actions workflows and how 
 Both `docker.yml` and `deploy.yml` use:
 
 - `REGISTRY=ghcr.io`
-- `IMAGE_NAME=${{ github.repository }}`
+- `APP_IMAGE_NAME=${{ github.repository }}`
+- `STRAPI_IMAGE_NAME=${{ github.repository_owner }}/casn-strapi`
+- `NGINX_IMAGE_NAME=${{ github.repository_owner }}/casn-nginx`
 
 So images are published and pulled as:
 
 ```text
 ghcr.io/<owner>/<repo>:<tag>
+ghcr.io/<owner>/casn-strapi:<tag>
+ghcr.io/<owner>/casn-nginx:<tag>
 ```
 
 For this repository, that is typically:
 
 ```text
 ghcr.io/przemekp95/casnnext:<tag>
+ghcr.io/przemekp95/casn-strapi:<tag>
+ghcr.io/przemekp95/casn-nginx:<tag>
 ```
 
 ## Deployment Paths in `deploy.yml`
@@ -55,24 +61,16 @@ ghcr.io/przemekp95/casnnext:<tag>
 The deploy job can run one of three paths:
 
 1. SSH deployment (`appleboy/ssh-action`)
-   - Condition: `if: env.DEPLOY_HOST`
+   - Condition: `if: secrets.DEPLOY_HOST != ''`
 2. Portainer API placeholder step
-   - Condition: `if: env.PORTAINER_URL && !env.DEPLOY_HOST`
+   - Condition: `if: secrets.PORTAINER_URL != '' && secrets.DEPLOY_HOST == ''`
 3. Manual deployment notification
    - Condition: when both are false
 
 Optional health check:
 
-- Condition: `if: env.HEALTH_CHECK_URL`
+- Condition: `if: secrets.HEALTH_CHECK_URL != ''`
 - Uses `curl` with retries (30 attempts, every 10 seconds).
-
-## Important Current Limitation
-
-`deploy.yml` step conditions use `env.*` variables (`DEPLOY_HOST`, `PORTAINER_URL`, `HEALTH_CHECK_URL`), while connection values are read from `secrets.*`.
-
-This means:
-- setting only repository secrets does not satisfy those `if: env.*` conditions by itself,
-- and the workflow may fall back to the "Manual deployment notification" path.
 
 ## Secrets Used by `deploy.yml`
 
@@ -106,8 +104,9 @@ docker-compose -f docker-compose.portainer.yml up -d
 
 Image naming is now aligned between workflow and compose:
 
-- `deploy.yml` pulls `ghcr.io/<owner>/<repo>:main` (for this repo: `ghcr.io/przemekp95/casnnext:main`)
-- `docker-compose.portainer.yml` uses `ghcr.io/przemekp95/casnnext:main`
+- `deploy.yml` pulls `ghcr.io/<owner>/<repo>:main` and `ghcr.io/<owner>/casn-strapi:main`
+- `deploy.yml` also pulls `ghcr.io/<owner>/casn-nginx:main`
+- `docker-compose.portainer.yml` uses `ghcr.io/przemekp95/casnnext:main`, `ghcr.io/przemekp95/casn-strapi:main`, and `ghcr.io/przemekp95/casn-nginx:main`
 
 ## Manual Deployment (Current Compose)
 
@@ -117,6 +116,8 @@ If automated deployment is not active, deploy manually on the server:
 cd /opt/casn
 git pull origin main
 docker pull ghcr.io/przemekp95/casnnext:main
+docker pull ghcr.io/przemekp95/casn-strapi:main
+docker pull ghcr.io/przemekp95/casn-nginx:main
 docker-compose -f docker-compose.portainer.yml down
 docker-compose -f docker-compose.portainer.yml up -d
 ```

@@ -56,6 +56,8 @@ jobs:
             ### Docker Image
             \`\`\`bash
             docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            docker pull ghcr.io/${{ github.repository_owner }}/casn-strapi:${{ github.ref_name }}
+            docker pull ghcr.io/${{ github.repository_owner }}/casn-nginx:${{ github.ref_name }}
             \`\`\`
 
             ### Deployment
