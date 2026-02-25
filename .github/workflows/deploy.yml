@@ -252,13 +252,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     needs: [test, strapi-smoke]
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
+      HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Deploy via SSH
-        if: ${{ secrets.DEPLOY_HOST != '' }}
+        if: ${{ env.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -284,7 +288,7 @@ jobs:
             docker image prune -f
 
       - name: Deploy via Portainer API
-        if: ${{ secrets.PORTAINER_URL != '' && secrets.DEPLOY_HOST == '' }}
+        if: ${{ env.PORTAINER_URL != '' && env.DEPLOY_HOST == '' }}
         run: |
           echo "Deploying via Portainer API"
           # Here you would add Portainer API calls
@@ -292,7 +296,7 @@ jobs:
           # curl -X POST ${{ secrets.PORTAINER_URL }}/api/stacks/webhooks/${{ secrets.PORTAINER_WEBHOOK_ID }}
 
       - name: Manual deployment notification
-        if: ${{ secrets.DEPLOY_HOST == '' && secrets.PORTAINER_URL == '' }}
+        if: ${{ env.DEPLOY_HOST == '' && env.PORTAINER_URL == '' }}
         run: |
           echo "Deployment Ready!"
           echo "Commit: ${{ github.sha }}"
@@ -308,11 +312,11 @@ jobs:
           echo "5. Deploy: docker-compose -f docker-compose.portainer.yml up -d"
 
       - name: Health check
-        if: ${{ secrets.HEALTH_CHECK_URL != '' }}
+        if: ${{ env.HEALTH_CHECK_URL != '' }}
         run: |
           echo "Performing health check..."
           for i in {1..30}; do
-            if curl -f -s ${{ secrets.HEALTH_CHECK_URL }} > /dev/null; then
+            if curl -f -s ${{ env.HEALTH_CHECK_URL }} > /dev/null; then
               echo "Health check passed"
               exit 0
             fi
