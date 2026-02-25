@@ -131,7 +131,7 @@ Default URLs:
 
 Important:
 - The `app` service uses prebuilt image `ghcr.io/przemekp95/casnnext:dev`.
-- `--build` rebuilds `strapi` (because it has `build:`), but not the app image.
+- `--build` rebuilds `strapi` and `nginx` (both use local Dockerfiles), but not the app image.
 - To run your current branch in this compose setup, build/tag the app image first:
 
 ```bash
@@ -150,6 +150,9 @@ docker compose -f docker-compose.portainer.yml up --build -d
 Differences:
 - nginx port mapping: `18080:80`
 - app image: `ghcr.io/przemekp95/casnnext:main`
+- strapi image: `ghcr.io/przemekp95/casn-strapi:main`
+- nginx image: `ghcr.io/przemekp95/casn-nginx:main`
+- nginx config is baked into the nginx image (no host-mounted `nginx.conf`)
 
 ## Useful Scripts
 
@@ -185,7 +188,7 @@ Most important:
 ## CI/CD
 
 GitHub workflows:
-- `.github/workflows/docker.yml` (CI + image build/push)
+- `.github/workflows/docker.yml` (CI + build/push for app, Strapi, and nginx images)
 - `.github/workflows/deploy.yml` (deploy pipeline)
 - `.github/workflows/release.yml` (tag-based release)
 
@@ -193,4 +196,5 @@ GitHub workflows:
 
 - `npm run start` is `next start -p $PORT`, so set `PORT`.
 - For reverse proxy setup under `/cms`, keep `nginx.conf` and Strapi env aligned:
-  `STRAPI_ADMIN_PATH=/cms` and `STRAPI_URL` without `/cms` (for example `https://casn.pl`).
+  `STRAPI_ADMIN_PATH=/cms`, `STRAPI_ADMIN_BACKEND_URL=/cms`, and `STRAPI_URL` without `/cms`
+  (for example `https://casn.pl`).

@@ -26,8 +26,7 @@ services:
       - casn-network
 
   strapi:
-    build:
-      context: ./strapi
+    image: ghcr.io/przemekp95/casn-strapi:main
     container_name: casn-strapi
     restart: unless-stopped
     depends_on:
@@ -45,6 +44,7 @@ services:
       DATABASE_PASSWORD: casn_password123
       STRAPI_URL: "https://casn.pl"
       STRAPI_ADMIN_PATH: "/cms"
+      STRAPI_ADMIN_BACKEND_URL: "/cms"
       APP_KEYS: "app-key-1,app-key-2,app-key-3,app-key-4"
       API_TOKEN_SALT: "api-token-salt-change-me"
       ADMIN_JWT_SECRET: "admin-jwt-secret-change-me"
@@ -54,7 +54,7 @@ services:
     volumes:
       - strapi_uploads:/opt/strapi/public/uploads
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:1337/admin >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:1337/cms >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -110,7 +110,7 @@ services:
       - casn-network
 
   nginx:
-    image: nginx:1.27-alpine
+    image: ghcr.io/przemekp95/casn-nginx:main
     container_name: casn-nginx
     restart: unless-stopped
     depends_on:
@@ -118,8 +118,6 @@ services:
         condition: service_started
       strapi:
         condition: service_started
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - "18080:80"
     networks:
