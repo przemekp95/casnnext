@@ -50,6 +50,7 @@ services:
       DATABASE_PASSWORD: casn_password123
       STRAPI_URL: "http://localhost:3001"
       STRAPI_ADMIN_PATH: "/cms"
+      STRAPI_ADMIN_BACKEND_URL: "/cms"
       APP_KEYS: "app-key-1,app-key-2,app-key-3,app-key-4"
       API_TOKEN_SALT: "api-token-salt-change-me"
       ADMIN_JWT_SECRET: "admin-jwt-secret-change-me"
@@ -61,7 +62,7 @@ services:
     ports:
       - "1337:1337"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:1337/admin >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:1337/cms >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -107,7 +108,9 @@ services:
     #   - ./public:/app/public:ro  # REMOVED - public files are already in the image
 
   nginx:
-    image: nginx:1.27-alpine
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
     container_name: casn-nginx
     restart: unless-stopped
     depends_on:
@@ -115,8 +118,6 @@ services:
         condition: service_started
       strapi:
         condition: service_started
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - "3001:80"
     networks:

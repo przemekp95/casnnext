@@ -9,7 +9,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  APP_IMAGE_NAME: ${{ github.repository }}
+  STRAPI_IMAGE_NAME: ${{ github.repository_owner }}/casn-strapi
+  NGINX_IMAGE_NAME: ${{ github.repository_owner }}/casn-nginx
   COVERAGE_MIN_LINES: '70'
   COVERAGE_EXCELLENT_LINES: '80'
 
@@ -301,53 +303,155 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (main/tag)
-        id: meta-main
+      - name: Extract app metadata (main/tag)
+        id: meta-app-main
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
-      - name: Extract metadata (dev)
-        id: meta-dev
+      - name: Extract app metadata (dev)
+        id: meta-app-dev
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}
           tags: |
             type=raw,value=dev
             type=ref,event=branch
 
-      - name: Build Docker image (PR)
+      - name: Extract Strapi metadata (main/tag)
+        id: meta-strapi-main
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.STRAPI_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Extract Strapi metadata (dev)
+        id: meta-strapi-dev
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.STRAPI_IMAGE_NAME }}
+          tags: |
+            type=raw,value=dev
+            type=ref,event=branch
+
+      - name: Extract nginx metadata (main/tag)
+        id: meta-nginx-main
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Extract nginx metadata (dev)
+        id: meta-nginx-dev
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}
+          tags: |
+            type=raw,value=dev
+            type=ref,event=branch
+
+      - name: Build app Docker image (PR)
         if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: false
-          tags: pr-${{ github.event.number }}
+          tags: pr-${{ github.event.number }}-app
 
-      - name: Build and push Docker image (main/tag)
+      - name: Build Strapi Docker image (PR)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./strapi
+          file: ./strapi/Dockerfile
+          push: false
+          tags: pr-${{ github.event.number }}-strapi
+
+      - name: Build nginx Docker image (PR)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./nginx/Dockerfile
+          push: false
+          tags: pr-${{ github.event.number }}-nginx
+
+      - name: Build and push app Docker image (main/tag)
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta-main.outputs.tags }}
-          labels: ${{ steps.meta-main.outputs.labels }}
+          tags: ${{ steps.meta-app-main.outputs.tags }}
+          labels: ${{ steps.meta-app-main.outputs.labels }}
 
-      - name: Build and push Docker image (dev)
+      - name: Build and push app Docker image (dev)
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta-dev.outputs.tags }}
-          labels: ${{ steps.meta-dev.outputs.labels }}
+          tags: ${{ steps.meta-app-dev.outputs.tags }}
+          labels: ${{ steps.meta-app-dev.outputs.labels }}
+
+      - name: Build and push Strapi Docker image (main/tag)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: docker/build-push-action@v5
+        with:
+          context: ./strapi
+          file: ./strapi/Dockerfile
+          push: true
+          tags: ${{ steps.meta-strapi-main.outputs.tags }}
+          labels: ${{ steps.meta-strapi-main.outputs.labels }}
+
+      - name: Build and push Strapi Docker image (dev)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./strapi
+          file: ./strapi/Dockerfile
+          push: true
+          tags: ${{ steps.meta-strapi-dev.outputs.tags }}
+          labels: ${{ steps.meta-strapi-dev.outputs.labels }}
+
+      - name: Build and push nginx Docker image (main/tag)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./nginx/Dockerfile
+          push: true
+          tags: ${{ steps.meta-nginx-main.outputs.tags }}
+          labels: ${{ steps.meta-nginx-main.outputs.labels }}
+
+      - name: Build and push nginx Docker image (dev)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./nginx/Dockerfile
+          push: true
+          tags: ${{ steps.meta-nginx-dev.outputs.tags }}
+          labels: ${{ steps.meta-nginx-dev.outputs.labels }}

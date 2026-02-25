@@ -10,8 +10,8 @@
     "strapi": "strapi"
   },
   "dependencies": {
-    "@strapi/strapi": "5.36.0",
-    "mysql2": "^3.15.3",
+    "@strapi/strapi": "^5.36.1",
+    "mysql2": "^3.17.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.3",
