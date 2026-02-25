@@ -11,6 +11,31 @@ import { AppDataSource } from '../db.server';
 import '../entities/Author';
 import '../entities/Analysis';
 
+const DOMANSKA_NAME = 'dr Agnieszka Domańska';
+
+async function enforceDomanskaName(): Promise<void> {
+  if (!AppDataSource?.isInitialized) {
+    return;
+  }
+
+  try {
+    const result = await AppDataSource.query(
+      `UPDATE Author
+       SET name = ?, displayName = ?
+       WHERE slug = ?
+         AND (name <> ? OR displayName <> ?)`,
+      [DOMANSKA_NAME, DOMANSKA_NAME, 'domanska', DOMANSKA_NAME, DOMANSKA_NAME]
+    ) as { affectedRows?: number };
+
+    if ((result?.affectedRows ?? 0) > 0) {
+      console.log(`Corrected author domanska -> ${DOMANSKA_NAME}`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('Could not enforce domanska overwrite:', message);
+  }
+}
+
 export async function initializeDatabase() {
   // Check for database configuration
   const hasDatabaseConfig = !!(
@@ -129,6 +154,8 @@ export async function initializeDatabase() {
   } else {
     console.log('Database already initialized');
   }
+
+  await enforceDomanskaName();
 
   return AppDataSource;
 }

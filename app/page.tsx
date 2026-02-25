@@ -2,6 +2,14 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import Hero from "@/components/Hero";
 
+const NBSP = "\u00A0";
+
+function bindOrphans(text: string): string {
+  return text
+    .replace(/\b([AaIiOoUuWwZz])\s+/g, `$1${NBSP}`)
+    .replace(/\s+([^\s]+)\s*$/, `${NBSP}$1`);
+}
+
 export const metadata: Metadata = {
   title: "Centrum Analiz Służby Niepodległej",
   description: "Centrum Analiz Fundacji Służby Niepodległej - niezależne analizy polityczne, gospodarcze i społeczne. Badania suwerenności informacyjnej, energetycznej, konstytucyjnej i kulturowej.",
@@ -61,24 +69,26 @@ export default function HomePage() {
 
             <div className="col-lg-6">
               <div className="about-content">
-                <h2 className="about-title text-dark">
-                  Choć niepodległość państwowa i narodowa dziś, w globalizującym
-                  się świecie, jest pojęciem znacznie trudniej definiowalnym, nie
-                  uważamy, aby nie można było współcześnie zdefiniować jej
-                  istoty.
+                <h2 className="about-title text-dark" style={{ textAlign: "justify" }}>
+                  {bindOrphans(
+                    "Choć niepodległość państwowa i narodowa we współczesnym, globalizującym się świecie stanowi pojęcie coraz trudniejsze do jednoznacznego zdefiniowania, stoimy na stanowisku, iż możliwe i konieczne pozostaje określenie jej istoty oraz warunków jej realnego sprawowania."
+                  )}
                 </h2>
                 <p className="text-muted" style={{ textAlign: "justify" }}>
-                  Pomocnym wydają się tu zwłaszcza badania porównawcze, z
-                  państwami i narodami &quot;silnymi&quot;. A takim państwem i
-                  narodem chcemy być i tak rozumiemy służbę dla Niepodległej.
-                  Chcemy na tych łamach podejmować ten trud i zaszczytną służbę,
-                  analizując kluczowe obszary współczesnej suwerenności m.in.:
-                  suwerenność informacyjną, energetyczną, konstytucyjną,
-                  militarną, gospodarczą, edukacyjną i kulturową szeroko rzecz
-                  ujmując.
+                  {bindOrphans(
+                    "W tym kontekście szczególnego znaczenia nabierają badania porównawcze odnoszące się do doświadczeń państw i narodów o wysokim poziomie sprawczości politycznej, gospodarczej i kulturowej. Do takiego modelu państwowości i wspólnoty narodowej aspirujemy, tak też rozumiemy naszą misję i służbę na rzecz Niepodległej. Na niniejszych łamach podejmujemy systematyczną refleksję analityczną nad kluczowymi wymiarami współczesnej suwerenności, obejmującymi m.in. suwerenność informacyjną, energetyczną, konstytucyjną, militarną, gospodarczą, edukacyjną oraz kulturową, ujmowanymi w perspektywie całościowej i interdyscyplinarnej."
+                  )}
                 </p>
-                <p className="text-muted">Poniżej znajdziecie Państwo nasze inauguracyjne analizy.</p>
-                <p className="text-muted">Życzymy miłej lektury i zapraszamy do współpracy!</p>
+                <p className="text-muted" style={{ textAlign: "justify" }}>
+                  {bindOrphans(
+                    "Poniżej przedstawiamy analizy przygotowane na przestrzeni ostatnich lat przez zespół naszych autorów."
+                  )}
+                </p>
+                <p className="text-muted" style={{ textAlign: "justify" }}>
+                  {bindOrphans(
+                    "Zapraszamy do lektury oraz do współpracy badawczej i eksperckiej."
+                  )}
+                </p>
 
                 <div className="pt-3">
                   <a href="/zbiory" className="btn btn-custom">Przeczytaj analizy</a>
