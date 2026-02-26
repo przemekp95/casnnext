@@ -10,7 +10,30 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-export const metadata: Metadata = { title: "Analizy - Centrum Analiz Służby Niepodległej" };
+export const metadata: Metadata = {
+  title: "Analizy - Centrum Analiz Służby Niepodległej",
+  description:
+    "Archiwum analiz politycznych, gospodarczych i społecznych publikowanych przez Centrum Analiz Służby Niepodległej.",
+  alternates: {
+    canonical: "https://casn.pl/analizy",
+  },
+  openGraph: {
+    title: "Analizy - Centrum Analiz Służby Niepodległej",
+    description:
+      "Archiwum analiz politycznych, gospodarczych i społecznych publikowanych przez Centrum Analiz Służby Niepodległej.",
+    type: "website",
+    url: "https://casn.pl/analizy",
+    siteName: "Centrum Analiz Służby Niepodległej",
+    images: "/images/home2.webp",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Analizy - Centrum Analiz Służby Niepodległej",
+    description:
+      "Archiwum analiz politycznych, gospodarczych i społecznych publikowanych przez Centrum Analiz Służby Niepodległej.",
+    images: ["/images/home2.webp"],
+  },
+};
 
 export default async function AnalysesPage() {
   // Skip during build time
