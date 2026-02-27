@@ -4,7 +4,30 @@ import type { Metadata } from "next";
 import Hero from "@/components/Hero";
 import { ContactSection } from "./ContactSection";
 
-export const metadata: Metadata = { title: "Kontakt - Centrum Analiz Służby Niepodległej" };
+export const metadata: Metadata = {
+  title: "Kontakt - Centrum Analiz Służby Niepodległej",
+  description:
+    "Skontaktuj się z Centrum Analiz Służby Niepodległej. Dane adresowe i informacje kontaktowe.",
+  alternates: {
+    canonical: "https://casn.pl/kontakt",
+  },
+  openGraph: {
+    title: "Kontakt - Centrum Analiz Służby Niepodległej",
+    description:
+      "Skontaktuj się z Centrum Analiz Służby Niepodległej. Dane adresowe i informacje kontaktowe.",
+    type: "website",
+    url: "https://casn.pl/kontakt",
+    siteName: "Centrum Analiz Służby Niepodległej",
+    images: "/images/home2.webp",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Kontakt - Centrum Analiz Służby Niepodległej",
+    description:
+      "Skontaktuj się z Centrum Analiz Służby Niepodległej. Dane adresowe i informacje kontaktowe.",
+    images: ["/images/home2.webp"],
+  },
+};
 
 export default function KontaktPage() {
   return (
