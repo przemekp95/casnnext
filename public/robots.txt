@@ -12,6 +12,8 @@ Disallow: /*.json$
 Disallow: /*?*
 
 # Pozwolenie na dostęp do CSS i JS
+Allow: /_next/static/
+Allow: /_next/image/
 Allow: /css/
 Allow: /js/
 Allow: /images/

@@ -137,6 +137,54 @@ describe('app/analizy/[slug]/page', () => {
     expect(alternates?.canonical).toBe('https://casn.pl/analizy/testowa-analiza');
   });
 
+  it('generateMetadata prefers MDX frontmatter fields for SEO', async () => {
+    mockedGetAnalysisBySlug.mockResolvedValueOnce(
+      createAnalysisDetail({
+        slug: 'frontmatter-analiza',
+        title: 'Baza tytułu',
+        description: 'Opis z bazy',
+        lead: 'Lead z bazy',
+        category: 'energetyka',
+        author: { name: 'Jan Kowalski' },
+        contentMdx: `---
+title: "Frontmatter {{analysisTitle}}"
+description: "Opis z frontmatter"
+date: "2025-11-15"
+category: "geopolityka"
+keywords:
+  - suwerenność
+  - strategia
+image: "/images/og-frontmatter.webp"
+---
+# Nagłówek
+
+Treść wpisu.`,
+      }),
+    );
+
+    const result = await generateMetadata({ params: Promise.resolve({ slug: 'frontmatter-analiza' }) });
+
+    const openGraph = result.openGraph as
+      | {
+          title?: string;
+          description?: string;
+          images?: Array<{ url?: string }>;
+          section?: string;
+          publishedTime?: string;
+        }
+      | undefined;
+    const twitter = result.twitter as { images?: string[] } | undefined;
+
+    expect(result.title).toBe('Frontmatter Baza tytułu - Centrum Analiz Służby Niepodległej');
+    expect(result.description).toBe('Opis z frontmatter');
+    expect(result.keywords).toEqual(expect.arrayContaining(['suwerenność', 'strategia', 'geopolityka']));
+    expect(openGraph?.description).toBe('Opis z frontmatter');
+    expect(openGraph?.section).toBe('geopolityka');
+    expect(openGraph?.publishedTime).toContain('2025-11-15');
+    expect(openGraph?.images?.[0]?.url).toBe('https://casn.pl/images/og-frontmatter.webp');
+    expect(twitter?.images).toEqual(['https://casn.pl/images/og-frontmatter.webp']);
+  });
+
   it('generateMetadata falls back to site defaults on unexpected error', async () => {
     mockedGetAnalysisBySlug.mockRejectedValueOnce(new Error('Unexpected failure'));
 
