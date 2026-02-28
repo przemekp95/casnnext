@@ -11,7 +11,30 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-export const metadata: Metadata = { title: "Zbiory analiz - Centrum Analiz Służby Niepodległej" };
+export const metadata: Metadata = {
+  title: "Zbiory analiz - Centrum Analiz Służby Niepodległej",
+  description:
+    "Pobierz publikacje i raporty zbiorcze Centrum Analiz Służby Niepodległej w wersji cyfrowej.",
+  alternates: {
+    canonical: "https://casn.pl/zbiory",
+  },
+  openGraph: {
+    title: "Zbiory analiz - Centrum Analiz Służby Niepodległej",
+    description:
+      "Pobierz publikacje i raporty zbiorcze Centrum Analiz Służby Niepodległej w wersji cyfrowej.",
+    type: "website",
+    url: "https://casn.pl/zbiory",
+    siteName: "Centrum Analiz Służby Niepodległej",
+    images: "/images/home2.webp",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Zbiory analiz - Centrum Analiz Służby Niepodległej",
+    description:
+      "Pobierz publikacje i raporty zbiorcze Centrum Analiz Służby Niepodległej w wersji cyfrowej.",
+    images: ["/images/home2.webp"],
+  },
+};
 
 export default async function AnnualReportsPage() {
   const issues = await getIssueCollections();
