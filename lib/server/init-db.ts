@@ -6,12 +6,15 @@ import 'server-only';
 export const runtime = "nodejs";
 
 import { AppDataSource } from '../db.server';
+import {
+  BALCEROWSKI_CANONICAL_IMAGE,
+  DOMANSKA_CANONICAL_IMAGE,
+  DOMANSKA_CANONICAL_NAME,
+} from './author-overrides';
 
 // Import entities to ensure they're registered with TypeORM
 import '../entities/Author';
 import '../entities/Analysis';
-
-const DOMANSKA_NAME = 'dr Agnieszka Domańska';
 
 async function enforceDomanskaName(): Promise<void> {
   if (!AppDataSource?.isInitialized) {
@@ -21,18 +24,66 @@ async function enforceDomanskaName(): Promise<void> {
   try {
     const result = await AppDataSource.query(
       `UPDATE Author
-       SET name = ?, displayName = ?
-       WHERE slug = ?
-         AND (name <> ? OR displayName <> ?)`,
-      [DOMANSKA_NAME, DOMANSKA_NAME, 'domanska', DOMANSKA_NAME, DOMANSKA_NAME]
+       SET name = ?, displayName = ?, img = ?
+       WHERE (
+         LOWER(slug) LIKE '%domanska%'
+         OR LOWER(name) LIKE '%domanska%'
+         OR LOWER(displayName) LIKE '%domanska%'
+         OR LOWER(name) LIKE '%domańska%'
+         OR LOWER(displayName) LIKE '%domańska%'
+       )
+       AND (
+         name <> ?
+         OR displayName <> ?
+         OR COALESCE(img, '') <> ?
+       )`,
+      [
+        DOMANSKA_CANONICAL_NAME,
+        DOMANSKA_CANONICAL_NAME,
+        DOMANSKA_CANONICAL_IMAGE,
+        DOMANSKA_CANONICAL_NAME,
+        DOMANSKA_CANONICAL_NAME,
+        DOMANSKA_CANONICAL_IMAGE,
+      ]
     ) as { affectedRows?: number };
 
     if ((result?.affectedRows ?? 0) > 0) {
-      console.log(`Corrected author domanska -> ${DOMANSKA_NAME}`);
+      console.log(
+        `Corrected Domańska canonical data (${result.affectedRows} row(s))`
+      );
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn('Could not enforce domanska overwrite:', message);
+  }
+}
+
+async function enforceBalcerowskiImage(): Promise<void> {
+  if (!AppDataSource?.isInitialized) {
+    return;
+  }
+
+  try {
+    const result = await AppDataSource.query(
+      `UPDATE Author
+       SET img = ?
+       WHERE (
+         LOWER(slug) LIKE '%balcerowski%'
+         OR LOWER(name) LIKE '%balcerowski%'
+         OR LOWER(displayName) LIKE '%balcerowski%'
+       )
+       AND COALESCE(img, '') <> ?`,
+      [BALCEROWSKI_CANONICAL_IMAGE, BALCEROWSKI_CANONICAL_IMAGE]
+    ) as { affectedRows?: number };
+
+    if ((result?.affectedRows ?? 0) > 0) {
+      console.log(
+        `Corrected Balcerowski canonical image (${result.affectedRows} row(s))`
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('Could not enforce balcerowski image overwrite:', message);
   }
 }
 
@@ -156,6 +207,7 @@ export async function initializeDatabase() {
   }
 
   await enforceDomanskaName();
+  await enforceBalcerowskiImage();
 
   return AppDataSource;
 }
