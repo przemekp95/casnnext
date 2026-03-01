@@ -12,6 +12,7 @@ import {
   fetchCmsAuthorByLegacyId,
   fetchCmsAuthorBySlug,
 } from "@/lib/cms/strapi-client";
+import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
 
 type ArticleRow = {
   id: number | string;
@@ -51,6 +52,19 @@ function responseWithCache(payload: unknown, status = 200) {
   });
 }
 
+function normalizeArticleAuthor(row: ArticleRow): ArticleRow {
+  const normalized = applyAuthorCanonicalOverrides({
+    slug: row.author_slug,
+    name: row.author_name,
+    displayName: row.author_name,
+  });
+
+  return {
+    ...row,
+    author_name: normalized.displayName ?? normalized.name ?? row.author_name,
+  };
+}
+
 async function getLegacyArticles(): Promise<ArticleRow[]> {
   if (!isDatabaseConfigured()) return [];
   if (!AppDataSource || !AppDataSource.isInitialized) return [];
@@ -73,14 +87,16 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
           .orderBy("analysis.id", "DESC")
           .getRawMany();
 
-        return data.map((item: any) => ({
-          id: item.id,
-          title: item.title,
-          slug: item.slug,
-          authorId: item.authorId as number,
-          author_name: item.author_name,
-          author_slug: item.author_slug,
-        }));
+        return data
+          .map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            slug: item.slug,
+            authorId: item.authorId as number,
+            author_name: item.author_name,
+            author_slug: item.author_slug,
+          }))
+          .map(normalizeArticleAuthor);
       },
       ["articles"],
       { revalidate: 300, tags: ["articles"] }
@@ -104,26 +120,30 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
     .orderBy("analysis.id", "DESC")
     .getRawMany();
 
-  return data.map((item: any) => ({
-    id: item.id,
-    title: item.title,
-    slug: item.slug,
-    authorId: item.authorId as number,
-    author_name: item.author_name,
-    author_slug: item.author_slug,
-  }));
+  return data
+    .map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      slug: item.slug,
+      authorId: item.authorId as number,
+      author_name: item.author_name,
+      author_slug: item.author_slug,
+    }))
+    .map(normalizeArticleAuthor);
 }
 
 async function getStrapiArticles(): Promise<ArticleRow[]> {
   const analyses = await getAnalyses();
-  return analyses.map((analysis) => ({
-    id: analysis.id,
-    title: analysis.title,
-    slug: analysis.slug,
-    authorId: analysis.authorId,
-    author_name: analysis.author?.name || null,
-    author_slug: analysis.author?.slug || null,
-  }));
+  return analyses
+    .map((analysis) => ({
+      id: analysis.id,
+      title: analysis.title,
+      slug: analysis.slug,
+      authorId: analysis.authorId,
+      author_name: analysis.author?.name || null,
+      author_slug: analysis.author?.slug || null,
+    }))
+    .map(normalizeArticleAuthor);
 }
 
 export async function GET() {
@@ -190,14 +210,14 @@ async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlu
   }
 
   return NextResponse.json(
-    {
+    normalizeArticleAuthor({
       id: articleWithAuthor.id,
       title: articleWithAuthor.title,
       slug: articleWithAuthor.slug,
       authorId: articleWithAuthor.authorId as number,
       author_name: articleWithAuthor.author_name,
       author_slug: articleWithAuthor.author_slug,
-    },
+    }),
     { status: 201 }
   );
 }
@@ -233,14 +253,14 @@ async function createStrapiArticle(body: PostBodyBase | BodyWithId | BodyWithSlu
   }
 
   return NextResponse.json(
-    {
+    normalizeArticleAuthor({
       id: created.id,
       title: created.title,
       slug: created.slug,
       authorId: author.legacyId ?? author.id,
       author_name: author.name,
       author_slug: author.slug,
-    },
+    }),
     { status: 201 }
   );
 }

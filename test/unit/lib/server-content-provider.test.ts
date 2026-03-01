@@ -303,4 +303,77 @@ describe("server content provider dual-source behavior", () => {
     expect(analysisKnownSlug?.slug).toBe("geopolityka-europy-srodkowej");
     expect(analysisUnknownSlug).toBeNull();
   });
+
+  it("normalizes legacy author names and images for domanska and balcerowski", async () => {
+    isStrapiProviderMock.mockReturnValue(false);
+    const find = jest.fn().mockResolvedValue([
+      {
+        id: 1,
+        slug: "domanska",
+        name: "Dr Aldona Domańska",
+        displayName: "Dr Aldona Domańska",
+        img: "/images/whatever.png",
+        bio: null,
+      },
+      {
+        id: 2,
+        slug: "piotr-balcerowski",
+        name: "dr Piotr Balcerowski",
+        displayName: "dr Piotr Balcerowski",
+        img: "/images/Balcerowski.png",
+        bio: null,
+      },
+    ]);
+    const getRepository = jest.fn().mockReturnValue({ find });
+    executeRscQueryMock.mockImplementation(async (queryFn) =>
+      queryFn({ getRepository } as never)
+    );
+
+    const authors = await getAuthors();
+
+    expect(authors[0].name).toBe("dr Agnieszka Domańska");
+    expect(authors[0].displayName).toBe("dr Agnieszka Domańska");
+    expect(authors[0].img).toBe("/images/Domanska.png");
+    expect(authors[1].img).toBe("/images/placeholder.png");
+  });
+
+  it("normalizes legacy analysis author data for domanska and balcerowski", async () => {
+    isStrapiProviderMock.mockReturnValue(false);
+    const find = jest.fn().mockResolvedValue([
+      {
+        id: 11,
+        title: "Legacy Analysis",
+        slug: "legacy-analysis",
+        authorId: 1,
+        author: {
+          id: 1,
+          slug: "aldona-domanska",
+          name: "dr Aldona Domańska",
+          img: "/images/old.png",
+        },
+      },
+      {
+        id: 12,
+        title: "Legacy Analysis 2",
+        slug: "legacy-analysis-2",
+        authorId: 2,
+        author: {
+          id: 2,
+          slug: "balcerowski",
+          name: "dr Piotr Balcerowski",
+          img: "/images/Balcerowski.png",
+        },
+      },
+    ]);
+    const getRepository = jest.fn().mockReturnValue({ find });
+    executeRscQueryMock.mockImplementation(async (queryFn) =>
+      queryFn({ getRepository } as never)
+    );
+
+    const analyses = await getAnalyses();
+
+    expect(analyses[0].author?.name).toBe("dr Agnieszka Domańska");
+    expect(analyses[0].author?.img).toBe("/images/Domanska.png");
+    expect(analyses[1].author?.img).toBe("/images/placeholder.png");
+  });
 });
