@@ -67,6 +67,15 @@ type AuthorCanonicalOverride = {
   preferLegacyImage?: boolean;
 };
 
+function normalizeAcademicTitleCase(value: string): string {
+  const compact = value.trim().replace(/\s+/g, " ");
+
+  return compact
+    .replace(/\bdr\.?(?=\s)/gi, "dr")
+    .replace(/\badw\.?(?=\s)/gi, "adw.")
+    .replace(/\bprof\.?(?=\s)/gi, "prof.");
+}
+
 const AUTHOR_CANONICAL_OVERRIDES: Record<string, AuthorCanonicalOverride> = {
   balcerowski: {
     img: "/images/placeholder.png",
@@ -77,20 +86,20 @@ const AUTHOR_CANONICAL_OVERRIDES: Record<string, AuthorCanonicalOverride> = {
     preferLegacyImage: true,
   },
   domanska: {
-    name: "dr Agnieszka Domańska",
-    displayName: "dr Agnieszka Domańska",
+    name: "prof. Agnieszka Domańska",
+    displayName: "prof. Agnieszka Domańska",
     img: "/images/Domanska.png",
     preferLegacyImage: true,
   },
   "anna-domanska": {
-    name: "dr Agnieszka Domańska",
-    displayName: "dr Agnieszka Domańska",
+    name: "prof. Agnieszka Domańska",
+    displayName: "prof. Agnieszka Domańska",
     img: "/images/Domanska.png",
     preferLegacyImage: true,
   },
   "aldona-domanska": {
-    name: "dr Agnieszka Domańska",
-    displayName: "dr Agnieszka Domańska",
+    name: "prof. Agnieszka Domańska",
+    displayName: "prof. Agnieszka Domańska",
     img: "/images/Domanska.png",
     preferLegacyImage: true,
   },
@@ -99,20 +108,19 @@ const AUTHOR_CANONICAL_OVERRIDES: Record<string, AuthorCanonicalOverride> = {
 function normalizeCmsAuthor(author: CmsAuthor): CmsAuthor {
   const normalizedSlug = author.slug.trim().toLowerCase();
   const override = AUTHOR_CANONICAL_OVERRIDES[normalizedSlug];
-  if (!override) {
-    return author;
-  }
-
-  const normalizedName = override.name ?? author.name;
-  const normalizedDisplayName =
-    override.displayName ?? override.name ?? author.displayName;
+  const normalizedName = normalizeAcademicTitleCase(
+    override?.name ?? author.name
+  );
+  const normalizedDisplayName = normalizeAcademicTitleCase(
+    override?.displayName ?? override?.name ?? author.displayName
+  );
 
   return {
     ...author,
     name: normalizedName,
     displayName: normalizedDisplayName,
-    legacyImgPath: override.img ?? author.legacyImgPath,
-    avatarUrl: override.preferLegacyImage ? null : author.avatarUrl,
+    legacyImgPath: override?.img ?? author.legacyImgPath,
+    avatarUrl: override?.preferLegacyImage ? null : author.avatarUrl,
   };
 }
 

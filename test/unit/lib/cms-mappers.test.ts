@@ -129,8 +129,8 @@ describe('CMS mappers', () => {
     const balcerowski = mapCmsAuthor(balcerowskiEntity);
 
     expect(domanska).not.toBeNull();
-    expect(domanska?.name).toBe('dr Agnieszka Domańska');
-    expect(domanska?.displayName).toBe('dr Agnieszka Domańska');
+    expect(domanska?.name).toBe('prof. Agnieszka Domańska');
+    expect(domanska?.displayName).toBe('prof. Agnieszka Domańska');
     expect(domanska?.avatarUrl).toBeNull();
     expect(domanska?.legacyImgPath).toBe('/images/Domanska.png');
     expect(cmsAuthorToAuthorRow(domanska!).img).toBe('/images/Domanska.png');
@@ -176,11 +176,29 @@ describe('CMS mappers', () => {
     expect(cmsAnalysis).not.toBeNull();
 
     const row = cmsAnalysisToAnalysisRow(cmsAnalysis!);
-    expect(row.author?.name).toBe('dr Agnieszka Domańska');
+    expect(row.author?.name).toBe('prof. Agnieszka Domańska');
     expect(row.author?.img).toBe('/images/Domanska.png');
 
     const detail = cmsAnalysisToAnalysisDetail(cmsAnalysis!);
-    expect(detail.author?.name).toBe('dr Agnieszka Domańska');
+    expect(detail.author?.name).toBe('prof. Agnieszka Domańska');
     expect(detail.author?.img).toBe('/images/Domanska.png');
+  });
+
+  it('normalizes academic title casing to lowercase', () => {
+    const authorEntity = {
+      id: 14,
+      attributes: {
+        slug: 'jan-nowak',
+        name: 'Prof Jan Nowak',
+        displayName: 'Adw. Dr Jan Nowak',
+        bio: null,
+        legacyImgPath: null,
+      },
+    };
+
+    const author = mapCmsAuthor(authorEntity);
+    expect(author).not.toBeNull();
+    expect(author?.name).toBe('prof. Jan Nowak');
+    expect(author?.displayName).toBe('adw. dr Jan Nowak');
   });
 });

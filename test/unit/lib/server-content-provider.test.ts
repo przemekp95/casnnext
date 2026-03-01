@@ -318,8 +318,8 @@ describe("server content provider dual-source behavior", () => {
       {
         id: 2,
         slug: "piotr-balcerowski",
-        name: "dr Piotr Balcerowski",
-        displayName: "dr Piotr Balcerowski",
+        name: "Adw. Piotr Balcerowski",
+        displayName: "Adw. Piotr Balcerowski",
         img: "/images/Balcerowski.png",
         bio: null,
       },
@@ -331,9 +331,11 @@ describe("server content provider dual-source behavior", () => {
 
     const authors = await getAuthors();
 
-    expect(authors[0].name).toBe("dr Agnieszka Domańska");
-    expect(authors[0].displayName).toBe("dr Agnieszka Domańska");
+    expect(authors[0].name).toBe("prof. Agnieszka Domańska");
+    expect(authors[0].displayName).toBe("prof. Agnieszka Domańska");
     expect(authors[0].img).toBe("/images/Domanska.png");
+    expect(authors[1].name).toBe("adw. Piotr Balcerowski");
+    expect(authors[1].displayName).toBe("adw. Piotr Balcerowski");
     expect(authors[1].img).toBe("/images/placeholder.png");
   });
 
@@ -360,7 +362,7 @@ describe("server content provider dual-source behavior", () => {
         author: {
           id: 2,
           slug: "balcerowski",
-          name: "dr Piotr Balcerowski",
+          name: "Prof Piotr Balcerowski",
           img: "/images/Balcerowski.png",
         },
       },
@@ -372,8 +374,9 @@ describe("server content provider dual-source behavior", () => {
 
     const analyses = await getAnalyses();
 
-    expect(analyses[0].author?.name).toBe("dr Agnieszka Domańska");
+    expect(analyses[0].author?.name).toBe("prof. Agnieszka Domańska");
     expect(analyses[0].author?.img).toBe("/images/Domanska.png");
+    expect(analyses[1].author?.name).toBe("prof. Piotr Balcerowski");
     expect(analyses[1].author?.img).toBe("/images/placeholder.png");
   });
 });
