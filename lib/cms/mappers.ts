@@ -103,6 +103,14 @@ const AUTHOR_CANONICAL_OVERRIDES: Record<string, AuthorCanonicalOverride> = {
     img: "/images/Domanska.png",
     preferLegacyImage: true,
   },
+  masior: {
+    name: "adw. dr Michał Masior",
+    displayName: "adw. dr Michał Masior",
+  },
+  "michal-masior": {
+    name: "adw. dr Michał Masior",
+    displayName: "adw. dr Michał Masior",
+  },
 };
 
 function normalizeCmsAuthor(author: CmsAuthor): CmsAuthor {

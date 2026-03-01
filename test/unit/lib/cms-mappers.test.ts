@@ -86,7 +86,7 @@ describe('CMS mappers', () => {
     expect(detail.author?.name).toBe('Przemysław Pietrzak, LL.M.');
   });
 
-  it('normalizes domanska and forces balcerowski placeholder image', () => {
+  it('normalizes domanska and masior names, and forces balcerowski placeholder image', () => {
     const domanskaEntity = {
       id: 11,
       attributes: {
@@ -125,8 +125,20 @@ describe('CMS mappers', () => {
       },
     };
 
+    const masiorEntity = {
+      id: 13,
+      attributes: {
+        slug: 'masior',
+        name: 'dr Michał Masior',
+        displayName: 'dr Michał Masior',
+        bio: 'Bio test',
+        legacyImgPath: '/images/masior.jpg',
+      },
+    };
+
     const domanska = mapCmsAuthor(domanskaEntity);
     const balcerowski = mapCmsAuthor(balcerowskiEntity);
+    const masior = mapCmsAuthor(masiorEntity);
 
     expect(domanska).not.toBeNull();
     expect(domanska?.name).toBe('prof. Agnieszka Domańska');
@@ -139,6 +151,11 @@ describe('CMS mappers', () => {
     expect(balcerowski?.avatarUrl).toBeNull();
     expect(balcerowski?.legacyImgPath).toBe('/images/placeholder.png');
     expect(cmsAuthorToAuthorRow(balcerowski!).img).toBe('/images/placeholder.png');
+
+    expect(masior).not.toBeNull();
+    expect(masior?.name).toBe('adw. dr Michał Masior');
+    expect(masior?.displayName).toBe('adw. dr Michał Masior');
+    expect(masior?.legacyImgPath).toBe('/images/masior.jpg');
   });
 
   it('normalizes overridden authors nested inside analysis payloads', () => {

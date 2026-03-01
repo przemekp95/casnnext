@@ -54,7 +54,7 @@ async function fixPolishData() {
       WHEN 'musial' THEN 'dr Adrian Musiał'
       WHEN 'gorka' THEN 'adw. Grzegorz Górka'
       WHEN 'szymanski' THEN 'Michał Szymański'
-      WHEN 'masior' THEN 'dr Michał Masior'
+      WHEN 'masior' THEN 'adw. dr Michał Masior'
       WHEN 'pietrzak' THEN 'Przemysław Pietrzak LL.M.'
       ELSE name
     END

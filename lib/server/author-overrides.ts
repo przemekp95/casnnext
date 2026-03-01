@@ -8,6 +8,7 @@ type AuthorLike = {
 export const DOMANSKA_CANONICAL_NAME = "prof. Agnieszka Domańska";
 export const DOMANSKA_CANONICAL_IMAGE = "/images/Domanska.png";
 export const BALCEROWSKI_CANONICAL_IMAGE = "/images/placeholder.png";
+export const MASIOR_CANONICAL_NAME = "adw. dr Michał Masior";
 
 function normalizeAcademicTitleCase(
   value: string | null | undefined
@@ -56,6 +57,11 @@ export function applyAuthorCanonicalOverrides<T extends AuthorLike>(
 
   if (hasAuthorToken(next, "balcerowski")) {
     next.img = BALCEROWSKI_CANONICAL_IMAGE;
+  }
+
+  if (hasAuthorToken(next, "masior")) {
+    next.name = MASIOR_CANONICAL_NAME;
+    next.displayName = MASIOR_CANONICAL_NAME;
   }
 
   next.name = normalizeAcademicTitleCase(next.name);

@@ -304,7 +304,7 @@ describe("server content provider dual-source behavior", () => {
     expect(analysisUnknownSlug).toBeNull();
   });
 
-  it("normalizes legacy author names and images for domanska and balcerowski", async () => {
+  it("normalizes legacy author names and images for domanska, balcerowski and masior", async () => {
     isStrapiProviderMock.mockReturnValue(false);
     const find = jest.fn().mockResolvedValue([
       {
@@ -323,6 +323,14 @@ describe("server content provider dual-source behavior", () => {
         img: "/images/Balcerowski.png",
         bio: null,
       },
+      {
+        id: 3,
+        slug: "masior",
+        name: "Dr Michał Masior",
+        displayName: "Adw. Dr Michał Masior",
+        img: "/images/masior.jpg",
+        bio: null,
+      },
     ]);
     const getRepository = jest.fn().mockReturnValue({ find });
     executeRscQueryMock.mockImplementation(async (queryFn) =>
@@ -337,9 +345,12 @@ describe("server content provider dual-source behavior", () => {
     expect(authors[1].name).toBe("adw. Piotr Balcerowski");
     expect(authors[1].displayName).toBe("adw. Piotr Balcerowski");
     expect(authors[1].img).toBe("/images/placeholder.png");
+    expect(authors[2].name).toBe("adw. dr Michał Masior");
+    expect(authors[2].displayName).toBe("adw. dr Michał Masior");
+    expect(authors[2].img).toBe("/images/masior.jpg");
   });
 
-  it("normalizes legacy analysis author data for domanska and balcerowski", async () => {
+  it("normalizes legacy analysis author data for domanska, balcerowski and masior", async () => {
     isStrapiProviderMock.mockReturnValue(false);
     const find = jest.fn().mockResolvedValue([
       {
@@ -366,6 +377,18 @@ describe("server content provider dual-source behavior", () => {
           img: "/images/Balcerowski.png",
         },
       },
+      {
+        id: 13,
+        title: "Legacy Analysis 3",
+        slug: "legacy-analysis-3",
+        authorId: 3,
+        author: {
+          id: 3,
+          slug: "masior",
+          name: "Dr Michał Masior",
+          img: "/images/masior.jpg",
+        },
+      },
     ]);
     const getRepository = jest.fn().mockReturnValue({ find });
     executeRscQueryMock.mockImplementation(async (queryFn) =>
@@ -378,5 +401,7 @@ describe("server content provider dual-source behavior", () => {
     expect(analyses[0].author?.img).toBe("/images/Domanska.png");
     expect(analyses[1].author?.name).toBe("prof. Piotr Balcerowski");
     expect(analyses[1].author?.img).toBe("/images/placeholder.png");
+    expect(analyses[2].author?.name).toBe("adw. dr Michał Masior");
+    expect(analyses[2].author?.img).toBe("/images/masior.jpg");
   });
 });
