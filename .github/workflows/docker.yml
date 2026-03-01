@@ -292,21 +292,23 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Log in to Container Registry (PAT)
-        if: secrets.GHCR_TOKEN != ''
+        if: env.GHCR_TOKEN != ''
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ env.GHCR_TOKEN }}
 
       - name: Log in to Container Registry (GITHUB_TOKEN fallback)
-        if: secrets.GHCR_TOKEN == ''
+        if: env.GHCR_TOKEN == ''
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
