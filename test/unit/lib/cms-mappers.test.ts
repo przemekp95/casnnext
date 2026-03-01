@@ -85,4 +85,102 @@ describe('CMS mappers', () => {
     expect(detail.contentMdx).toBe('# Test');
     expect(detail.author?.name).toBe('Przemysław Pietrzak, LL.M.');
   });
+
+  it('normalizes domanska and forces balcerowski placeholder image', () => {
+    const domanskaEntity = {
+      id: 11,
+      attributes: {
+        slug: 'domanska',
+        name: 'dr Aldona Domańska',
+        displayName: 'dr Aldona Domańska',
+        bio: 'Bio test',
+        legacyImgPath: '/images/wrong-domanska.png',
+        avatar: {
+          data: {
+            id: 101,
+            attributes: {
+              url: '/uploads/wrong-domanska.png',
+            },
+          },
+        },
+      },
+    };
+
+    const balcerowskiEntity = {
+      id: 12,
+      attributes: {
+        slug: 'balcerowski',
+        name: 'dr Piotr Balcerowski',
+        displayName: 'dr Piotr Balcerowski',
+        bio: 'Bio test',
+        legacyImgPath: '/images/wrong-balcerowski.png',
+        avatar: {
+          data: {
+            id: 102,
+            attributes: {
+              url: '/uploads/wrong-balcerowski.png',
+            },
+          },
+        },
+      },
+    };
+
+    const domanska = mapCmsAuthor(domanskaEntity);
+    const balcerowski = mapCmsAuthor(balcerowskiEntity);
+
+    expect(domanska).not.toBeNull();
+    expect(domanska?.name).toBe('dr Agnieszka Domańska');
+    expect(domanska?.displayName).toBe('dr Agnieszka Domańska');
+    expect(domanska?.avatarUrl).toBeNull();
+    expect(domanska?.legacyImgPath).toBe('/images/Domanska.png');
+    expect(cmsAuthorToAuthorRow(domanska!).img).toBe('/images/Domanska.png');
+
+    expect(balcerowski).not.toBeNull();
+    expect(balcerowski?.avatarUrl).toBeNull();
+    expect(balcerowski?.legacyImgPath).toBe('/images/placeholder.png');
+    expect(cmsAuthorToAuthorRow(balcerowski!).img).toBe('/images/placeholder.png');
+  });
+
+  it('normalizes overridden authors nested inside analysis payloads', () => {
+    const analysisEntity = {
+      id: 41,
+      attributes: {
+        legacyId: 41,
+        slug: 'domanska-artykul',
+        title: 'Test',
+        contentMdx: '# Test',
+        author: {
+          data: {
+            id: 13,
+            attributes: {
+              slug: 'domanska',
+              name: 'dr Aldona Domańska',
+              displayName: 'dr Aldona Domańska',
+              bio: 'Bio',
+              legacyImgPath: '/images/wrong-domanska.png',
+              avatar: {
+                data: {
+                  id: 103,
+                  attributes: {
+                    url: '/uploads/wrong-domanska.png',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const cmsAnalysis = mapCmsAnalysis(analysisEntity);
+    expect(cmsAnalysis).not.toBeNull();
+
+    const row = cmsAnalysisToAnalysisRow(cmsAnalysis!);
+    expect(row.author?.name).toBe('dr Agnieszka Domańska');
+    expect(row.author?.img).toBe('/images/Domanska.png');
+
+    const detail = cmsAnalysisToAnalysisDetail(cmsAnalysis!);
+    expect(detail.author?.name).toBe('dr Agnieszka Domańska');
+    expect(detail.author?.img).toBe('/images/Domanska.png');
+  });
 });
