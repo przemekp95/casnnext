@@ -10,6 +10,7 @@ import {
   BALCEROWSKI_CANONICAL_IMAGE,
   DOMANSKA_CANONICAL_IMAGE,
   DOMANSKA_CANONICAL_NAME,
+  MASIOR_CANONICAL_NAME,
 } from './author-overrides';
 
 // Import entities to ensure they're registered with TypeORM
@@ -84,6 +85,43 @@ async function enforceBalcerowskiImage(): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn('Could not enforce balcerowski image overwrite:', message);
+  }
+}
+
+async function enforceMasiorName(): Promise<void> {
+  if (!AppDataSource?.isInitialized) {
+    return;
+  }
+
+  try {
+    const result = await AppDataSource.query(
+      `UPDATE Author
+       SET name = ?, displayName = ?
+       WHERE (
+         LOWER(slug) LIKE '%masior%'
+         OR LOWER(name) LIKE '%masior%'
+         OR LOWER(displayName) LIKE '%masior%'
+       )
+       AND (
+         name <> ?
+         OR displayName <> ?
+       )`,
+      [
+        MASIOR_CANONICAL_NAME,
+        MASIOR_CANONICAL_NAME,
+        MASIOR_CANONICAL_NAME,
+        MASIOR_CANONICAL_NAME,
+      ]
+    ) as { affectedRows?: number };
+
+    if ((result?.affectedRows ?? 0) > 0) {
+      console.log(
+        `Corrected Masior canonical name (${result.affectedRows} row(s))`
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('Could not enforce masior name overwrite:', message);
   }
 }
 
@@ -208,6 +246,7 @@ export async function initializeDatabase() {
 
   await enforceDomanskaName();
   await enforceBalcerowskiImage();
+  await enforceMasiorName();
 
   return AppDataSource;
 }

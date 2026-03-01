@@ -4,6 +4,7 @@ import {
   BALCEROWSKI_CANONICAL_IMAGE,
   DOMANSKA_CANONICAL_IMAGE,
   DOMANSKA_CANONICAL_NAME,
+  MASIOR_CANONICAL_NAME,
 } from './author-overrides';
 
 let initialized = false;
@@ -66,6 +67,36 @@ async function enforceAuthorCanonicalOverrides() {
     }
   } catch (error) {
     console.warn('[DB] Failed to enforce Balcerowski canonical image:', error);
+  }
+
+  try {
+    const masiorResult = await AppDataSource.query(
+      `UPDATE Author
+       SET name = ?, displayName = ?
+       WHERE (
+         LOWER(slug) LIKE '%masior%'
+         OR LOWER(name) LIKE '%masior%'
+         OR LOWER(displayName) LIKE '%masior%'
+       )
+       AND (
+         name <> ?
+         OR displayName <> ?
+       )`,
+      [
+        MASIOR_CANONICAL_NAME,
+        MASIOR_CANONICAL_NAME,
+        MASIOR_CANONICAL_NAME,
+        MASIOR_CANONICAL_NAME,
+      ]
+    ) as { affectedRows?: number };
+
+    if ((masiorResult?.affectedRows ?? 0) > 0) {
+      console.log(
+        `[DB] Canonical override applied for Masior (${masiorResult.affectedRows} row(s))`
+      );
+    }
+  } catch (error) {
+    console.warn('[DB] Failed to enforce Masior canonical name:', error);
   }
 }
 

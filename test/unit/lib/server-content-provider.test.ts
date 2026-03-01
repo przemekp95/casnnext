@@ -304,7 +304,7 @@ describe("server content provider dual-source behavior", () => {
     expect(analysisUnknownSlug).toBeNull();
   });
 
-  it("normalizes legacy author names and images for domanska and balcerowski", async () => {
+  it("normalizes legacy author names and images for domanska, balcerowski and masior", async () => {
     isStrapiProviderMock.mockReturnValue(false);
     const find = jest.fn().mockResolvedValue([
       {
@@ -318,9 +318,17 @@ describe("server content provider dual-source behavior", () => {
       {
         id: 2,
         slug: "piotr-balcerowski",
-        name: "dr Piotr Balcerowski",
-        displayName: "dr Piotr Balcerowski",
+        name: "Adw. Piotr Balcerowski",
+        displayName: "Adw. Piotr Balcerowski",
         img: "/images/Balcerowski.png",
+        bio: null,
+      },
+      {
+        id: 3,
+        slug: "masior",
+        name: "Dr Michał Masior",
+        displayName: "Adw. Dr Michał Masior",
+        img: "/images/masior.jpg",
         bio: null,
       },
     ]);
@@ -331,13 +339,18 @@ describe("server content provider dual-source behavior", () => {
 
     const authors = await getAuthors();
 
-    expect(authors[0].name).toBe("dr Agnieszka Domańska");
-    expect(authors[0].displayName).toBe("dr Agnieszka Domańska");
+    expect(authors[0].name).toBe("prof. Agnieszka Domańska");
+    expect(authors[0].displayName).toBe("prof. Agnieszka Domańska");
     expect(authors[0].img).toBe("/images/Domanska.png");
+    expect(authors[1].name).toBe("adw. Piotr Balcerowski");
+    expect(authors[1].displayName).toBe("adw. Piotr Balcerowski");
     expect(authors[1].img).toBe("/images/placeholder.png");
+    expect(authors[2].name).toBe("adw. dr Michał Masior");
+    expect(authors[2].displayName).toBe("adw. dr Michał Masior");
+    expect(authors[2].img).toBe("/images/masior.jpg");
   });
 
-  it("normalizes legacy analysis author data for domanska and balcerowski", async () => {
+  it("normalizes legacy analysis author data for domanska, balcerowski and masior", async () => {
     isStrapiProviderMock.mockReturnValue(false);
     const find = jest.fn().mockResolvedValue([
       {
@@ -360,8 +373,20 @@ describe("server content provider dual-source behavior", () => {
         author: {
           id: 2,
           slug: "balcerowski",
-          name: "dr Piotr Balcerowski",
+          name: "Prof Piotr Balcerowski",
           img: "/images/Balcerowski.png",
+        },
+      },
+      {
+        id: 13,
+        title: "Legacy Analysis 3",
+        slug: "legacy-analysis-3",
+        authorId: 3,
+        author: {
+          id: 3,
+          slug: "masior",
+          name: "Dr Michał Masior",
+          img: "/images/masior.jpg",
         },
       },
     ]);
@@ -372,8 +397,11 @@ describe("server content provider dual-source behavior", () => {
 
     const analyses = await getAnalyses();
 
-    expect(analyses[0].author?.name).toBe("dr Agnieszka Domańska");
+    expect(analyses[0].author?.name).toBe("prof. Agnieszka Domańska");
     expect(analyses[0].author?.img).toBe("/images/Domanska.png");
+    expect(analyses[1].author?.name).toBe("prof. Piotr Balcerowski");
     expect(analyses[1].author?.img).toBe("/images/placeholder.png");
+    expect(analyses[2].author?.name).toBe("adw. dr Michał Masior");
+    expect(analyses[2].author?.img).toBe("/images/masior.jpg");
   });
 });
