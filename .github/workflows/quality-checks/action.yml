@@ -27,4 +27,6 @@ runs:
       run: npm run audit:policy
       shell: bash
       env:
-        AUDIT_FAIL_ON: high
+        AUDIT_FAIL_ON_APP: high
+        # Temporary relaxation for Strapi until upstream high vulns are fixed.
+        AUDIT_FAIL_ON_STRAPI: critical

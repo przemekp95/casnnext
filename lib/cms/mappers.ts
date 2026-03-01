@@ -60,6 +60,78 @@ function mediaUrlFromField(value: unknown): string | null {
   return resolveMediaUrl(direct);
 }
 
+type AuthorCanonicalOverride = {
+  name?: string;
+  displayName?: string;
+  img?: string;
+  preferLegacyImage?: boolean;
+};
+
+function normalizeAcademicTitleCase(value: string): string {
+  const compact = value.trim().replace(/\s+/g, " ");
+
+  return compact
+    .replace(/\bdr\.?(?=\s)/gi, "dr")
+    .replace(/\badw\.?(?=\s)/gi, "adw.")
+    .replace(/\bprof\.?(?=\s)/gi, "prof.");
+}
+
+const AUTHOR_CANONICAL_OVERRIDES: Record<string, AuthorCanonicalOverride> = {
+  balcerowski: {
+    img: "/images/placeholder.png",
+    preferLegacyImage: true,
+  },
+  "piotr-balcerowski": {
+    img: "/images/placeholder.png",
+    preferLegacyImage: true,
+  },
+  domanska: {
+    name: "prof. Agnieszka Domańska",
+    displayName: "prof. Agnieszka Domańska",
+    img: "/images/Domanska.png",
+    preferLegacyImage: true,
+  },
+  "anna-domanska": {
+    name: "prof. Agnieszka Domańska",
+    displayName: "prof. Agnieszka Domańska",
+    img: "/images/Domanska.png",
+    preferLegacyImage: true,
+  },
+  "aldona-domanska": {
+    name: "prof. Agnieszka Domańska",
+    displayName: "prof. Agnieszka Domańska",
+    img: "/images/Domanska.png",
+    preferLegacyImage: true,
+  },
+  masior: {
+    name: "adw. dr Michał Masior",
+    displayName: "adw. dr Michał Masior",
+  },
+  "michal-masior": {
+    name: "adw. dr Michał Masior",
+    displayName: "adw. dr Michał Masior",
+  },
+};
+
+function normalizeCmsAuthor(author: CmsAuthor): CmsAuthor {
+  const normalizedSlug = author.slug.trim().toLowerCase();
+  const override = AUTHOR_CANONICAL_OVERRIDES[normalizedSlug];
+  const normalizedName = normalizeAcademicTitleCase(
+    override?.name ?? author.name
+  );
+  const normalizedDisplayName = normalizeAcademicTitleCase(
+    override?.displayName ?? override?.name ?? author.displayName
+  );
+
+  return {
+    ...author,
+    name: normalizedName,
+    displayName: normalizedDisplayName,
+    legacyImgPath: override?.img ?? author.legacyImgPath,
+    avatarUrl: override?.preferLegacyImage ? null : author.avatarUrl,
+  };
+}
+
 export function mapCmsAuthor(entity: unknown): CmsAuthor | null {
   const payload = unwrapEntity(entity);
   if (!payload) return null;
@@ -76,7 +148,7 @@ export function mapCmsAuthor(entity: unknown): CmsAuthor | null {
   const sourceHash = toStringOrNull(payload.sourceHash);
   const avatarUrl = mediaUrlFromField(payload.avatar);
 
-  return {
+  return normalizeCmsAuthor({
     id,
     legacyId,
     slug,
@@ -86,7 +158,7 @@ export function mapCmsAuthor(entity: unknown): CmsAuthor | null {
     avatarUrl,
     legacyImgPath,
     sourceHash,
-  };
+  });
 }
 
 export function mapCmsAnalysis(entity: unknown): CmsAnalysis | null {
