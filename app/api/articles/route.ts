@@ -159,39 +159,31 @@ export async function GET() {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  let author = null;
-  if (isBodyWithId(body)) {
-    author = await fetchCmsAuthorByLegacyId(body.authorId);
-  } else if (isBodyWithSlug(body)) {
-    author = await fetchCmsAuthorBySlug(body.authorSlug);
-  }
+  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
+  const data = await analysisRepository
+    .createQueryBuilder("analysis")
+    .leftJoin("Author", "author", "author.id = analysis.authorId")
+    .select([
+      "analysis.id AS id",
+      "analysis.title AS title",
+      "analysis.slug AS slug",
+      "analysis.authorId AS authorId",
+      "author.name as author_name",
+      "author.slug as author_slug",
+    ])
+    .orderBy("analysis.id", "DESC")
+    .getRawMany();
 
-  if (!author) {
-    return NextResponse.json({ error: "authorId or authorSlug required" }, { status: 400 });
-  }
-
-  const created = await createCmsAnalysis({
-    title: body.title,
-    slug: body.slug,
-    authorStrapiId: author.id,
-  });
-
-  if (typeof revalidateTag !== "undefined" && process.env.NODE_ENV !== "test") {
-    revalidateTag("articles", "next");
-    revalidateTag("analyses", "next");
-  }
-
-  return NextResponse.json(
-    {
-      id: created.id,
-      title: created.title,
-      slug: created.slug,
-      authorId: author.legacyId ?? author.id,
-      author_name: author.name,
-      author_slug: author.slug,
-    },
-    { status: 201 }
-  );
+  return data
+    .map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      slug: item.slug,
+      authorId: item.authorId as number,
+      author_name: item.author_name,
+      author_slug: item.author_slug,
+    }))
+    .map(normalizeArticleAuthor);
 }
 
 async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlug) {
