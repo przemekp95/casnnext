@@ -158,32 +158,6 @@ export async function GET() {
     console.error("Articles API error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const analysisRepository = AppDataSource.getRepository(AnalysisSchema);
-  const data = await analysisRepository
-    .createQueryBuilder("analysis")
-    .leftJoin("Author", "author", "author.id = analysis.authorId")
-    .select([
-      "analysis.id AS id",
-      "analysis.title AS title",
-      "analysis.slug AS slug",
-      "analysis.authorId AS authorId",
-      "author.name as author_name",
-      "author.slug as author_slug",
-    ])
-    .orderBy("analysis.id", "DESC")
-    .getRawMany();
-
-  return data
-    .map((item: any) => ({
-      id: item.id,
-      title: item.title,
-      slug: item.slug,
-      authorId: item.authorId as number,
-      author_name: item.author_name,
-      author_slug: item.author_slug,
-    }))
-    .map(normalizeArticleAuthor);
 }
 
 async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlug) {
