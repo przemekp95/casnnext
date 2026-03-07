@@ -13,6 +13,7 @@ import {
   fetchCmsAuthors,
 } from "@/lib/cms/strapi-client";
 import { isStrapiProvider } from "@/lib/content-provider";
+import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
 
 // Mock data for development/testing
 const mockAuthors: AuthorRow[] = [
@@ -93,7 +94,9 @@ export async function getAuthors(): Promise<AuthorRow[]> {
     try {
       const cmsAuthors = await fetchCmsAuthors();
       if (cmsAuthors.length > 0) {
-        return cmsAuthors.map(cmsAuthorToAuthorRow);
+        return cmsAuthors
+          .map(cmsAuthorToAuthorRow)
+          .map(applyAuthorCanonicalOverrides);
       }
       console.warn('Strapi returned empty authors list, falling back to legacy source.');
     } catch (error) {
@@ -111,18 +114,20 @@ export async function getAuthors(): Promise<AuthorRow[]> {
       });
 
       // Transform to UI-friendly format with explicit string conversion
-      return authors.map(author => ({
-        id: String(author.id),
-        slug: String(author.slug),
-        name: String(author.name),
-        displayName: String(author.displayName),
-        img: author.img ? String(author.img) : null,
-        bio: author.bio ? String(author.bio) : null,
-      }));
+      return authors
+        .map(author => ({
+          id: String(author.id),
+          slug: String(author.slug),
+          name: String(author.name),
+          displayName: String(author.displayName),
+          img: author.img ? String(author.img) : null,
+          bio: author.bio ? String(author.bio) : null,
+        }))
+        .map(applyAuthorCanonicalOverrides);
     });
   } catch (error) {
     console.warn('Database not available for getAuthors(), using mock data:', error);
-    return mockAuthors;
+    return mockAuthors.map(applyAuthorCanonicalOverrides);
   }
 }
 
@@ -137,7 +142,11 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
       const cmsAuthor = await fetchCmsAuthorBySlug(slug);
       if (cmsAuthor) {
         const cmsAnalyses = await fetchCmsAnalysesByAuthorSlug(slug);
-        return cmsAuthorToAuthorDetail(cmsAuthor, cmsAnalyses);
+        const detail = cmsAuthorToAuthorDetail(cmsAuthor, cmsAnalyses);
+        return {
+          ...detail,
+          author: applyAuthorCanonicalOverrides(detail.author),
+        };
       }
       console.warn(`Strapi author not found for slug=${slug}, falling back to legacy source.`);
     } catch (error) {
@@ -166,15 +175,16 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
       // Transform to UI-friendly format
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const authorEntity = author as any;
+      const normalizedAuthor = applyAuthorCanonicalOverrides({
+        id: String(authorEntity.id),
+        slug: authorEntity.slug,
+        name: authorEntity.name,
+        displayName: authorEntity.displayName,
+        img: authorEntity.img || undefined,
+        bio: authorEntity.bio || undefined,
+      });
       return {
-        author: {
-          id: String(authorEntity.id),
-          slug: authorEntity.slug,
-          name: authorEntity.name,
-          displayName: authorEntity.displayName,
-          img: authorEntity.img || undefined,
-          bio: authorEntity.bio || undefined,
-        },
+        author: normalizedAuthor,
         analyses: analyses.map(analysis => ({
           id: String(analysis.id),
           title: analysis.title,
@@ -184,6 +194,12 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
     });
   } catch (error) {
     console.warn('Database not available for getAuthorBySlug(), using mock data:', error);
-    return mockAuthorDetails[slug] || null;
+    const detail = mockAuthorDetails[slug];
+    if (!detail) return null;
+
+    return {
+      ...detail,
+      author: applyAuthorCanonicalOverrides(detail.author),
+    };
   }
 }

@@ -6,6 +6,7 @@ import { AnalysisRow, AnalysisDetail } from "../../types/analysis";
 import { cmsAnalysisToAnalysisDetail, cmsAnalysisToAnalysisRow } from "@/lib/cms/mappers";
 import { fetchCmsAnalyses, fetchCmsAnalysisBySlug } from "@/lib/cms/strapi-client";
 import { isStrapiProvider } from "@/lib/content-provider";
+import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
 
 // Mock data for development/testing
 const mockAnalyses: AnalysisRow[] = [
@@ -115,7 +116,12 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
     try {
       const cmsAnalyses = await fetchCmsAnalyses();
       if (cmsAnalyses.length > 0) {
-        return cmsAnalyses.map(cmsAnalysisToAnalysisRow);
+        return cmsAnalyses.map(cmsAnalysisToAnalysisRow).map((analysis) => ({
+          ...analysis,
+          author: analysis.author
+            ? applyAuthorCanonicalOverrides(analysis.author)
+            : undefined,
+        }));
       }
       console.warn('Strapi returned empty analyses list, falling back to legacy source.');
     } catch (error) {
@@ -148,11 +154,21 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
         } : undefined,
       }));
 
-      return result;
+      return result.map((analysis) => ({
+        ...analysis,
+        author: analysis.author
+          ? applyAuthorCanonicalOverrides(analysis.author)
+          : undefined,
+      }));
     });
   } catch (error) {
     console.warn('Database not available for getAnalyses(), using mock data:', error);
-    return mockAnalyses;
+    return mockAnalyses.map((analysis) => ({
+      ...analysis,
+      author: analysis.author
+        ? applyAuthorCanonicalOverrides(analysis.author)
+        : undefined,
+    }));
   }
 }
 
@@ -166,7 +182,13 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
     try {
       const cmsAnalysis = await fetchCmsAnalysisBySlug(slug);
       if (cmsAnalysis) {
-        return cmsAnalysisToAnalysisDetail(cmsAnalysis);
+        const detail = cmsAnalysisToAnalysisDetail(cmsAnalysis);
+        return {
+          ...detail,
+          author: detail.author
+            ? applyAuthorCanonicalOverrides(detail.author)
+            : undefined,
+        };
       }
       console.warn(`Strapi analysis not found for slug=${slug}, falling back to legacy source.`);
     } catch (error) {
@@ -197,14 +219,23 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
         id: String(analysis.id),
         title: analysis.title,
         slug: analysis.slug,
-        author: author ? {
-          name: author.name || undefined,
-          bio: author.bio || undefined,
-        } : undefined,
+        author: author
+          ? applyAuthorCanonicalOverrides({
+              name: author.name || undefined,
+              bio: author.bio || undefined,
+            })
+          : undefined,
       };
     });
   } catch (error) {
     console.warn('Database not available for getAnalysisBySlug(), using mock data:', error);
-    return mockAnalysisDetails[slug] || null;
+    const detail = mockAnalysisDetails[slug];
+    if (!detail) return null;
+    return {
+      ...detail,
+      author: detail.author
+        ? applyAuthorCanonicalOverrides(detail.author)
+        : undefined,
+    };
   }
 }
