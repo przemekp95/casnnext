@@ -78,18 +78,25 @@ if (typeof global.fetch === 'undefined') {
 }
 
 afterAll(async () => {
-  try {
-    // Some integration tests initialize the shared TypeORM datasource and rely on Jest config
-    // to force-exit the process. Tear it down explicitly so Jest can exit cleanly.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { AppDataSource } = require('./lib/db.shared') as {
-      AppDataSource?: { isInitialized?: boolean; destroy?: () => Promise<void> };
-    };
+  const teardownCandidates = [
+    './lib/db.shared',
+    './lib/db.node',
+  ] as const;
 
-    if (AppDataSource?.isInitialized) {
-      await AppDataSource.destroy?.();
+  for (const modulePath of teardownCandidates) {
+    try {
+      // Integration suites can initialize either the shared app datasource or the
+      // standalone bootstrap datasource. Tear both down so Jest can exit cleanly.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { AppDataSource } = require(modulePath) as {
+        AppDataSource?: { isInitialized?: boolean; destroy?: () => Promise<void> };
+      };
+
+      if (AppDataSource?.isInitialized) {
+        await AppDataSource.destroy?.();
+      }
+    } catch {
+      // Ignore teardown failures for test files that never touched the datasource.
     }
-  } catch {
-    // Ignore teardown failures for test files that never touched the datasource.
   }
 });

@@ -51,7 +51,7 @@ describe('Database Seeding', () => {
   });
 
   afterAll(async () => {
-    if (AppDataSource.isInitialized && !process.env.CI) {
+    if (AppDataSource.isInitialized) {
       await AppDataSource.destroy();
     }
   });
