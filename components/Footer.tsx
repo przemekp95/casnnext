@@ -21,7 +21,7 @@ export default function Footer() {
                   width={280}
                   height={65}
                   className="logo-light"
-                  priority
+                  sizes="(max-width: 576px) 180px, 280px"
                 />
               </Link>
 
@@ -31,8 +31,10 @@ export default function Footer() {
                     href="https://www.facebook.com/100094527270878"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="CASN na Facebooku"
+                    title="CASN na Facebooku"
                   >
-                    <i className="mdi mdi-facebook" />
+                    <i className="mdi mdi-facebook" aria-hidden="true" />
                   </a>
                 </li>
                 <li className="list-inline-item">
@@ -40,8 +42,10 @@ export default function Footer() {
                     href="https://twitter.com/fundacjasluzba"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="CASN na Twitterze"
+                    title="CASN na Twitterze"
                   >
-                    <i className="mdi mdi-twitter" />
+                    <i className="mdi mdi-twitter" aria-hidden="true" />
                   </a>
                 </li>
                 <li className="list-inline-item">
@@ -49,8 +53,10 @@ export default function Footer() {
                     href="https://www.instagram.com/fundacja_sluzba_niepodleglej/"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="CASN na Instagramie"
+                    title="CASN na Instagramie"
                   >
-                    <i className="mdi mdi-instagram" />
+                    <i className="mdi mdi-instagram" aria-hidden="true" />
                   </a>
                 </li>
               </ul>
@@ -61,13 +67,14 @@ export default function Footer() {
               <h5 className="text-white footer-title mt-2 mb-3">
                 Fundacja Służba Niepodległej
               </h5>
-              <Image
-                src="/images/sn.webp"
-                alt="Fundacja Służba Niepodległej logo"
-                width={400}
-                height={134}
-                className="logo-light"
-              />
+                <Image
+                  src="/images/sn.webp"
+                  alt="Fundacja Służba Niepodległej logo"
+                  width={400}
+                  height={134}
+                  className="logo-light"
+                  sizes="(max-width: 576px) 220px, 400px"
+                />
               <ul className="list-unstyled company-sub-menu">
                 <li>
                   <a href="https://sluzbaniepodleglej.pl" className="text-white-50">
@@ -104,13 +111,14 @@ export default function Footer() {
             {/* Kolumna 3 - Mazowieści (media) */}
             <div className="col-lg-3 col-sm-6 footer-col">
               <h5 className="text-white footer-title mt-2 mb-3">Mazowieści</h5>
-              <Image
-                src="/images/mazo.png"
-                alt="Mazowieści logo"
-                width={400}
-                height={134}
-                className="logo-light"
-              />
+                <Image
+                  src="/images/mazo.png"
+                  alt="Mazowieści logo"
+                  width={400}
+                  height={134}
+                  className="logo-light"
+                  sizes="(max-width: 576px) 220px, 400px"
+                />
               <ul className="list-unstyled company-sub-menu mb-0">
                 <li>
                   <a href="https://mazowiesci.pl" className="text-white-50">
@@ -146,9 +154,8 @@ export default function Footer() {
                   width={11056}
                   height={16142}
                   className="w-100 h-auto"
-                  unoptimized
-                  priority
-                  sizes="100vw"
+                  quality={60}
+                  sizes="(max-width: 768px) 100vw, 1140px"
                 />
               </div>
             </div>

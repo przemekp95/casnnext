@@ -13,7 +13,7 @@ describe("app sitemap", () => {
   >;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    executeRscQueryMock.mockReset();
     jest.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
@@ -21,84 +21,95 @@ describe("app sitemap", () => {
     jest.restoreAllMocks();
   });
 
-  it("builds static, analysis and unique author URLs from DB articles", async () => {
-    const analyses = [
-      {
-        id: 3,
-        title: "Analiza 3",
-        slug: "analiza-3",
-        authorId: 20,
-        author: { id: 20, name: "Autor Dwa", slug: "autor-dwa" },
-      },
-      {
-        id: 2,
-        title: "Analiza 2",
-        slug: "analiza-2",
-        authorId: 10,
-        author: { id: 10, name: "Autor Jeden", slug: "autor-jeden" },
-      },
-      {
-        id: 1,
-        title: "Analiza 1",
-        slug: "analiza-1",
-        authorId: 10,
-        author: { id: 10, name: "Autor Jeden", slug: "autor-jeden" },
-      },
-    ];
+  function mockRepositories({
+    analyses = [],
+    authors = [],
+    issues = [],
+  }: {
+    analyses?: Array<Record<string, unknown>>;
+    authors?: Array<Record<string, unknown>>;
+    issues?: Array<Record<string, unknown>>;
+  }) {
+    const analysisFindMock = jest.fn().mockResolvedValue(analyses);
+    const authorFindMock = jest.fn().mockResolvedValue(authors);
+    const issueFindMock = jest.fn().mockResolvedValue(issues);
 
-    const findMock = jest.fn().mockResolvedValue(analyses);
     executeRscQueryMock.mockImplementation(async (queryFn) => {
       const dataSource = {
-        getRepository: jest.fn().mockReturnValue({
-          find: findMock,
+        getRepository: jest.fn().mockImplementation((schema: { options?: { name?: string } }) => {
+          switch (schema.options?.name) {
+            case "Analysis":
+              return { find: analysisFindMock };
+            case "Author":
+              return { find: authorFindMock };
+            case "IssueCollection":
+              return { find: issueFindMock };
+            default:
+              throw new Error(`Unexpected repository: ${schema.options?.name}`);
+          }
         }),
       };
+
       return queryFn(dataSource as never);
+    });
+
+    return { analysisFindMock, authorFindMock, issueFindMock };
+  }
+
+  it("builds static, analysis, author and same-host issue PDF URLs from DB", async () => {
+    const publishedAt = new Date("2026-03-07T12:00:00.000Z");
+    const { analysisFindMock, authorFindMock, issueFindMock } = mockRepositories({
+      analyses: [
+        { slug: "analiza-2", publishedAt },
+        { slug: "analiza-1", publishedAt: new Date("2026-03-06T12:00:00.000Z") },
+      ],
+      authors: [
+        { slug: "autor-dwa", publishedAt },
+        { slug: "autor-jeden", publishedAt: new Date("2026-03-05T12:00:00.000Z") },
+      ],
+      issues: [
+        { fileUrl: "/pdf/zeszyt-2026.pdf", publishedAt },
+        { fileUrl: "https://cdn.example.com/zeszyt-2025.pdf", publishedAt },
+      ],
     });
 
     const result = await sitemap();
     const urls = result.map((entry) => entry.url);
 
-    expect(executeRscQueryMock).toHaveBeenCalledTimes(2);
-    expect(findMock).toHaveBeenCalledTimes(2);
+    expect(executeRscQueryMock).toHaveBeenCalledTimes(1);
+    expect(analysisFindMock).toHaveBeenCalledTimes(1);
+    expect(authorFindMock).toHaveBeenCalledTimes(1);
+    expect(issueFindMock).toHaveBeenCalledTimes(1);
     expect(urls).toContain("https://casn.pl");
+    expect(urls).toContain("https://casn.pl/analizy");
     expect(urls).toContain("https://casn.pl/analizy/analiza-1");
     expect(urls).toContain("https://casn.pl/analizy/analiza-2");
-    expect(urls).toContain("https://casn.pl/analizy/analiza-3");
     expect(urls).toContain("https://casn.pl/autor/autor-jeden");
     expect(urls).toContain("https://casn.pl/autor/autor-dwa");
-    expect(urls.filter((url) => url === "https://casn.pl/autor/autor-jeden")).toHaveLength(1);
+    expect(urls).toContain("https://casn.pl/pdf/zeszyt-2026.pdf");
+    expect(urls).not.toContain("https://cdn.example.com/zeszyt-2025.pdf");
   });
 
   it("returns only static pages when database fetch fails", async () => {
-    executeRscQueryMock
-      .mockRejectedValueOnce(new Error("db unavailable"))
-      .mockRejectedValueOnce(new Error("db unavailable"));
+    executeRscQueryMock.mockRejectedValueOnce(new Error("db unavailable"));
 
     const result = await sitemap();
 
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(5);
     expect(result.map((entry) => entry.url)).toEqual([
       "https://casn.pl",
+      "https://casn.pl/analizy",
       "https://casn.pl/zbiory",
       "https://casn.pl/kontakt",
       "https://casn.pl/autorzy",
     ]);
   });
 
-  it("handles malformed author source by skipping author pages", async () => {
-    const articles = [
-      {
-        id: 1,
-        title: "Analiza 1",
-        slug: "analiza-1",
-        authorId: 10,
-        author_name: "Autor Jeden",
-        author_slug: "autor-jeden",
-      },
-    ];
-
-    executeRscQueryMock.mockResolvedValueOnce(articles).mockResolvedValueOnce(null as never);
+  it("handles malformed author rows by skipping author pages and preserving analysis URLs", async () => {
+    mockRepositories({
+      analyses: [{ slug: "analiza-1", publishedAt: new Date("2026-03-07T12:00:00.000Z") }],
+      authors: [{ slug: null, publishedAt: new Date("2026-03-07T12:00:00.000Z") }],
+    });
 
     const result = await sitemap();
     const urls = result.map((entry) => entry.url);

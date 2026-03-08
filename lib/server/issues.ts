@@ -1,9 +1,10 @@
 import "server-only";
 
-import { fetchCmsIssues } from "@/lib/cms/strapi-client";
-import { cmsIssueToIssueCollectionRow } from "@/lib/cms/mappers";
-import { isStrapiProvider } from "@/lib/content-provider";
+import { unstable_cache } from "next/cache";
+import { executeRscQuery } from "@/lib/db.rsc";
+import { IssueCollectionSchema } from "@/lib/entities";
 import type { IssueCollectionRow } from "@/types/issue";
+import { IsNull, Not } from "typeorm";
 
 const fallbackIssues: IssueCollectionRow[] = [
   { id: "2025", year: 2025, file: "/wszystkie_teksty_druk_3mm_spad_04_12.pdf", title: "Zeszyt Analiz 2025" },
@@ -12,19 +13,48 @@ const fallbackIssues: IssueCollectionRow[] = [
   { id: "2022", year: 2022, file: "/CASN_gotowa_wersja_do_druku_24.01.2023.pdf", title: "Zeszyt Analiz 2022" },
 ];
 
-export async function getIssueCollections(): Promise<IssueCollectionRow[]> {
-  if (!isStrapiProvider()) {
-    return fallbackIssues;
-  }
-
+async function getIssueCollectionsUncached(): Promise<IssueCollectionRow[]> {
   try {
-    const issues = await fetchCmsIssues();
-    if (issues.length === 0) return fallbackIssues;
+    return await executeRscQuery(async (dataSource) => {
+      const repository = dataSource.getRepository(IssueCollectionSchema);
+      const issues = await repository.find({
+        where: {
+          publishedAt: Not(IsNull()),
+        },
+        order: { year: "DESC" },
+      });
 
-    return issues.map(cmsIssueToIssueCollectionRow);
+      if (issues.length === 0) {
+        return fallbackIssues;
+      }
+
+      return issues
+        .filter((issue) => issue.fileUrl.trim().length > 0 && issue.fileUrl !== "#")
+        .map((issue) => ({
+          id: String(issue.id),
+          year: issue.year,
+          title: issue.title,
+          file: issue.fileUrl,
+          cover: issue.coverUrl ?? null,
+        }));
+    });
   } catch (error) {
-    console.warn("Failed to fetch issue collections from Strapi, using fallback:", error);
+    console.warn("Failed to fetch issue collections from the database, using fallback:", error);
     return fallbackIssues;
   }
 }
 
+const getIssueCollectionsCached =
+  typeof unstable_cache === "function"
+    ? unstable_cache(getIssueCollectionsUncached, ["issues:list"], {
+        tags: ["issues"],
+      })
+    : getIssueCollectionsUncached;
+
+export async function getIssueCollections(): Promise<IssueCollectionRow[]> {
+  if (process.env.NODE_ENV === "test") {
+    return getIssueCollectionsUncached();
+  }
+
+  return getIssueCollectionsCached();
+}

@@ -1,4 +1,10 @@
 describe('Hydration Tests', () => {
+  function assertAuthorsPageLoaded() {
+    cy.location('pathname').should('eq', '/autorzy');
+    cy.title().should('include', 'Nasi autorzy');
+    cy.get('nav[aria-label="breadcrumb"]').contains('Nasi autorzy').should('exist');
+  }
+
   it('should hydrate without errors on all pages', () => {
     // Visit homepage and check for hydration errors in production
     cy.visit('/');
@@ -99,7 +105,7 @@ describe('Hydration Tests', () => {
     cy.visit('/autorzy');
 
     // Wait for page to load
-    cy.contains('Nasi autorzy').should('be.visible');
+    assertAuthorsPageLoaded();
 
     // Check for hydration errors
     cy.window().then((win) => {
@@ -234,7 +240,7 @@ describe('Hydration Tests', () => {
     cy.visit('/autorzy');
 
     // Wait for page to load
-    cy.contains('Nasi autorzy').should('be.visible');
+    assertAuthorsPageLoaded();
 
     // Set up hydration error monitoring
     cy.window().then((win) => {

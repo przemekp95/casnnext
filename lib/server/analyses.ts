@@ -1,12 +1,11 @@
 import 'server-only';
 
+import { unstable_cache } from "next/cache";
 import { executeRscQuery } from "../db.rsc";
 import { AnalysisSchema } from "../entities";
 import { AnalysisRow, AnalysisDetail } from "../../types/analysis";
-import { cmsAnalysisToAnalysisDetail, cmsAnalysisToAnalysisRow } from "@/lib/cms/mappers";
-import { fetchCmsAnalyses, fetchCmsAnalysisBySlug } from "@/lib/cms/strapi-client";
-import { isStrapiProvider } from "@/lib/content-provider";
 import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
+import { IsNull, Not } from "typeorm";
 
 // Mock data for development/testing
 const mockAnalyses: AnalysisRow[] = [
@@ -106,27 +105,24 @@ const mockAnalysisDetails: Record<string, AnalysisDetail> = {
   }
 };
 
-export async function getAnalyses(): Promise<AnalysisRow[]> {
+const ANALYSIS_LIST_CACHE_KEY = ["analyses:list"];
+const ANALYSIS_DETAIL_CACHE_KEY = ["analyses:detail"];
+const ANALYSIS_CACHE_TAGS = ["analyses", "articles", "authors"];
+
+function toDateValue(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  return undefined;
+}
+
+async function getAnalysesUncached(): Promise<AnalysisRow[]> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return [];
-  }
-
-  if (isStrapiProvider()) {
-    try {
-      const cmsAnalyses = await fetchCmsAnalyses();
-      if (cmsAnalyses.length > 0) {
-        return cmsAnalyses.map(cmsAnalysisToAnalysisRow).map((analysis) => ({
-          ...analysis,
-          author: analysis.author
-            ? applyAuthorCanonicalOverrides(analysis.author)
-            : undefined,
-        }));
-      }
-      console.warn('Strapi returned empty analyses list, falling back to legacy source.');
-    } catch (error) {
-      console.warn('Strapi not available for getAnalyses(), falling back to legacy source:', error);
-    }
   }
 
   try {
@@ -135,6 +131,9 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
       const analyses = await analysisRepository.find({
         relations: {
           author: true,
+        },
+        where: {
+          publishedAt: Not(IsNull()),
         },
         order: { id: 'DESC' },
       });
@@ -146,6 +145,11 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
         title: String(analysis.title),
         slug: String(analysis.slug),
         authorId: String(analysis.authorId),
+        date: toDateValue(analysis.date),
+        lead: analysis.lead ?? undefined,
+        description: analysis.description ?? undefined,
+        category: analysis.category ?? undefined,
+        sourceHash: analysis.sourceHash ?? undefined,
         author: analysis.author ? {
           id: String(analysis.author.id),
           slug: String(analysis.author.slug),
@@ -172,37 +176,21 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
   }
 }
 
-export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | null> {
+async function getAnalysisBySlugUncached(slug: string): Promise<AnalysisDetail | null> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return null;
-  }
-
-  if (isStrapiProvider()) {
-    try {
-      const cmsAnalysis = await fetchCmsAnalysisBySlug(slug);
-      if (cmsAnalysis) {
-        const detail = cmsAnalysisToAnalysisDetail(cmsAnalysis);
-        return {
-          ...detail,
-          author: detail.author
-            ? applyAuthorCanonicalOverrides(detail.author)
-            : undefined,
-        };
-      }
-      console.warn(`Strapi analysis not found for slug=${slug}, falling back to legacy source.`);
-    } catch (error) {
-      console.warn('Strapi not available for getAnalysisBySlug(), falling back to legacy source:', error);
-    }
   }
 
   try {
     return await executeRscQuery(async (dataSource) => {
       const analysisRepository = dataSource.getRepository(AnalysisSchema);
 
-      // U|yj findOne zamiast query builder dla prostoty i niezawodno[ci
       const analysis = await analysisRepository.findOne({
-        where: { slug },
+        where: {
+          slug,
+          publishedAt: Not(IsNull()),
+        },
         relations: {
           author: true,
         },
@@ -219,9 +207,18 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
         id: String(analysis.id),
         title: analysis.title,
         slug: analysis.slug,
+        date: toDateValue(analysis.date),
+        lead: analysis.lead ?? undefined,
+        description: analysis.description ?? undefined,
+        category: analysis.category ?? undefined,
+        contentMdx: analysis.contentMdx ?? undefined,
+        sourceHash: analysis.sourceHash ?? undefined,
         author: author
           ? applyAuthorCanonicalOverrides({
+              id: String(author.id),
+              slug: author.slug || undefined,
               name: author.name || undefined,
+              img: author.img || undefined,
               bio: author.bio || undefined,
             })
           : undefined,
@@ -238,4 +235,34 @@ export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | 
         : undefined,
     };
   }
+}
+
+const getAnalysesCached =
+  typeof unstable_cache === "function"
+    ? unstable_cache(getAnalysesUncached, ANALYSIS_LIST_CACHE_KEY, {
+        tags: ANALYSIS_CACHE_TAGS,
+      })
+    : getAnalysesUncached;
+
+const getAnalysisBySlugCached =
+  typeof unstable_cache === "function"
+    ? unstable_cache(getAnalysisBySlugUncached, ANALYSIS_DETAIL_CACHE_KEY, {
+        tags: ANALYSIS_CACHE_TAGS,
+      })
+    : getAnalysisBySlugUncached;
+
+export async function getAnalyses(): Promise<AnalysisRow[]> {
+  if (process.env.NODE_ENV === "test") {
+    return getAnalysesUncached();
+  }
+
+  return getAnalysesCached();
+}
+
+export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | null> {
+  if (process.env.NODE_ENV === "test") {
+    return getAnalysisBySlugUncached(slug);
+  }
+
+  return getAnalysisBySlugCached(slug);
 }

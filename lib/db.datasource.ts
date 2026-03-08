@@ -1,6 +1,9 @@
 import { DataSource } from 'typeorm';
 import { AuthorSchema } from './entities/Author';
 import { AnalysisSchema } from './entities/Analysis';
+import { IssueCollectionSchema } from './entities/IssueCollection';
+import { InitialSetup1736424470000 } from '../migrations/1736424470000-InitialSetup';
+import { AddCmsReadModel1736424470002 } from '../migrations/1736424470002-AddCmsReadModel';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test';
@@ -70,7 +73,10 @@ if (databaseUrl) {
 // Export default DataSource for TypeORM CLI
 export default new DataSource({
   ...dbConfig,
-  entities: [AuthorSchema, AnalysisSchema],
-  migrations: ['migrations/*.ts'],
+  entities: [AuthorSchema, AnalysisSchema, IssueCollectionSchema],
+  migrations: [
+    InitialSetup1736424470000,
+    AddCmsReadModel1736424470002,
+  ],
   subscribers: [],
 });

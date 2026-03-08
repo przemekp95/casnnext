@@ -31,10 +31,7 @@ jest.mock("@/components/mdx/MDXContent", () => ({
 }));
 
 describe("Analysis page Strapi media handling", () => {
-  const previousProvider = process.env.CONTENT_PROVIDER;
-
   beforeEach(() => {
-    process.env.CONTENT_PROVIDER = "strapi";
     getAnalysesMock.mockResolvedValue([]);
     getAnalysisBySlugMock.mockResolvedValue({
       id: "1",
@@ -43,10 +40,6 @@ describe("Analysis page Strapi media handling", () => {
       contentMdx: '<img src="/uploads/sample.png" alt="Sample" />',
       author: { name: "Test Author" },
     });
-  });
-
-  afterAll(() => {
-    process.env.CONTENT_PROVIDER = previousProvider;
   });
 
   it("rewrites /uploads media paths to /cms/uploads before MDX rendering", async () => {

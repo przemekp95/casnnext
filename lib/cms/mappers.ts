@@ -158,6 +158,7 @@ export function mapCmsAuthor(entity: unknown): CmsAuthor | null {
     avatarUrl,
     legacyImgPath,
     sourceHash,
+    publishedAt: toStringOrNull(payload.publishedAt),
   });
 }
 
@@ -188,6 +189,7 @@ export function mapCmsAnalysis(entity: unknown): CmsAnalysis | null {
     contentMdx,
     sourceHash: toStringOrNull(payload.sourceHash),
     author,
+    publishedAt: toStringOrNull(payload.publishedAt),
   };
 }
 
@@ -210,6 +212,7 @@ export function mapCmsIssue(entity: unknown): CmsIssue | null {
     title,
     fileUrl,
     coverUrl,
+    publishedAt: toStringOrNull(payload.publishedAt),
   };
 }
 

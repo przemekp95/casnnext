@@ -2,14 +2,41 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAuthorBySlug } from "@/lib/authors";
+import { getAuthorBySlug, getAuthors } from "@/lib/authors";
 import Script from "next/script";
 import Hero from "@/components/Hero";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const dynamicParams = true;
+
+const SITE_URL = "https://casn.pl";
+const DEFAULT_AUTHOR_IMAGE = "/images/placeholder.png";
+
+function toAbsoluteUrl(value?: string | null): string {
+  if (!value) return `${SITE_URL}${DEFAULT_AUTHOR_IMAGE}`;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  return `${SITE_URL}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
+function getAvatarSrc(value?: string | null): string {
+  if (value && (value.startsWith("/") || value.startsWith("http://") || value.startsWith("https://"))) {
+    return value;
+  }
+
+  return DEFAULT_AUTHOR_IMAGE;
+}
+
+export async function generateStaticParams() {
+  try {
+    const authors = await getAuthors();
+    return authors.map((author) => ({
+      slug: author.slug,
+    }));
+  } catch (error) {
+    console.warn("generateStaticParams for authors failed:", error);
+    return [];
+  }
+}
 
 // Generate metadata for each author page
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -27,6 +54,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     const { author } = result;
     const title = `${author.displayName} - Centrum Analiz Służby Niepodległej`;
     const description = author.bio ? `${author.displayName} - ${author.bio}` : `Artykuły autora ${author.displayName}`;
+    const image = toAbsoluteUrl(author.img);
 
     return {
       title,
@@ -35,15 +63,23 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         title,
         description,
         type: "profile",
+        url: `${SITE_URL}/autor/${slug}`,
         siteName: "Centrum Analiz Służby Niepodległej",
+        images: [
+          {
+            url: image,
+            alt: `Zdjęcie ${author.displayName}`,
+          },
+        ],
       },
       twitter: {
         card: "summary_large_image",
         title,
         description,
+        images: [image],
       },
       alternates: {
-        canonical: `https://casn.pl/autor/${slug}`,
+        canonical: `${SITE_URL}/autor/${slug}`,
       },
     };
   } catch (error) {
@@ -64,12 +100,8 @@ export default async function AuthorPage(props: any) {
   if (!result) return notFound();
 
   const { author, analyses } = result;
-
-  // Bezpieczne funkcje pomocnicze
-  const getAvatarSrc = (img?: string | null) =>
-    img && (img.startsWith("/") || img.startsWith("http"))
-      ? img
-      : "/images/placeholder.png";
+  const avatarSrc = getAvatarSrc(author.img);
+  const authorImageUrl = toAbsoluteUrl(author.img);
 
   // Generate structured data
   const authorStructuredData = {
@@ -77,9 +109,9 @@ export default async function AuthorPage(props: any) {
     "@type": "Person",
     "name": author.displayName,
     "description": author.bio || `Autor w Centrum Analiz Służby Niepodległej`,
-    "image": author.img ? `https://casn.pl${author.img}` : "https://casn.pl/images/placeholder.png",
+    "image": authorImageUrl,
     "sameAs": [
-      `https://casn.pl/autor/${slug}`
+      `${SITE_URL}/autor/${slug}`
     ],
     "knowsAbout": analyses.length > 0 ? analyses.map(a => a.title) : ["Analizy polityczne"]
   };
@@ -140,7 +172,7 @@ export default async function AuthorPage(props: any) {
           <div className="row align-items-center">
             <div className="col-lg-4">
               <div className="team-details-img mo-mb-20">
-                <Image src={getAvatarSrc(author.img)} alt={`Zdjęcie ${author.displayName}`}
+                <Image src={avatarSrc} alt={`Zdjęcie ${author.displayName}`}
                        className="img-fluid d-block mx-auto rounded" width={600} height={600} unoptimized />
               </div>
             </div>

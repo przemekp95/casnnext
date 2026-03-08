@@ -1,5 +1,6 @@
 import nextJest from 'next/jest.js';
 const createJestConfig = nextJest({ dir: './' });
+const runLiveTests = process.env.RUN_LIVE_TESTS === '1';
 
 const config = {
   testEnvironment: 'jest-environment-jsdom',
@@ -7,14 +8,17 @@ const config = {
   moduleNameMapper: {
     '\\.(css|less|sass|scss)$': '<rootDir>/test/__mocks__/styleMock.js',
     '\\.(png|jpg|jpeg|gif|svg|webp|avif)$': '<rootDir>/test/__mocks__/fileMock.js',
+    '^next/image$': '<rootDir>/test/__mocks__/nextImageMock.tsx',
     '^@/(.*)$': '<rootDir>/$1'
   },
   testMatch: ['**/?(*.)+(test|spec).[jt]s?(x)'],
   transformIgnorePatterns: ['/node_modules/(?!(nanoid)/)'],
   modulePathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/'],
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/'],
-  // Force exit to prevent hanging due to database connections
-  forceExit: true,
+  testPathIgnorePatterns: [
+    '<rootDir>/.next/',
+    '<rootDir>/deploy/',
+    ...(runLiveTests ? [] : ['\\.live\\.test\\.[jt]sx?$']),
+  ],
   // Coverage configuration
   collectCoverageFrom: [
     'app/**/*.{ts,tsx}',

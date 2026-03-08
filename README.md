@@ -2,9 +2,10 @@
 
 CASN is a Next.js 16 application for publishing analyses and articles for Centrum Analiz Sluzby Niepodleglej.
 
-It supports two content sources:
-- `legacy` (default): MySQL + local MDX content in `posts/`
-- `strapi`: Strapi 5 as the CMS source
+Runtime reads are DB-only:
+- Strapi 5 is the editorial CMS and media storage
+- MySQL is the public read model for Next.js
+- `posts/*.mdx` are legacy migration inputs, not a runtime content source
 
 ## Stack
 
@@ -12,7 +13,7 @@ It supports two content sources:
 - React 19
 - TypeScript 5
 - TypeORM + MySQL 8
-- Strapi 5 (`strapi/`, optional provider)
+- Strapi 5 (`strapi/`, editorial CMS)
 - Docker / Docker Compose / Nginx
 
 ## Repository Layout
@@ -22,7 +23,7 @@ app/                Next.js routes (pages + API)
 components/         Shared UI components
 lib/                DB, CMS, server-side logic
 migrations/         TypeORM migrations
-posts/              Legacy MDX source files
+posts/              Legacy MDX files kept for migration/backfill
 public/             Static assets
 strapi/             Strapi project
 scripts/            Utility and CI scripts
@@ -35,16 +36,6 @@ test/               Unit and integration tests
 - npm
 - MySQL 8 (local or Docker)
 - Docker (optional)
-
-## Content Provider Switch
-
-Set `CONTENT_PROVIDER`:
-
-```bash
-CONTENT_PROVIDER=legacy
-# or
-CONTENT_PROVIDER=strapi
-```
 
 If the DB is unavailable, some server paths fall back to mock/fallback data instead of hard failing.
 
@@ -84,7 +75,7 @@ App URL: `http://localhost:3000`
 
 Treat `npm run migration:run` as destructive for those two tables.
 
-## Strapi (optional)
+## Strapi
 
 Run Strapi:
 
@@ -99,11 +90,12 @@ npm run strapi:build
 npm run strapi:start
 ```
 
-Migration helpers for moving legacy data to Strapi:
+Sync helpers:
 
 ```bash
 npm run cms:import
 npm run cms:verify
+npm run cms:sync-db
 ```
 
 More details: `docs/strapi-cms.md`.
@@ -148,7 +140,7 @@ docker compose -f docker-compose.portainer.yml up --build -d
 ```
 
 Differences:
-- nginx port mapping: `18080:80`
+- nginx port mapping: `18080:8080`
 - app image: `ghcr.io/przemekp95/casnnext:main`
 - strapi image: `ghcr.io/przemekp95/casn-strapi:main`
 - nginx image: `ghcr.io/przemekp95/casn-nginx:main`
@@ -180,9 +172,8 @@ See:
 
 Most important:
 - DB: `DATABASE_URL`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- Provider: `CONTENT_PROVIDER`
 - Strapi: `STRAPI_INTERNAL_URL`, `NEXT_PUBLIC_STRAPI_URL`, `STRAPI_API_TOKEN`
-- Revalidation/webhooks: `STRAPI_WEBHOOK_SECRET`, `REVALIDATE_SECRET`
+- CMS sync / revalidation: `CMS_SYNC_SECRET`, `STRAPI_WEBHOOK_SECRET`, `REVALIDATE_SECRET`
 - NextAuth: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
 
 ## CI/CD

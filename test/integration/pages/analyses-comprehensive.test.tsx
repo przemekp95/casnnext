@@ -1,90 +1,145 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { notFound } from 'next/navigation';
+import { getAnalyses, getAnalysisBySlug } from '@/lib/analyses';
 
-import { render, screen, waitFor } from '@testing-library/react';
+jest.mock('@/lib/analyses', () => ({
+  getAnalyses: jest.fn(),
+  getAnalysisBySlug: jest.fn(),
+}));
+
+jest.mock('next/navigation', () => ({
+  notFound: jest.fn(),
+}));
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ href, children }: { href: string; children: ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
+jest.mock('next/script', () => ({
+  __esModule: true,
+  default: ({
+    id,
+    type,
+    dangerouslySetInnerHTML,
+  }: {
+    id?: string;
+    type?: string;
+    dangerouslySetInnerHTML?: { __html?: string };
+  }) => (
+    <script
+      data-testid={id ?? 'script'}
+      type={type}
+      dangerouslySetInnerHTML={dangerouslySetInnerHTML}
+    />
+  ),
+}));
+
+jest.mock('@/components/ArticleLayout', () => ({
+  __esModule: true,
+  default: ({
+    title,
+    children,
+  }: {
+    title: string;
+    children: ReactNode;
+  }) => (
+    <main>
+      <h1>{title}</h1>
+      <div data-testid="article-layout">{children}</div>
+    </main>
+  ),
+}));
+
+jest.mock('@/components/mdx/MDXContent', () => ({
+  __esModule: true,
+  default: ({ source }: { source: string }) => <div data-testid="mdx-content">{source}</div>,
+}));
 
 describe('Analyses Pages - Comprehensive Coverage', () => {
+  const mockedGetAnalyses = getAnalyses as jest.MockedFunction<typeof getAnalyses>;
+  const mockedGetAnalysisBySlug = getAnalysisBySlug as jest.MockedFunction<typeof getAnalysisBySlug>;
+  const mockedNotFound = notFound as jest.MockedFunction<typeof notFound>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('Analyses List Page', () => {
-    let PageComponent: any;
-    let hasComponent = false;
+    it('renders page without errors', async () => {
+      mockedGetAnalyses.mockResolvedValue([
+        {
+          id: '1',
+          title: 'Test Analysis',
+          slug: 'test-analysis',
+          authorId: 'author-1',
+          author: {
+            id: 'author-1',
+            slug: 'test-author',
+            name: 'Test Author',
+            img: '/images/author.jpg',
+          },
+        },
+      ]);
 
-    beforeAll(() => {
-      try {
-        PageComponent = require('@/app/analizy/page').default;
-        hasComponent = !!PageComponent;
-      } catch (e) {
-        // Component might not be available
-      }
+      const { default: PageComponent } = await import('@/app/analizy/page');
+      render(await PageComponent());
+
+      expect(screen.getByRole('heading', { name: 'Analizy' })).toBeInTheDocument();
+      expect(screen.getByText('Wszystkie analizy (1)')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Test Analysis' })).toHaveAttribute(
+        'href',
+        '/analizy/test-analysis',
+      );
     });
 
-    it('renders page without errors', () => {
-      if (!hasComponent) return;
+    it('displays empty state when there are no analyses', async () => {
+      mockedGetAnalyses.mockResolvedValue([]);
 
-      render(<PageComponent />);
-      // Should render without throwing
-      expect(document.body).toBeInTheDocument();
-    });
+      const { default: PageComponent } = await import('@/app/analizy/page');
+      render(await PageComponent());
 
-    it('displays analyses list structure', () => {
-      if (!hasComponent) return;
-
-      render(<PageComponent />);
-
-      // Check for basic page structure
-      expect(document.body).toBeInTheDocument();
-    });
-
-    it('handles empty analyses gracefully', () => {
-      if (!hasComponent) return;
-
-      render(<PageComponent />);
-
-      // Should render empty state or loading state
-      expect(document.body).toBeInTheDocument();
+      expect(screen.getByText('Brak dostępnych analiz. Sprawdź ponownie później.')).toBeInTheDocument();
     });
   });
 
   describe('Analysis Detail Page', () => {
-    let PageComponent: any;
-    let hasComponent = false;
+    it('renders analysis detail page structure', async () => {
+      mockedGetAnalysisBySlug.mockResolvedValue({
+        id: '1',
+        title: 'Test Analysis',
+        slug: 'test-analysis',
+        lead: 'Lead testowy',
+        description: 'Opis testowy',
+        contentMdx: '# Nagłówek\n\nTreść analizy',
+        author: {
+          name: 'Test Author',
+          bio: 'Biogram autora',
+        },
+      });
 
-    beforeAll(() => {
-      try {
-        // Dynamic import for slug-based component
-        const fs = require('fs');
-        const path = require('path');
-        const pagePath = path.join(process.cwd(), 'app/analizy/[slug]/page.tsx');
+      const { default: PageComponent } = await import('@/app/analizy/[slug]/page');
+      render(await PageComponent({ params: Promise.resolve({ slug: 'test-analysis' }) }));
 
-        if (fs.existsSync(pagePath)) {
-          PageComponent = require('@/app/analizy/[slug]/page').default;
-          hasComponent = !!PageComponent;
-        }
-      } catch (e) {
-        // Component might not be available
-      }
+      expect(screen.getByRole('heading', { name: 'Test Analysis' })).toBeInTheDocument();
+      expect(screen.getByTestId('mdx-content')).toHaveTextContent('Treść analizy');
     });
 
-    it('renders analysis detail page structure', () => {
-      if (!hasComponent) return;
+    it('handles non-existent analysis slug', async () => {
+      mockedGetAnalysisBySlug.mockResolvedValue(null);
 
-      render(<PageComponent params={{ slug: 'test-analysis' }} />);
+      const { default: PageComponent } = await import('@/app/analizy/[slug]/page');
+      await PageComponent({ params: Promise.resolve({ slug: 'non-existent' }) });
 
-      // Should render basic structure
-      expect(document.body).toBeInTheDocument();
-    });
-
-    it('handles non-existent analysis slug', () => {
-      if (!hasComponent) return;
-
-      render(<PageComponent params={{ slug: 'non-existent' }} />);
-
-      // Should render error or not found state
-      expect(document.body).toBeInTheDocument();
+      expect(mockedNotFound).toHaveBeenCalled();
     });
   });
 
   describe('Analysis Content Rendering', () => {
     it('renders analysis with all content fields', () => {
-      // Mock analysis data structure
       const mockAnalysis = {
         id: '1',
         title: 'Test Analysis',
@@ -95,7 +150,6 @@ describe('Analyses Pages - Comprehensive Coverage', () => {
         authorId: 'author-1'
       };
 
-      // Test data structure validation
       expect(mockAnalysis).toHaveProperty('id');
       expect(mockAnalysis).toHaveProperty('title');
       expect(mockAnalysis).toHaveProperty('slug');
@@ -124,10 +178,7 @@ describe('Analyses Pages - Comprehensive Coverage', () => {
         authorId: mockAuthor.id
       };
 
-      // Validate relationship
       expect(mockAnalysis.authorId).toBe(mockAuthor.id);
-
-      // Validate author structure
       expect(mockAuthor).toHaveProperty('id');
       expect(mockAuthor).toHaveProperty('name');
       expect(mockAuthor).toHaveProperty('displayName');
@@ -176,14 +227,11 @@ This is analysis content with **bold** text and *italic* text.
 ## Section 2
 More content here.`;
 
-      // Test basic content validation
       expect(rawContent).toContain('# Analysis Title');
       expect(rawContent).toContain('**bold**');
       expect(rawContent).toContain('*italic*');
       expect(rawContent).toContain('## Section 1');
       expect(rawContent).toContain('## Section 2');
-
-      // Test that content is string
       expect(typeof rawContent).toBe('string');
     });
 
@@ -194,7 +242,6 @@ More content here.`;
         tags: ['politics', 'economy', 'analysis']
       };
 
-      // Validate metadata structure
       expect(metadata).toHaveProperty('publishedAt');
       expect(metadata).toHaveProperty('excerpt');
       expect(metadata).toHaveProperty('tags');
@@ -207,7 +254,6 @@ More content here.`;
 
   describe('Error Handling in Analysis Pages', () => {
     it('handles analysis loading errors gracefully', () => {
-      // Test error boundary behavior
       const errorScenarios = [
         'Analysis not found',
         'Database connection failed',
@@ -230,7 +276,6 @@ More content here.`;
       expect(fallbackContent).toHaveProperty('title');
       expect(fallbackContent).toHaveProperty('content');
       expect(fallbackContent).toHaveProperty('showBackLink');
-
       expect(fallbackContent.showBackLink).toBe(true);
     });
   });

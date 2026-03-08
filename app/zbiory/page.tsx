@@ -5,11 +5,8 @@ import type { Metadata } from "next";
 import Hero from "@/components/Hero";
 import { getIssueCollections } from "@/lib/server/issues";
 
-// 🔧 SSR / no-cache
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const dynamic = "force-dynamic"; // Build-safe shell; content comes from tag-invalidated DB cache
 
 export const metadata: Metadata = {
   title: "Zbiory analiz - Centrum Analiz Służby Niepodległej",
@@ -58,13 +55,25 @@ export default async function AnnualReportsPage() {
             {issues.map((issue) => (
               <div className="col-lg-4 col-md-6 management international" key={issue.id}>
                 <div className="blog-list-item bg-white rounded mt-4">
-                  <div className="blog-list-img">
+                  <div
+                    className="blog-list-img position-relative overflow-hidden rounded"
+                    data-testid={`issue-card-media-${issue.year}`}
+                    style={{
+                      aspectRatio: "1 / 1",
+                      backgroundColor: "#f3f4f6",
+                    }}
+                  >
                     <Image
                       src={issue.cover || "/images/logo.jpg"}
-                      width={300}
-                      height={300}
-                      className="img-fluid d-block mx-auto rounded"
-                      alt={`Logo ${issue.title}`}
+                      alt={`Okładka ${issue.title}`}
+                      fill
+                      className="d-block w-100 h-100"
+                      data-testid={`issue-card-image-${issue.year}`}
+                      sizes="(min-width: 992px) 33vw, (min-width: 768px) 50vw, 100vw"
+                      style={{
+                        objectFit: "cover",
+                        objectPosition: "center center",
+                      }}
                     />
                     <div className="blog-list-overlay"></div>
                   </div>

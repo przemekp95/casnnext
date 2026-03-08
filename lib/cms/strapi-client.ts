@@ -1,4 +1,4 @@
-import { getStrapiApiToken, getStrapiInternalUrl } from "./config";
+import { getStrapiApiToken, getStrapiInternalUrl, isStrapiTokenConfigured } from "./config";
 import { mapCmsAnalysis, mapCmsAuthor, mapCmsIssue } from "./mappers";
 import type { CmsAnalysis, CmsAuthor, CmsIssue, StrapiListResponse, StrapiSingleResponse } from "./types";
 
@@ -13,6 +13,11 @@ interface RequestOptions {
 }
 
 type RetryableError = Error & { retryable?: boolean };
+
+function shouldUseTokenForRead(withToken?: boolean): boolean {
+  if (typeof withToken === "boolean") return withToken;
+  return isStrapiTokenConfigured();
+}
 
 function buildUrl(path: string): string {
   const base = getStrapiInternalUrl();
@@ -124,7 +129,9 @@ export async function fetchCmsAuthors(): Promise<CmsAuthor[]> {
   params.append("sort[0]", "name:asc");
   params.append("populate[avatar][fields][0]", "url");
 
-  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/authors", params));
+  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/authors", params), {
+    withToken: shouldUseTokenForRead(),
+  });
   return (response.data || [])
     .map((entry) => mapCmsAuthor(entry))
     .filter((entry): entry is CmsAuthor => entry !== null);
@@ -136,9 +143,39 @@ export async function fetchCmsAuthorBySlug(slug: string): Promise<CmsAuthor | nu
   params.append("pagination[pageSize]", "1");
   params.append("populate[avatar][fields][0]", "url");
 
-  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/authors", params));
+  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/authors", params), {
+    withToken: shouldUseTokenForRead(),
+  });
   const first = response.data?.[0];
   return first ? mapCmsAuthor(first) : null;
+}
+
+export async function fetchCmsAuthorById(
+  id: number,
+  options: { withToken?: boolean } = {}
+): Promise<CmsAuthor | null> {
+  const withToken = shouldUseTokenForRead(options.withToken);
+  const params = new URLSearchParams();
+  params.append("populate[avatar][fields][0]", "url");
+
+  try {
+    const response = await strapiRequest<StrapiSingleResponse>(
+      ensureQuery(`/api/authors/${id}`, params),
+      { withToken }
+    );
+    return response.data ? mapCmsAuthor(response.data) : null;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("404")) {
+      throw error;
+    }
+  }
+
+  params.append("filters[id][$eq]", String(id));
+  params.append("pagination[pageSize]", "1");
+  const fallback = await strapiRequest<StrapiListResponse>(ensureQuery("/api/authors", params), {
+    withToken,
+  });
+  return fallback.data?.[0] ? mapCmsAuthor(fallback.data[0]) : null;
 }
 
 export async function fetchCmsAuthorByLegacyId(legacyId: number): Promise<CmsAuthor | null> {
@@ -147,7 +184,9 @@ export async function fetchCmsAuthorByLegacyId(legacyId: number): Promise<CmsAut
   params.append("pagination[pageSize]", "1");
   params.append("populate[avatar][fields][0]", "url");
 
-  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/authors", params));
+  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/authors", params), {
+    withToken: shouldUseTokenForRead(),
+  });
   const first = response.data?.[0];
   return first ? mapCmsAuthor(first) : null;
 }
@@ -159,7 +198,9 @@ export async function fetchCmsAnalyses(): Promise<CmsAnalysis[]> {
   params.append("sort[1]", "id:desc");
   params.append("populate[author][populate][avatar][fields][0]", "url");
 
-  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/analyses", params));
+  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/analyses", params), {
+    withToken: shouldUseTokenForRead(),
+  });
   return (response.data || [])
     .map((entry) => mapCmsAnalysis(entry))
     .filter((entry): entry is CmsAnalysis => entry !== null);
@@ -171,9 +212,39 @@ export async function fetchCmsAnalysisBySlug(slug: string): Promise<CmsAnalysis 
   params.append("pagination[pageSize]", "1");
   params.append("populate[author][populate][avatar][fields][0]", "url");
 
-  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/analyses", params));
+  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/analyses", params), {
+    withToken: shouldUseTokenForRead(),
+  });
   const first = response.data?.[0];
   return first ? mapCmsAnalysis(first) : null;
+}
+
+export async function fetchCmsAnalysisById(
+  id: number,
+  options: { withToken?: boolean } = {}
+): Promise<CmsAnalysis | null> {
+  const withToken = shouldUseTokenForRead(options.withToken);
+  const params = new URLSearchParams();
+  params.append("populate[author][populate][avatar][fields][0]", "url");
+
+  try {
+    const response = await strapiRequest<StrapiSingleResponse>(
+      ensureQuery(`/api/analyses/${id}`, params),
+      { withToken }
+    );
+    return response.data ? mapCmsAnalysis(response.data) : null;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("404")) {
+      throw error;
+    }
+  }
+
+  params.append("filters[id][$eq]", String(id));
+  params.append("pagination[pageSize]", "1");
+  const fallback = await strapiRequest<StrapiListResponse>(ensureQuery("/api/analyses", params), {
+    withToken,
+  });
+  return fallback.data?.[0] ? mapCmsAnalysis(fallback.data[0]) : null;
 }
 
 export async function fetchCmsAnalysesByAuthorSlug(authorSlug: string): Promise<CmsAnalysis[]> {
@@ -184,7 +255,9 @@ export async function fetchCmsAnalysesByAuthorSlug(authorSlug: string): Promise<
   params.append("sort[1]", "id:desc");
   params.append("populate[author][populate][avatar][fields][0]", "url");
 
-  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/analyses", params));
+  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/analyses", params), {
+    withToken: shouldUseTokenForRead(),
+  });
   return (response.data || [])
     .map((entry) => mapCmsAnalysis(entry))
     .filter((entry): entry is CmsAnalysis => entry !== null);
@@ -197,10 +270,42 @@ export async function fetchCmsIssues(): Promise<CmsIssue[]> {
   params.append("populate[file][fields][0]", "url");
   params.append("populate[cover][fields][0]", "url");
 
-  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/issue-collections", params));
+  const response = await strapiRequest<StrapiListResponse>(ensureQuery("/api/issue-collections", params), {
+    withToken: shouldUseTokenForRead(),
+  });
   return (response.data || [])
     .map((entry) => mapCmsIssue(entry))
     .filter((entry): entry is CmsIssue => entry !== null);
+}
+
+export async function fetchCmsIssueById(
+  id: number,
+  options: { withToken?: boolean } = {}
+): Promise<CmsIssue | null> {
+  const withToken = shouldUseTokenForRead(options.withToken);
+  const params = new URLSearchParams();
+  params.append("populate[file][fields][0]", "url");
+  params.append("populate[cover][fields][0]", "url");
+
+  try {
+    const response = await strapiRequest<StrapiSingleResponse>(
+      ensureQuery(`/api/issue-collections/${id}`, params),
+      { withToken }
+    );
+    return response.data ? mapCmsIssue(response.data) : null;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("404")) {
+      throw error;
+    }
+  }
+
+  params.append("filters[id][$eq]", String(id));
+  params.append("pagination[pageSize]", "1");
+  const fallback = await strapiRequest<StrapiListResponse>(
+    ensureQuery("/api/issue-collections", params),
+    { withToken }
+  );
+  return fallback.data?.[0] ? mapCmsIssue(fallback.data[0]) : null;
 }
 
 export async function createCmsAnalysis(payload: {

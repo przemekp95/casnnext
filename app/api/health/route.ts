@@ -1,7 +1,6 @@
 import { initDatabase } from '@/lib/server/db';
 import { AppDataSource } from '@/lib/db.server';
 import { NextResponse } from 'next/server';
-import { getContentProvider } from '@/lib/content-provider';
 
 export async function GET() {
   const startTime = Date.now();
@@ -26,10 +25,22 @@ export async function GET() {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     responseTime: `${responseTime}ms`,
-    contentProvider: getContentProvider(),
+    contentProvider: 'database',
     database: {
       initialized: dbInitialized,
       connected: AppDataSource?.isInitialized || false
+    },
+    cmsSync: {
+      configured: !!(
+        process.env.STRAPI_INTERNAL_URL ||
+        process.env.CMS_URL ||
+        process.env.NEXT_PUBLIC_STRAPI_URL
+      ),
+      webhookSecretConfigured: !!(
+        process.env.CMS_SYNC_SECRET ||
+        process.env.STRAPI_WEBHOOK_SECRET ||
+        process.env.REVALIDATE_SECRET
+      ),
     },
     environment: {
       node_env: process.env.NODE_ENV,

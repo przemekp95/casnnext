@@ -1,16 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor, within } from '@testing-library/react';
 
-let PageComponent: any;
-let hasComponent = false;
-const runLiveTests = process.env.RUN_LIVE_TESTS === '1';
+const PageComponent: any = require('@/app/analizy/page').default;
 
-try {
-  PageComponent = require('@/app/analizy/page').default;
-  hasComponent = !!PageComponent;
-} catch {}
-
-(hasComponent && runLiveTests ? describe : describe.skip)('Analyses Page', () => {
+describe('Analyses Page', () => {
   it('renders build-time fallback when NEXT_PHASE indicates production build', async () => {
     const previousPhase = process.env.NEXT_PHASE;
     process.env.NEXT_PHASE = 'phase-production-build';

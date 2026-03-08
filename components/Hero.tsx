@@ -1,5 +1,6 @@
 // components/Hero.tsx - Global Hero component for consistent page headers
-import Image from "next/image";
+import type { CSSProperties } from "react";
+import { getImageProps } from "next/image";
 import Link from "next/link";
 
 type Crumb = { label: string; href?: string; active?: boolean };
@@ -34,6 +35,35 @@ export default function Hero({
   ];
 
   const finalBreadcrumbs = breadcrumbs.length > 0 ? breadcrumbs : defaultBreadcrumbs;
+  const heroMediaStyle = {
+    '--hero-background-position': backgroundPosition,
+  } as CSSProperties;
+  const {
+    props: { srcSet: mobileHeroSrcSet },
+  } = getImageProps({
+    src: "/images/logo.jpg",
+    alt: "",
+    width: 2000,
+    height: 2000,
+    sizes: "100vw",
+    quality: 68,
+    loading: "eager",
+    fetchPriority: "high",
+    decoding: "async",
+  });
+  const {
+    props: { srcSet: desktopHeroSrcSet, src: desktopHeroSrc, ...desktopHeroImgProps },
+  } = getImageProps({
+    src: backgroundImage,
+    alt: "",
+    width: 1225,
+    height: 560,
+    sizes: "100vw",
+    quality: 74,
+    loading: "eager",
+    fetchPriority: "high",
+    decoding: "async",
+  });
 
   return (
     <section
@@ -49,31 +79,16 @@ export default function Hero({
         overflow: 'hidden'
       }}
     >
-      {/* Background Images */}
-      <Image
-        src={backgroundImage}
-        alt=""
-        fill
-        priority
-        sizes="(max-width: 768px) 0px, 100vw"
-        className="hero-bg hero-desktop"
-        style={{
-          objectFit: "cover",
-          objectPosition: backgroundPosition,
-          zIndex: -1
-        }}
-      />
-      <Image
-        src="/images/logo.jpg"
-        alt="CASN"
-        fill
-        sizes="(max-width: 768px) 100vw, 0px"
-        className="hero-bg hero-mobile"
-        style={{
-          objectFit: "contain",
-          zIndex: -1
-        }}
-      />
+      <picture className="hero-picture" style={heroMediaStyle}>
+        <source media="(max-width: 768px)" srcSet={mobileHeroSrcSet} />
+        <img
+          {...desktopHeroImgProps}
+          src={desktopHeroSrc}
+          srcSet={desktopHeroSrcSet}
+          alt=""
+          className="hero-bg"
+        />
+      </picture>
 
       {/* Overlay */}
       <div
