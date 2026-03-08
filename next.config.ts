@@ -5,7 +5,6 @@ import type { NextConfig } from "next";
 const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
-  output: "standalone",
   turbopack: {
     root: process.cwd(),
   },

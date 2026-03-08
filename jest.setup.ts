@@ -86,7 +86,7 @@ afterAll(async () => {
   for (const modulePath of teardownCandidates) {
     try {
       // Integration suites can initialize either the shared app datasource or the
-      // standalone bootstrap datasource. Tear both down so Jest can exit cleanly.
+      // bootstrap datasource. Tear both down so Jest can exit cleanly.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { AppDataSource } = require(modulePath) as {
         AppDataSource?: { isInitialized?: boolean; destroy?: () => Promise<void> };

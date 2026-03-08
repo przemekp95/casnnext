@@ -68,20 +68,20 @@ fi
 
 # Test 3: Check app command override
 echo "3. Validating app command override..."
-if grep -q "command.*npm.*start" docker-compose.final.yml; then
-    echo "✅ PASS: docker-compose.final.yml overrides command to skip migrations"
+if grep -q 'command: \["node", "server.js"\]' docker-compose.final.yml; then
+    echo "✅ PASS: docker-compose.final.yml uses custom server.js entrypoint"
 else
-    echo "❌ FAIL: docker-compose.final.yml missing command override"
+    echo "❌ FAIL: docker-compose.final.yml missing server.js command override"
     exit 1
 fi
 
-# Test 4: Check Dockerfile (should be compatible with both approaches)
+# Test 4: Check Dockerfile entrypoint
 echo "4. Validating Dockerfile compatibility..."
 if [ -f "Dockerfile" ]; then
-    if grep -q "npm.*start" Dockerfile; then
-        echo "✅ PASS: Dockerfile supports npm start command"
+    if grep -q 'CMD \["node", "server.js"\]' Dockerfile; then
+        echo "✅ PASS: Dockerfile uses server.js entrypoint"
     else
-        echo "❌ FAIL: Dockerfile missing npm start command"
+        echo "❌ FAIL: Dockerfile missing server.js entrypoint"
         exit 1
     fi
 else
@@ -141,4 +141,5 @@ echo ""
 echo "This setup uses:"
 echo "  • TypeORM migrations"
 echo "  • Automatic database initialization"
+echo "  • server.js as the production entrypoint"
 echo "  • TypeORM entities for schema management"

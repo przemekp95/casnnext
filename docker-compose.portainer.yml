@@ -100,7 +100,7 @@ services:
 
       # Aplikacyjne
       APP_ROOT: "/app"
-    command: ["npm", "start"]
+    command: ["node", "server.js"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
       interval: 30s

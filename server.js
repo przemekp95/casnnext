@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { createServer } = require('http');
 const next = require('next');
+const { loadEnvConfig } = require('@next/env');
+
+loadEnvConfig(process.cwd());
+process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
 // Import database initialization
 const { initializeDatabase } = require('./lib/init-db');
