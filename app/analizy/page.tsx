@@ -6,9 +6,7 @@ import type { Metadata } from "next";
 import { getAnalyses } from "@/lib/analyses";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const dynamic = "force-dynamic"; // Build-safe shell; content comes from tag-invalidated DB cache
 
 export const metadata: Metadata = {
   title: "Analizy - Centrum Analiz Służby Niepodległej",

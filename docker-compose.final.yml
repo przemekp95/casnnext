@@ -119,7 +119,7 @@ services:
       strapi:
         condition: service_started
     ports:
-      - "3001:80"
+      - "3001:8080"
     networks:
       - casn-network
 

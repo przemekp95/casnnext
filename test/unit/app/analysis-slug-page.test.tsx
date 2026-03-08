@@ -3,17 +3,12 @@ import type { ReactNode } from 'react';
 import type { AnalysisDetail, AnalysisRow } from '@/types/analysis';
 import { getAnalyses, getAnalysisBySlug } from '@/lib/analyses';
 import { notFound } from 'next/navigation';
-import { isStrapiProvider } from '@/lib/content-provider';
 import { normalizeCmsMdxMediaPaths } from '@/lib/cms/mdx-media';
 import Page, { generateMetadata, generateStaticParams } from '@/app/analizy/[slug]/page';
 
 jest.mock('@/lib/analyses', () => ({
   getAnalyses: jest.fn(),
   getAnalysisBySlug: jest.fn(),
-}));
-
-jest.mock('@/lib/content-provider', () => ({
-  isStrapiProvider: jest.fn(),
 }));
 
 jest.mock('@/lib/cms/mdx-media', () => ({
@@ -64,7 +59,6 @@ jest.mock('next/navigation', () => ({
 const mockedGetAnalyses = getAnalyses as jest.MockedFunction<typeof getAnalyses>;
 const mockedGetAnalysisBySlug = getAnalysisBySlug as jest.MockedFunction<typeof getAnalysisBySlug>;
 const mockedNotFound = notFound as jest.MockedFunction<typeof notFound>;
-const mockedIsStrapiProvider = isStrapiProvider as jest.MockedFunction<typeof isStrapiProvider>;
 const mockedNormalizeCmsMdxMediaPaths =
   normalizeCmsMdxMediaPaths as jest.MockedFunction<typeof normalizeCmsMdxMediaPaths>;
 
@@ -84,9 +78,15 @@ const createAnalysisDetail = (overrides: Partial<AnalysisDetail>): AnalysisDetai
 });
 
 describe('app/analizy/[slug]/page', () => {
+  let warnSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedIsStrapiProvider.mockReturnValue(false);
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
   });
 
   it('generateStaticParams returns slugs from analyses', async () => {
@@ -211,8 +211,7 @@ Treść wpisu.`,
     expect(result).toBe('NOT_FOUND');
   });
 
-  it('Page renders analysis and normalizes CMS media paths for strapi provider', async () => {
-    mockedIsStrapiProvider.mockReturnValueOnce(true);
+  it('Page renders analysis and normalizes CMS media paths before MDX rendering', async () => {
     mockedGetAnalysisBySlug.mockResolvedValueOnce(
       createAnalysisDetail({
         id: '42',

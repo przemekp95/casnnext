@@ -16,6 +16,7 @@ import {
 // Import entities to ensure they're registered with TypeORM
 import '../entities/Author';
 import '../entities/Analysis';
+import '../entities/IssueCollection';
 
 async function enforceDomanskaName(): Promise<void> {
   if (!AppDataSource?.isInitialized) {

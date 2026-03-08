@@ -1,9 +1,18 @@
 /** @jest-environment node */
 
+const revalidateTagMock = jest.fn();
+const revalidatePathMock = jest.fn();
+
+jest.mock("next/cache", () => ({
+  revalidateTag: (...args: unknown[]) => revalidateTagMock(...args),
+  revalidatePath: (...args: unknown[]) => revalidatePathMock(...args),
+}));
+
 describe('POST /api/revalidate', () => {
   const previousSecret = process.env.REVALIDATE_SECRET;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     process.env.REVALIDATE_SECRET = 'test-secret';
   });
 
@@ -37,7 +46,13 @@ describe('POST /api/revalidate', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
-    expect(json.tags).toEqual(expect.arrayContaining(['analyses', 'articles']));
+    expect(json.tags).toEqual(expect.arrayContaining(['analyses', 'articles', 'sitemap']));
+    expect(json.paths).toEqual(expect.arrayContaining(['/analizy', '/sitemap.xml']));
+    expect(revalidateTagMock).toHaveBeenCalledWith('analyses', 'max');
+    expect(revalidateTagMock).toHaveBeenCalledWith('articles', 'max');
+    expect(revalidateTagMock).toHaveBeenCalledWith('sitemap', 'max');
+    expect(revalidatePathMock).toHaveBeenCalledWith('/analizy');
+    expect(revalidatePathMock).toHaveBeenCalledWith('/sitemap.xml');
   });
 
   it('rejects request when server secret is missing', async () => {

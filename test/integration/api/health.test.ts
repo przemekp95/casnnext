@@ -1,7 +1,20 @@
 /** @jest-environment node */
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 import { NextResponse } from 'next/server';
+
+const initDatabaseMock = jest.fn();
+const appDataSourceMock = {
+  isInitialized: false,
+};
+
+jest.mock('@/lib/server/db', () => ({
+  initDatabase: (...args: unknown[]) => initDatabaseMock(...args),
+}));
+
+jest.mock('@/lib/db.server', () => ({
+  AppDataSource: appDataSourceMock,
+}));
 
 interface RouteModule {
   GET: () => Promise<NextResponse>;
@@ -17,19 +30,29 @@ try {
 
 (route ? describe : describe.skip)('API /api/health', () => {
   const originalEnv = process.env;
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    // Reset environment
+    jest.clearAllMocks();
     process.env = { ...originalEnv };
+    appDataSourceMock.isInitialized = false;
+    logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 
   it('GET zwraca status healthy z prawidłową strukturą', async () => {
     (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
     process.env.npm_package_version = '2.1.0';
+    initDatabaseMock.mockImplementation(async () => {
+      appDataSourceMock.isInitialized = true;
+    });
 
     const res = await route!.GET();
     expect(res.status).toBe(200);
@@ -39,10 +62,10 @@ try {
       status: 'healthy',
       timestamp: expect.any(String),
       responseTime: expect.any(String),
-      contentProvider: expect.any(String),
+      contentProvider: 'database',
       database: expect.objectContaining({
-        initialized: expect.any(Boolean),
-        connected: expect.any(Boolean)
+        initialized: true,
+        connected: true
       }),
       environment: expect.objectContaining({
         node_env: 'production',
@@ -50,54 +73,49 @@ try {
       })
     }));
 
-    // Check timestamp format
+    expect(initDatabaseMock).toHaveBeenCalledTimes(1);
     expect(new Date(data.timestamp).toISOString()).toBe(data.timestamp);
-
-    // Check responseTime format (should end with 'ms')
     expect(data.responseTime).toMatch(/\d+ms$/);
   });
 
-  it('GET używa domyślnej wersji gdy npm_package_version nie jest ustawiony', async () => {
+  it('GET nie zwraca pola version', async () => {
     delete process.env.npm_package_version;
 
     const res = await route!.GET();
     const data = await res.json();
 
-    // Version field is no longer included in the response
     expect(data.version).toBeUndefined();
   });
 
-  it('GET używa domyślnej wersji gdy process.env nie istnieje', async () => {
+  it('GET może działać nawet gdy process.env nie istnieje', async () => {
     const originalProcess = global.process;
 
     delete (global as any).process;
 
     try {
-      // This should not throw, but handle gracefully
-      const res = await route!.GET();
-      expect(res.status).toBe(200);
-    } catch (e) {
-      // If it throws due to missing process, that's also acceptable
+      try {
+        const res = await route!.GET();
+        expect(res.status).toBe(200);
+      } catch (error) {
+        expect(error).toBeDefined();
+      }
     } finally {
       global.process = originalProcess;
     }
   });
 
-  it('GET obsługuje błędy bazy danych gracefully', async () => {
-    // The current implementation handles database errors gracefully
-    // and continues with database status reporting
+  it('GET obsługuje błąd inicjalizacji bazy gracefuly', async () => {
+    initDatabaseMock.mockRejectedValue(new Error('db down'));
+
     const res = await route!.GET();
     expect(res.status).toBe(200);
 
     const data = await res.json();
     expect(data).toEqual(expect.objectContaining({
       status: 'healthy',
-      timestamp: expect.any(String),
-      responseTime: expect.any(String),
-      contentProvider: expect.any(String),
       database: expect.objectContaining({
-        initialized: expect.any(Boolean),
-        connected: expect.any(Boolean)
+        initialized: false,
+        connected: false
       }),
       environment: expect.objectContaining({
         node_env: 'test',
@@ -106,11 +124,12 @@ try {
     }));
   });
 
-  it('GET może obsłużyć błędy krytyczne systemu', async () => {
-    // For now, this test verifies that the route doesn't crash
-    // The current implementation is designed to be resilient
+  it('GET zwraca healthy gdy baza jest już zainicjalizowana', async () => {
+    appDataSourceMock.isInitialized = true;
+
     const res = await route!.GET();
     expect(res.status).toBe(200);
     expect((await res.json()).status).toBe('healthy');
+    expect(initDatabaseMock).not.toHaveBeenCalled();
   });
 });

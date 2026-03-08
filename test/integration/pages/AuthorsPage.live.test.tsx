@@ -1,16 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor, within } from '@testing-library/react';
 
-let PageComponent: any;
-let hasComponent = false;
-const runLiveTests = process.env.RUN_LIVE_TESTS === '1';
+const PageComponent: any = require('@/app/autorzy/page').default;
 
-try {
-  PageComponent = require('@/app/autorzy/page').default;
-  hasComponent = !!PageComponent;
-} catch {}
-
-(hasComponent && runLiveTests ? describe : describe.skip)('Authors Page', () => {
+describe('Authors Page', () => {
   it('renders hero heading and breadcrumb', async () => {
     render(await PageComponent());
 

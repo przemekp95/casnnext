@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import fs from "fs";
-import path from "path";
 import matter from "gray-matter";
 import type { Metadata } from "next";
 import { cache } from "react";
@@ -8,23 +6,18 @@ import ArticleLayout from "@/components/ArticleLayout";
 import { notFound } from "next/navigation";
 import { getAnalyses, getAnalysisBySlug } from "@/lib/analyses";
 import Script from "next/script";
-import { isStrapiProvider } from "@/lib/content-provider";
 import { normalizeCmsMdxMediaPaths } from "@/lib/cms/mdx-media";
 import { replacePlaceholders } from "@/lib/cms/placeholders";
 
 import MDXContent from "@/components/mdx/MDXContent";
 
-// ——— RUNTIME / CACHE ————————————————————————————————————————————————
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic"; // Force dynamic rendering - always fresh data
-export const revalidate = 0; // No revalidation needed for dynamic rendering
-export const fetchCache = "force-no-store"; // Disable all caching
+export const dynamicParams = true;
 
 const SITE_URL = "https://casn.pl";
 const SITE_NAME = "Centrum Analiz Służby Niepodległej";
 const DEFAULT_OG_IMAGE = "/images/home2.webp";
 
-// Generuj statyczne ścieżki dla istniejących analiz
 export async function generateStaticParams() {
   try {
     const analyses = await getAnalyses();
@@ -147,26 +140,6 @@ function replaceTemplate(value: unknown, placeholders: Record<string, string>): 
   return replacePlaceholders(text, placeholders);
 }
 
-async function loadMdxFromFile(slug: string): Promise<{ content: string; frontmatter: FrontmatterMap } | null> {
-  const postsDir = process.env.APP_ROOT
-    ? path.join(process.env.APP_ROOT, "posts")
-    : path.join(process.cwd(), "posts");
-  const filePath = path.join(postsDir, `${slug}.mdx`);
-
-  try {
-    await fs.promises.access(filePath, fs.constants.R_OK);
-  } catch {
-    return null;
-  }
-
-  const source = await fs.promises.readFile(filePath, "utf8");
-  if (source.length > 2_000_000) {
-    throw new Error("MDX too large");
-  }
-
-  return parseMdx(source);
-}
-
 async function loadAnalysisData(slug: string, requireContent: boolean): Promise<AnalysisPageData | null> {
   const analysis = await getAnalysisBySlug(slug);
   if (!analysis) return null;
@@ -180,14 +153,8 @@ async function loadAnalysisData(slug: string, requireContent: boolean): Promise<
     frontmatter = parsed.frontmatter;
   }
 
-  if (!content.trim()) {
-    const fileData = await loadMdxFromFile(slug);
-    if (fileData) {
-      content = fileData.content;
-      frontmatter = fileData.frontmatter;
-    } else if (requireContent) {
-      return null;
-    }
+  if (!content.trim() && requireContent) {
+    return null;
   }
 
   const placeholders: Record<string, string> = {
@@ -197,9 +164,7 @@ async function loadAnalysisData(slug: string, requireContent: boolean): Promise<
   };
 
   const replacedContent = replacePlaceholders(content, placeholders);
-  const normalizedContent = isStrapiProvider()
-    ? normalizeCmsMdxMediaPaths(replacedContent)
-    : replacedContent;
+  const normalizedContent = normalizeCmsMdxMediaPaths(replacedContent);
 
   const title = replaceTemplate(frontmatter.title, placeholders) || analysis.title;
   const lead =

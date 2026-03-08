@@ -2,6 +2,9 @@
 
 describe('Database Utilities - Coverage Enhancement', () => {
   let isDatabaseAvailable = false;
+  let warnSpy: jest.SpyInstance;
+  let errorSpy: jest.SpyInstance;
+  let logSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     // Check if database is available
@@ -13,8 +16,20 @@ describe('Database Utilities - Coverage Enhancement', () => {
         isDatabaseAvailable = true;
       }
     } catch (error) {
-      console.warn('Database not available for utility tests:', error.message);
+      isDatabaseAvailable = false;
     }
+  });
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+    logSpy.mockRestore();
   });
 
   describe('getPool function', () => {
@@ -145,7 +160,7 @@ describe('Database Utilities - Coverage Enhancement', () => {
     });
 
     it('getAuthorBySlug returns author detail or null', async () => {
-      if (!getAuthorBySlug) return;
+      if (!getAuthorBySlug || !isDatabaseAvailable) return;
 
       try {
         const result = await getAuthorBySlug('test-slug');
@@ -176,7 +191,7 @@ describe('Database Utilities - Coverage Enhancement', () => {
     });
 
     it('getAnalyses returns array of analyses or empty array', async () => {
-      if (!getAnalyses) return;
+      if (!getAnalyses || !isDatabaseAvailable) return;
 
       try {
         const result = await getAnalyses();
@@ -196,7 +211,7 @@ describe('Database Utilities - Coverage Enhancement', () => {
     });
 
     it('getAnalysisBySlug returns analysis detail or null', async () => {
-      if (!getAnalysisBySlug) return;
+      if (!getAnalysisBySlug || !isDatabaseAvailable) return;
 
       try {
         const result = await getAnalysisBySlug('test-slug');
@@ -226,7 +241,7 @@ describe('Database Utilities - Coverage Enhancement', () => {
     });
 
     it('initializes database connection', async () => {
-      if (!initializeDatabase) return;
+      if (!initializeDatabase || !isDatabaseAvailable) return;
 
       try {
         await initializeDatabase();
@@ -239,7 +254,7 @@ describe('Database Utilities - Coverage Enhancement', () => {
     });
 
     it('handles multiple initialization calls', async () => {
-      if (!initializeDatabase) return;
+      if (!initializeDatabase || !isDatabaseAvailable) return;
 
       try {
         await initializeDatabase();

@@ -2,54 +2,14 @@
 
 import { getAuthorBySlug, getAuthors } from "@/lib/server/authors";
 import { getAnalyses, getAnalysisBySlug } from "@/lib/server/analyses";
-import { isStrapiProvider } from "@/lib/content-provider";
-import {
-  fetchCmsAnalyses,
-  fetchCmsAnalysesByAuthorSlug,
-  fetchCmsAnalysisBySlug,
-  fetchCmsAuthorBySlug,
-  fetchCmsAuthors,
-} from "@/lib/cms/strapi-client";
 import { executeRscQuery } from "@/lib/db.rsc";
-
-jest.mock("@/lib/content-provider", () => ({
-  isStrapiProvider: jest.fn(),
-}));
-
-jest.mock("@/lib/cms/strapi-client", () => ({
-  fetchCmsAuthors: jest.fn(),
-  fetchCmsAuthorBySlug: jest.fn(),
-  fetchCmsAnalysesByAuthorSlug: jest.fn(),
-  fetchCmsAnalyses: jest.fn(),
-  fetchCmsAnalysisBySlug: jest.fn(),
-}));
 
 jest.mock("@/lib/db.rsc", () => ({
   executeRscQuery: jest.fn(),
 }));
 
-describe("server content provider dual-source behavior", () => {
-  const isStrapiProviderMock = isStrapiProvider as jest.MockedFunction<
-    typeof isStrapiProvider
-  >;
-  const fetchCmsAuthorsMock = fetchCmsAuthors as jest.MockedFunction<
-    typeof fetchCmsAuthors
-  >;
-  const fetchCmsAuthorBySlugMock = fetchCmsAuthorBySlug as jest.MockedFunction<
-    typeof fetchCmsAuthorBySlug
-  >;
-  const fetchCmsAnalysesByAuthorSlugMock =
-    fetchCmsAnalysesByAuthorSlug as jest.MockedFunction<
-      typeof fetchCmsAnalysesByAuthorSlug
-    >;
-  const fetchCmsAnalysesMock = fetchCmsAnalyses as jest.MockedFunction<
-    typeof fetchCmsAnalyses
-  >;
-  const fetchCmsAnalysisBySlugMock =
-    fetchCmsAnalysisBySlug as jest.MockedFunction<typeof fetchCmsAnalysisBySlug>;
-  const executeRscQueryMock = executeRscQuery as jest.MockedFunction<
-    typeof executeRscQuery
-  >;
+describe("server DB content model behavior", () => {
+  const executeRscQueryMock = executeRscQuery as jest.MockedFunction<typeof executeRscQuery>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -63,7 +23,6 @@ describe("server content provider dual-source behavior", () => {
 
   it("short-circuits to empty/null during production build phase", async () => {
     process.env.NEXT_PHASE = "phase-production-build";
-    isStrapiProviderMock.mockReturnValue(true);
 
     const authors = await getAuthors();
     const author = await getAuthorBySlug("any-author");
@@ -74,221 +33,185 @@ describe("server content provider dual-source behavior", () => {
     expect(author).toBeNull();
     expect(analyses).toEqual([]);
     expect(analysis).toBeNull();
-    expect(fetchCmsAuthorsMock).not.toHaveBeenCalled();
-    expect(fetchCmsAuthorBySlugMock).not.toHaveBeenCalled();
-    expect(fetchCmsAnalysesMock).not.toHaveBeenCalled();
-    expect(fetchCmsAnalysisBySlugMock).not.toHaveBeenCalled();
     expect(executeRscQueryMock).not.toHaveBeenCalled();
   });
 
-  it("returns authors from Strapi when provider=strapi and response is non-empty", async () => {
-    isStrapiProviderMock.mockReturnValue(true);
-    fetchCmsAuthorsMock.mockResolvedValue([
+  it("returns authors from the database and applies canonical overrides", async () => {
+    const find = jest.fn().mockResolvedValue([
       {
-        id: 10,
-        legacyId: 2,
+        id: 1,
+        slug: "domanska",
+        name: "Dr Aldona Domańska",
+        displayName: "Dr Aldona Domańska",
+        img: "/images/wrong.png",
+        bio: "Bio",
+        sourceHash: "hash-1",
+      },
+    ]);
+
+    executeRscQueryMock.mockImplementation(async (queryFn) =>
+      queryFn({ getRepository: jest.fn().mockReturnValue({ find }) } as never)
+    );
+
+    const result = await getAuthors();
+
+    expect(result).toEqual([
+      {
+        id: "1",
+        slug: "domanska",
+        name: "prof. Agnieszka Domańska",
+        displayName: "prof. Agnieszka Domańska",
+        img: "/images/Domanska.png",
+        bio: "Bio",
+        sourceHash: "hash-1",
+      },
+    ]);
+  });
+
+  it("returns author detail with only published analyses from the database", async () => {
+    const authorRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 7,
         slug: "jan-kowalski",
         name: "Jan Kowalski",
         displayName: "Jan Kowalski",
-        bio: null,
-        avatarUrl: null,
-        legacyImgPath: "/images/jan.png",
-        sourceHash: "h1",
-      },
-    ]);
+        img: "/images/jan.png",
+        bio: "Biogram",
+        sourceHash: "author-hash",
+      }),
+    };
+    const analysisRepo = {
+      find: jest.fn().mockResolvedValue([
+        { id: 10, title: "Analiza 1", slug: "analiza-1" },
+        { id: 11, title: "Analiza 2", slug: "analiza-2" },
+      ]),
+    };
 
-    const result = await getAuthors();
+    executeRscQueryMock.mockImplementation(async (queryFn) =>
+      queryFn({
+        getRepository: jest
+          .fn()
+          .mockReturnValueOnce(authorRepo)
+          .mockReturnValueOnce(analysisRepo),
+      } as never)
+    );
 
-    expect(result).toHaveLength(1);
-    expect(result[0].slug).toBe("jan-kowalski");
-    expect(executeRscQueryMock).not.toHaveBeenCalled();
-  });
+    const result = await getAuthorBySlug("jan-kowalski");
 
-  it("falls back to legacy query in getAuthors() when Strapi throws", async () => {
-    isStrapiProviderMock.mockReturnValue(true);
-    fetchCmsAuthorsMock.mockRejectedValue(new Error("strapi offline"));
-    executeRscQueryMock.mockResolvedValue([
-      {
-        id: "1",
-        slug: "legacy-author",
-        name: "Legacy Author",
-        displayName: "Legacy Author",
-        img: null,
-        bio: null,
-      },
-    ]);
-
-    const result = await getAuthors();
-
-    expect(executeRscQueryMock).toHaveBeenCalledTimes(1);
-    expect(result[0].slug).toBe("legacy-author");
-  });
-
-  it("falls back to legacy query in getAuthorBySlug() when Strapi has no matching slug", async () => {
-    isStrapiProviderMock.mockReturnValue(true);
-    fetchCmsAuthorBySlugMock.mockResolvedValue(null);
-    executeRscQueryMock.mockResolvedValue({
+    expect(authorRepo.findOne).toHaveBeenCalledTimes(1);
+    expect(analysisRepo.find).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
       author: {
-        id: "2",
-        slug: "legacy-author",
-        name: "Legacy Author",
-        displayName: "Legacy Author",
-        img: null,
-        bio: null,
+        id: "7",
+        slug: "jan-kowalski",
+        name: "Jan Kowalski",
+        displayName: "Jan Kowalski",
+        img: "/images/jan.png",
+        bio: "Biogram",
+        sourceHash: "author-hash",
       },
-      analyses: [{ id: "11", title: "Legacy analysis", slug: "legacy-analysis" }],
+      analyses: [
+        { id: "10", title: "Analiza 1", slug: "analiza-1" },
+        { id: "11", title: "Analiza 2", slug: "analiza-2" },
+      ],
     });
-
-    const result = await getAuthorBySlug("legacy-author");
-
-    expect(fetchCmsAnalysesByAuthorSlugMock).not.toHaveBeenCalled();
-    expect(executeRscQueryMock).toHaveBeenCalledTimes(1);
-    expect(result?.author.slug).toBe("legacy-author");
   });
 
-  it("returns author detail from Strapi when author slug exists in CMS", async () => {
-    isStrapiProviderMock.mockReturnValue(true);
-    fetchCmsAuthorBySlugMock.mockResolvedValue({
-      id: 2,
-      legacyId: 22,
-      slug: "strapi-author",
-      name: "Strapi Author",
-      displayName: "Strapi Author",
-      bio: "Bio from strapi",
-      avatarUrl: "https://cdn/avatar.jpg",
-      legacyImgPath: "/images/fallback.jpg",
-      sourceHash: "author-hash",
-    });
-    fetchCmsAnalysesByAuthorSlugMock.mockResolvedValue([
+  it("returns analyses from the database with DB-backed metadata fields", async () => {
+    const find = jest.fn().mockResolvedValue([
       {
-        id: 8,
-        legacyId: 18,
-        slug: "strapi-analysis",
-        title: "Strapi Analysis",
-        lead: null,
-        description: null,
-        date: "2026-01-01",
-        category: "analizy",
-        contentMdx: "# test",
-        sourceHash: "analysis-hash",
-        author: null,
-      },
-    ]);
-
-    const result = await getAuthorBySlug("strapi-author");
-
-    expect(result?.author.slug).toBe("strapi-author");
-    expect(result?.analyses).toEqual([
-      { id: "8", slug: "strapi-analysis", title: "Strapi Analysis" },
-    ]);
-    expect(executeRscQueryMock).not.toHaveBeenCalled();
-  });
-
-  it("returns analyses from Strapi when provider=strapi and response is non-empty", async () => {
-    isStrapiProviderMock.mockReturnValue(true);
-    fetchCmsAnalysesMock.mockResolvedValue([
-      {
-        id: 90,
-        legacyId: 8,
-        slug: "strapi-analysis",
-        title: "Strapi Analysis",
+        id: 21,
+        title: "Analiza DB",
+        slug: "analiza-db",
+        authorId: 3,
+        date: "2026-03-01",
         lead: "Lead",
-        description: null,
-        date: "2026-02-01",
-        category: "analizy",
-        contentMdx: "# Content",
-        sourceHash: "ha",
+        description: "Opis",
+        category: "geopolityka",
+        sourceHash: "analysis-hash",
         author: {
-          id: 10,
-          legacyId: 2,
-          slug: "jan-kowalski",
-          name: "Jan Kowalski",
-          displayName: "Jan Kowalski",
-          bio: null,
-          avatarUrl: null,
-          legacyImgPath: "/images/jan.png",
-          sourceHash: "hb",
+          id: 3,
+          slug: "balcerowski",
+          name: "Piotr Balcerowski",
+          img: "/images/Balcerowski.png",
         },
       },
     ]);
 
+    executeRscQueryMock.mockImplementation(async (queryFn) =>
+      queryFn({ getRepository: jest.fn().mockReturnValue({ find }) } as never)
+    );
+
     const result = await getAnalyses();
 
-    expect(result).toHaveLength(1);
-    expect(result[0].slug).toBe("strapi-analysis");
-    expect(executeRscQueryMock).not.toHaveBeenCalled();
-  });
-
-  it("falls back to legacy query in getAnalyses() when Strapi returns empty list", async () => {
-    isStrapiProviderMock.mockReturnValue(true);
-    fetchCmsAnalysesMock.mockResolvedValue([]);
-    executeRscQueryMock.mockResolvedValue([
+    expect(result).toEqual([
       {
-        id: "11",
-        title: "Legacy Analysis",
-        slug: "legacy-analysis",
-        authorId: "1",
-        author: { id: "1", slug: "legacy-author", name: "Legacy Author", img: null },
+        id: "21",
+        title: "Analiza DB",
+        slug: "analiza-db",
+        authorId: "3",
+        date: "2026-03-01",
+        lead: "Lead",
+        description: "Opis",
+        category: "geopolityka",
+        sourceHash: "analysis-hash",
+        author: {
+          id: "3",
+          slug: "balcerowski",
+          name: "Piotr Balcerowski",
+          img: "/images/placeholder.png",
+        },
       },
     ]);
-
-    const result = await getAnalyses();
-
-    expect(executeRscQueryMock).toHaveBeenCalledTimes(1);
-    expect(result[0].slug).toBe("legacy-analysis");
   });
 
-  it("falls back to legacy query in getAnalysisBySlug() when Strapi throws", async () => {
-    isStrapiProviderMock.mockReturnValue(true);
-    fetchCmsAnalysisBySlugMock.mockRejectedValue(new Error("strapi timeout"));
-    executeRscQueryMock.mockResolvedValue({
-      id: "17",
-      title: "Legacy Analysis",
-      slug: "legacy-analysis",
-      author: { name: "Legacy Author", bio: "Legacy bio" },
-    });
-
-    const result = await getAnalysisBySlug("legacy-analysis");
-
-    expect(executeRscQueryMock).toHaveBeenCalledTimes(1);
-    expect(result?.slug).toBe("legacy-analysis");
-  });
-
-  it("returns analysis detail from Strapi when analysis slug exists in CMS", async () => {
-    isStrapiProviderMock.mockReturnValue(true);
-    fetchCmsAnalysisBySlugMock.mockResolvedValue({
-      id: 21,
-      legacyId: 121,
-      slug: "strapi-analysis",
-      title: "Strapi Analysis",
+  it("returns analysis detail from the database with stored MDX", async () => {
+    const findOne = jest.fn().mockResolvedValue({
+      id: 31,
+      title: "Analiza szczegółowa",
+      slug: "analiza-szczegolowa",
+      date: "2026-03-02",
       lead: "Lead",
-      description: "Description",
-      date: "2026-02-02",
-      category: "analizy",
-      contentMdx: "## Content",
-      sourceHash: "hash",
+      description: "Opis",
+      category: "bezpieczeństwo",
+      contentMdx: "# Treść",
+      sourceHash: "detail-hash",
       author: {
-        id: 4,
-        legacyId: 14,
-        slug: "strapi-author",
-        name: "Strapi Author",
-        displayName: "Strapi Author",
-        bio: "Author bio",
-        avatarUrl: "https://cdn/avatar.png",
-        legacyImgPath: null,
-        sourceHash: "author-hash",
+        id: 8,
+        slug: "jan-nowak",
+        name: "Jan Nowak",
+        img: "/images/jan.png",
+        bio: "Bio autora",
       },
     });
 
-    const result = await getAnalysisBySlug("strapi-analysis");
+    executeRscQueryMock.mockImplementation(async (queryFn) =>
+      queryFn({ getRepository: jest.fn().mockReturnValue({ findOne }) } as never)
+    );
 
-    expect(result?.slug).toBe("strapi-analysis");
-    expect(result?.author?.name).toBe("Strapi Author");
-    expect(executeRscQueryMock).not.toHaveBeenCalled();
+    const result = await getAnalysisBySlug("analiza-szczegolowa");
+
+    expect(result).toEqual({
+      id: "31",
+      title: "Analiza szczegółowa",
+      slug: "analiza-szczegolowa",
+      date: "2026-03-02",
+      lead: "Lead",
+      description: "Opis",
+      category: "bezpieczeństwo",
+      contentMdx: "# Treść",
+      sourceHash: "detail-hash",
+      author: {
+        id: "8",
+        slug: "jan-nowak",
+        name: "Jan Nowak",
+        img: "/images/jan.png",
+        bio: "Bio autora",
+      },
+    });
   });
 
-  it("falls back to mock legacy data when DB is unavailable in legacy mode", async () => {
-    isStrapiProviderMock.mockReturnValue(false);
+  it("falls back to mock legacy data when DB is unavailable", async () => {
     executeRscQueryMock.mockRejectedValue(new Error("db down"));
 
     const authors = await getAuthors();
@@ -299,109 +222,7 @@ describe("server content provider dual-source behavior", () => {
     expect(authors.length).toBeGreaterThan(0);
     expect(authors[0].slug).toBe("piotr-balcerowski");
     expect(analyses.length).toBeGreaterThan(0);
-    expect(analyses[0].slug).toBe("geopolityka-europy-srodkowej");
     expect(analysisKnownSlug?.slug).toBe("geopolityka-europy-srodkowej");
     expect(analysisUnknownSlug).toBeNull();
-  });
-
-  it("normalizes legacy author names and images for domanska, balcerowski and masior", async () => {
-    isStrapiProviderMock.mockReturnValue(false);
-    const find = jest.fn().mockResolvedValue([
-      {
-        id: 1,
-        slug: "domanska",
-        name: "Dr Aldona Domańska",
-        displayName: "Dr Aldona Domańska",
-        img: "/images/whatever.png",
-        bio: null,
-      },
-      {
-        id: 2,
-        slug: "piotr-balcerowski",
-        name: "Adw. Piotr Balcerowski",
-        displayName: "Adw. Piotr Balcerowski",
-        img: "/images/Balcerowski.png",
-        bio: null,
-      },
-      {
-        id: 3,
-        slug: "masior",
-        name: "Dr Michał Masior",
-        displayName: "Adw. Dr Michał Masior",
-        img: "/images/masior.jpg",
-        bio: null,
-      },
-    ]);
-    const getRepository = jest.fn().mockReturnValue({ find });
-    executeRscQueryMock.mockImplementation(async (queryFn) =>
-      queryFn({ getRepository } as never)
-    );
-
-    const authors = await getAuthors();
-
-    expect(authors[0].name).toBe("prof. Agnieszka Domańska");
-    expect(authors[0].displayName).toBe("prof. Agnieszka Domańska");
-    expect(authors[0].img).toBe("/images/Domanska.png");
-    expect(authors[1].name).toBe("adw. Piotr Balcerowski");
-    expect(authors[1].displayName).toBe("adw. Piotr Balcerowski");
-    expect(authors[1].img).toBe("/images/placeholder.png");
-    expect(authors[2].name).toBe("adw. dr Michał Masior");
-    expect(authors[2].displayName).toBe("adw. dr Michał Masior");
-    expect(authors[2].img).toBe("/images/masior.jpg");
-  });
-
-  it("normalizes legacy analysis author data for domanska, balcerowski and masior", async () => {
-    isStrapiProviderMock.mockReturnValue(false);
-    const find = jest.fn().mockResolvedValue([
-      {
-        id: 11,
-        title: "Legacy Analysis",
-        slug: "legacy-analysis",
-        authorId: 1,
-        author: {
-          id: 1,
-          slug: "aldona-domanska",
-          name: "dr Aldona Domańska",
-          img: "/images/old.png",
-        },
-      },
-      {
-        id: 12,
-        title: "Legacy Analysis 2",
-        slug: "legacy-analysis-2",
-        authorId: 2,
-        author: {
-          id: 2,
-          slug: "balcerowski",
-          name: "Prof Piotr Balcerowski",
-          img: "/images/Balcerowski.png",
-        },
-      },
-      {
-        id: 13,
-        title: "Legacy Analysis 3",
-        slug: "legacy-analysis-3",
-        authorId: 3,
-        author: {
-          id: 3,
-          slug: "masior",
-          name: "Dr Michał Masior",
-          img: "/images/masior.jpg",
-        },
-      },
-    ]);
-    const getRepository = jest.fn().mockReturnValue({ find });
-    executeRscQueryMock.mockImplementation(async (queryFn) =>
-      queryFn({ getRepository } as never)
-    );
-
-    const analyses = await getAnalyses();
-
-    expect(analyses[0].author?.name).toBe("prof. Agnieszka Domańska");
-    expect(analyses[0].author?.img).toBe("/images/Domanska.png");
-    expect(analyses[1].author?.name).toBe("prof. Piotr Balcerowski");
-    expect(analyses[1].author?.img).toBe("/images/placeholder.png");
-    expect(analyses[2].author?.name).toBe("adw. dr Michał Masior");
-    expect(analyses[2].author?.img).toBe("/images/masior.jpg");
   });
 });
