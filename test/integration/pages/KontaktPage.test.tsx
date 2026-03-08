@@ -79,17 +79,16 @@ try {
   });
 
   it('renderuje odpowiednie obrazy hero', () => {
-    render(<PageComponent />);
+    const { container } = render(<PageComponent />);
 
-    const images = screen.getAllByRole('img');
-    expect(images.length).toBeGreaterThan(0);
+    const heroPicture = container.querySelector('.hero-picture');
+    const desktopHero = heroPicture?.querySelector('img');
+    const mobileHero = heroPicture?.querySelector('source');
 
-    // Should have hero images
-    const heroImages = images.filter(img =>
-      img.getAttribute('alt')?.includes('CASN') ||
-      img.getAttribute('alt')?.includes('Tło')
-    );
-    expect(heroImages.length).toBeGreaterThan(0);
+    expect(heroPicture).toHaveAttribute('aria-hidden', 'true');
+    expect(desktopHero).toHaveAttribute('src', '/images/home2.webp');
+    expect(desktopHero).toHaveAttribute('alt', '');
+    expect(mobileHero).toHaveAttribute('srcset', '/images/logo.jpg');
   });
 
   it('ma odpowiednie klasy CSS dla sekcji', () => {

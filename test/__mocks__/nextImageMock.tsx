@@ -29,3 +29,21 @@ export default function NextImageMock({
 
   return <img {...props} src={normalizedSrc} alt={alt ?? ''} />;
 }
+
+type GetImagePropsInput = {
+  src: string | { src?: string };
+  alt?: string;
+} & ImgHTMLAttributes<HTMLImageElement>;
+
+export function getImageProps({ src, alt, ...props }: GetImagePropsInput) {
+  const normalizedSrc = typeof src === 'string' ? src : src?.src ?? '';
+
+  return {
+    props: {
+      ...props,
+      alt: alt ?? '',
+      src: normalizedSrc,
+      srcSet: normalizedSrc,
+    },
+  };
+}

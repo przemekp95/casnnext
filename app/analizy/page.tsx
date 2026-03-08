@@ -1,8 +1,9 @@
 // app/analizy/page.tsx
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { getAnalyses } from "@/lib/analyses";
 
 export const runtime = "nodejs";
@@ -50,31 +51,49 @@ export default async function AnalysesPage() {
 
   try {
     const analyses = await getAnalyses();
+    const heroMediaStyle = {
+      '--hero-background-position': 'center 35%',
+    } as CSSProperties;
+    const {
+      props: { srcSet: mobileHeroSrcSet },
+    } = getImageProps({
+      src: "/images/logo.jpg",
+      alt: "",
+      width: 2000,
+      height: 2000,
+      sizes: "100vw",
+      quality: 68,
+      loading: "eager",
+      fetchPriority: "high",
+      decoding: "async",
+    });
+    const {
+      props: { srcSet: desktopHeroSrcSet, src: desktopHeroSrc, ...desktopHeroImgProps },
+    } = getImageProps({
+      src: "/images/home2.webp",
+      alt: "",
+      width: 1225,
+      height: 560,
+      sizes: "100vw",
+      quality: 74,
+      loading: "eager",
+      fetchPriority: "high",
+      decoding: "async",
+    });
 
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
         {/* HEADER START */}
         <section className="contact-us-home section" id="home">
-          {/* Desktop hero */}
-          <Image
-            src="/images/home2.webp"
-            alt=""
-            fill
-            priority
-            fetchPriority="high"
-            sizes="(max-width: 768px) 0px, 100vw"
-            className="hero-bg hero-desktop"
-            style={{ objectFit: "cover", objectPosition: "center 35%" }}
-          />
-          {/* Mobile hero (logo) */}
-          <Image
-            src="/images/logo.jpg"
-            alt="CASN"
-            fill
-            sizes="(max-width: 768px) 100vw, 0px"
-            className="hero-bg hero-mobile"
-            style={{ objectFit: "contain" }}
-          />
+          <picture className="hero-picture" style={heroMediaStyle} aria-hidden="true">
+            <source media="(max-width: 768px)" srcSet={mobileHeroSrcSet} />
+            <img
+              {...desktopHeroImgProps}
+              src={desktopHeroSrc}
+              srcSet={desktopHeroSrcSet}
+              className="hero-bg"
+            />
+          </picture>
         </section>
 
         <div className="bg-overlay"></div>
