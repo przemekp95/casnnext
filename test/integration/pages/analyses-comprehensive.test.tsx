@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';

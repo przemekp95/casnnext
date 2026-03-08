@@ -85,12 +85,13 @@ export default async function AnalysesPage() {
       <main className="bg-gray-100 min-h-screen pb-12">
         {/* HEADER START */}
         <section className="contact-us-home section" id="home">
-          <picture className="hero-picture" style={heroMediaStyle} aria-hidden="true">
+          <picture className="hero-picture" style={heroMediaStyle}>
             <source media="(max-width: 768px)" srcSet={mobileHeroSrcSet} />
             <img
               {...desktopHeroImgProps}
               src={desktopHeroSrc}
               srcSet={desktopHeroSrcSet}
+              alt=""
               className="hero-bg"
             />
           </picture>

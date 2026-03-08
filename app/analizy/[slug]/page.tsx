@@ -226,6 +226,16 @@ const getAnalysisMetadataData = cache(async (slug: string): Promise<AnalysisPage
   loadAnalysisData(slug, false),
 );
 
+function isControlledNotFound(error: unknown): boolean {
+  const digest =
+    typeof error === "object" && error !== null && "digest" in error
+      ? String((error as { digest?: unknown }).digest ?? "")
+      : "";
+  const message = error instanceof Error ? error.message : "";
+
+  return digest === "NEXT_HTTP_ERROR_FALLBACK;404" || message === "NEXT_HTTP_ERROR_FALLBACK;404";
+}
+
 // Generate metadata for each analysis article
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   try {
@@ -389,7 +399,9 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       </>
     );
   } catch (e: any) {
-    console.warn("FATAL error in analysis page:", e?.stack || e);
+    if (!isControlledNotFound(e)) {
+      console.warn("FATAL error in analysis page:", e?.stack || e);
+    }
     throw e;
   }
 }

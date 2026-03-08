@@ -11,7 +11,7 @@
     "build:lib": "tsc lib/db.server.ts --outDir . --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
     "prebuild": "bash scripts/check-posts.sh",
     "postbuild": "node scripts/prepare-tmp.js",
-    "start": "next start -p $PORT",
+    "start": "node scripts/start-standalone.js",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --ignore-pattern 'lib/' --ignore-pattern 'migrations/'",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix --ignore-pattern 'lib/' --ignore-pattern 'migrations/'",
     "type-check": "tsc --noEmit -p tsconfig.ci.json",

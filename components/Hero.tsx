@@ -79,12 +79,13 @@ export default function Hero({
         overflow: 'hidden'
       }}
     >
-      <picture className="hero-picture" style={heroMediaStyle} aria-hidden="true">
+      <picture className="hero-picture" style={heroMediaStyle}>
         <source media="(max-width: 768px)" srcSet={mobileHeroSrcSet} />
         <img
           {...desktopHeroImgProps}
           src={desktopHeroSrc}
           srcSet={desktopHeroSrcSet}
+          alt=""
           className="hero-bg"
         />
       </picture>

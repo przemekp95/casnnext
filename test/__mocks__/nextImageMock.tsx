@@ -15,19 +15,30 @@ type NextImageMockProps = ImgHTMLAttributes<HTMLImageElement> & {
 export default function NextImageMock({
   src,
   alt,
-  fill: _fill,
-  priority: _priority,
-  unoptimized: _unoptimized,
-  placeholder: _placeholder,
-  blurDataURL: _blurDataURL,
-  loader: _loader,
-  quality: _quality,
-  onLoadingComplete: _onLoadingComplete,
   ...props
 }: NextImageMockProps) {
+  const {
+    fill,
+    priority,
+    unoptimized,
+    placeholder,
+    blurDataURL,
+    loader,
+    quality,
+    onLoadingComplete,
+    ...imgProps
+  } = props;
   const normalizedSrc = typeof src === 'string' ? src : src?.src ?? '';
+  void fill;
+  void priority;
+  void unoptimized;
+  void placeholder;
+  void blurDataURL;
+  void loader;
+  void quality;
+  void onLoadingComplete;
 
-  return <img {...props} src={normalizedSrc} alt={alt ?? ''} />;
+  return <img {...imgProps} src={normalizedSrc} alt={alt ?? ''} />;
 }
 
 type GetImagePropsInput = {

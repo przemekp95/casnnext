@@ -85,7 +85,7 @@ try {
     const desktopHero = heroPicture?.querySelector('img');
     const mobileHero = heroPicture?.querySelector('source');
 
-    expect(heroPicture).toHaveAttribute('aria-hidden', 'true');
+    expect(heroPicture).toBeInTheDocument();
     expect(desktopHero).toHaveAttribute('src', '/images/home2.webp');
     expect(desktopHero).toHaveAttribute('alt', '');
     expect(mobileHero).toHaveAttribute('srcset', '/images/logo.jpg');
