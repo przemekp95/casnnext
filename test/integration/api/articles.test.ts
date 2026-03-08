@@ -47,9 +47,16 @@ const createdAuthorSlug = `autor-test-${Date.now()}`;
           new Date(),
         ]
       );
-      const result = (await query('SELECT LAST_INSERT_ID() AS id')) as Array<{ id: number }>;
+      const result = (await query(
+        'SELECT id FROM Author WHERE slug = ? LIMIT 1',
+        [createdAuthorSlug]
+      )) as Array<{ id: number }>;
       if (result.length > 0) {
         createdAuthorId = result[0].id;
+      }
+
+      if (!createdAuthorId) {
+        isDatabaseAvailable = false;
       }
     } catch {
       isDatabaseAvailable = false;
