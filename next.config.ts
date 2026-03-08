@@ -6,7 +6,13 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
   output: "standalone",
-  images: { unoptimized: true }, // <- naprawia 400 na /_next/image
+  turbopack: {
+    root: process.cwd(),
+  },
+  images: {
+    unoptimized: true, // <- naprawia 400 na /_next/image
+    qualities: [60, 68, 74, 75],
+  },
 } satisfies NextConfig;
 
 const withMDX = createMDX({
