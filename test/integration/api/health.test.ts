@@ -88,9 +88,12 @@ try {
   });
 
   it('GET może działać nawet gdy process.env nie istnieje', async () => {
-    const originalProcess = global.process;
+    const globalWithOptionalProcess = globalThis as typeof globalThis & {
+      process?: NodeJS.Process;
+    };
+    const originalProcess = globalWithOptionalProcess.process;
 
-    delete (global as any).process;
+    delete globalWithOptionalProcess.process;
 
     try {
       try {
@@ -100,7 +103,7 @@ try {
         expect(error).toBeDefined();
       }
     } finally {
-      global.process = originalProcess;
+      globalWithOptionalProcess.process = originalProcess;
     }
   });
 
