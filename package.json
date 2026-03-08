@@ -97,10 +97,10 @@
     "minimatch": "^10.2.4",
     "tar": "^7.5.9",
     "@eslint/eslintrc": {
-      "minimatch": "3.1.2"
+      "minimatch": "3.1.4"
     },
     "test-exclude": {
-      "minimatch": "3.1.2"
+      "minimatch": "3.1.4"
     }
   }
 }
