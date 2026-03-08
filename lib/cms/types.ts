@@ -8,6 +8,7 @@ export interface CmsAuthor {
   avatarUrl: string | null;
   legacyImgPath: string | null;
   sourceHash: string | null;
+  publishedAt?: string | null;
 }
 
 export interface CmsAnalysis {
@@ -22,6 +23,7 @@ export interface CmsAnalysis {
   contentMdx: string;
   sourceHash: string | null;
   author: CmsAuthor | null;
+  publishedAt?: string | null;
 }
 
 export interface CmsIssue {
@@ -30,6 +32,7 @@ export interface CmsIssue {
   title: string;
   fileUrl: string | null;
   coverUrl: string | null;
+  publishedAt?: string | null;
 }
 
 export interface StrapiListResponse<T = unknown> {
@@ -41,4 +44,3 @@ export interface StrapiSingleResponse<T = unknown> {
   data: T | null;
   meta?: unknown;
 }
-

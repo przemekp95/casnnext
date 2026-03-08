@@ -3,8 +3,9 @@
 import { DataSource } from 'typeorm';
 import { AuthorSchema } from '../lib/entities/Author';
 import { AnalysisSchema } from '../lib/entities/Analysis';
+import { IssueCollectionSchema } from '../lib/entities/IssueCollection';
 import { InitialSetup1736424470000 } from '../migrations/1736424470000-InitialSetup';
-import { AddDisplayNameToAuthor1736424470001 } from '../migrations/1736424470001-AddDisplayNameToAuthor';
+import { AddCmsReadModel1736424470002 } from '../migrations/1736424470002-AddCmsReadModel';
 
 const AppDataSource = new DataSource({
   type: 'mysql',
@@ -15,8 +16,8 @@ const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'casn',
   synchronize: false, // Never synchronize in migrations
   logging: true,
-  entities: [AuthorSchema, AnalysisSchema],
-  migrations: [InitialSetup1736424470000, AddDisplayNameToAuthor1736424470001],
+  entities: [AuthorSchema, AnalysisSchema, IssueCollectionSchema],
+  migrations: [InitialSetup1736424470000, AddCmsReadModel1736424470002],
 });
 
 async function runMigrations() {

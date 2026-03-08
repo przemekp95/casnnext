@@ -3,7 +3,7 @@
   "version": "0.3.2",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19"
   },
   "scripts": {
     "dev": "next dev",
@@ -11,7 +11,7 @@
     "build:lib": "tsc lib/db.server.ts --outDir . --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
     "prebuild": "bash scripts/check-posts.sh",
     "postbuild": "node scripts/prepare-tmp.js",
-    "start": "next start -p $PORT",
+    "start": "node server.js",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --ignore-pattern 'lib/' --ignore-pattern 'migrations/'",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix --ignore-pattern 'lib/' --ignore-pattern 'migrations/'",
     "type-check": "tsc --noEmit -p tsconfig.ci.json",
@@ -19,13 +19,15 @@
     "test:ci": "jest --runInBand",
     "test:unit": "jest",
     "test:integration:hydration": "jest --testPathPatterns=HydrationAndDataIntegration --runInBand",
-    "test:integration:live": "jest --testPathPatterns='(HydrationAndDataIntegration|AnalysesPage|AuthorsPage|seed)' --runInBand",
+    "test:integration:live": "RUN_LIVE_TESTS=1 jest --runInBand --testPathPatterns='\\.live\\.test\\.'",
+    "test:live": "RUN_LIVE_TESTS=1 jest --runInBand --testPathPatterns='\\.live\\.test\\.'",
     "test:e2e": "cypress run --headless",
     "test:e2e:hydration": "cypress run --spec 'cypress/e2e/hydration.cy.ts'",
     "check:posts": "bash scripts/check-posts.sh",
     "check:cms-mdx-media": "bash scripts/ci/check-cms-mdx-media-paths.sh",
     "audit:policy": "bash scripts/ci/security-audit-policy.sh",
     "cms:import": "tsx scripts/cms/import-legacy-to-strapi.ts",
+    "cms:sync-db": "tsx scripts/cms/sync-strapi-to-db.ts",
     "cms:verify": "tsx scripts/cms/verify-parity.ts",
     "strapi:dev": "npm --prefix strapi run develop",
     "strapi:build": "npm --prefix strapi run build",
@@ -95,10 +97,10 @@
     "minimatch": "^10.2.4",
     "tar": "^7.5.9",
     "@eslint/eslintrc": {
-      "minimatch": "3.1.2"
+      "minimatch": "3.1.4"
     },
     "test-exclude": {
-      "minimatch": "3.1.2"
+      "minimatch": "3.1.4"
     }
   }
 }

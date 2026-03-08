@@ -5,7 +5,7 @@ import Hero from "@/components/Hero";
 import AuthorsClient from "./AuthorsClient";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic"; // Force dynamic rendering - always fresh data
+export const dynamic = "force-dynamic"; // Build-safe shell; content comes from tag-invalidated DB cache
 
 export const metadata: Metadata = {
   title: "Nasi autorzy - Centrum Analiz Służby Niepodległej",
@@ -37,7 +37,6 @@ export default async function AuthorsPage() {
   let authors: AuthorRow[] = [];
   try {
     authors = await getAuthors();
-    console.log('[AUTORZY] Fetched authors:', authors.length, 'items');
   } catch (error) {
     console.warn('Failed to load authors:', error);
     // Return empty array as fallback

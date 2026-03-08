@@ -7,6 +7,9 @@ export interface AuthorEntity {
   displayName: string;
   img?: string | null;
   bio?: string | null;
+  strapiId?: number | null;
+  sourceHash?: string | null;
+  publishedAt?: Date | null;
   analyses?: unknown[];
 }
 
@@ -39,6 +42,20 @@ export const AuthorSchema = new EntitySchema<AuthorEntity>({
     },
     bio: {
       type: String,
+      nullable: true,
+    },
+    strapiId: {
+      type: Number,
+      unique: true,
+      nullable: true,
+    },
+    sourceHash: {
+      type: String,
+      length: 191,
+      nullable: true,
+    },
+    publishedAt: {
+      type: Date,
       nullable: true,
     },
   },

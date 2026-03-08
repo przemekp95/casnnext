@@ -1,19 +1,11 @@
 import 'server-only';
 
+import { unstable_cache } from "next/cache";
 import { executeRscQuery } from "../db.rsc";
 import { AuthorSchema, AnalysisSchema } from "../entities";
 import { AuthorRow, AuthorDetail } from "../../types/author";
-import {
-  cmsAuthorToAuthorDetail,
-  cmsAuthorToAuthorRow,
-} from "@/lib/cms/mappers";
-import {
-  fetchCmsAuthorBySlug,
-  fetchCmsAnalysesByAuthorSlug,
-  fetchCmsAuthors,
-} from "@/lib/cms/strapi-client";
-import { isStrapiProvider } from "@/lib/content-provider";
 import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
+import { IsNull, Not } from "typeorm";
 
 // Mock data for development/testing
 const mockAuthors: AuthorRow[] = [
@@ -84,33 +76,25 @@ const mockAuthorDetails: Record<string, AuthorDetail> = {
   }
 };
 
-export async function getAuthors(): Promise<AuthorRow[]> {
+const AUTHOR_LIST_CACHE_KEY = ["authors:list"];
+const AUTHOR_DETAIL_CACHE_KEY = ["authors:detail"];
+const AUTHOR_DETAIL_CACHE_TAGS = ["authors", "analyses", "articles"];
+
+async function getAuthorsUncached(): Promise<AuthorRow[]> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return [];
-  }
-
-  if (isStrapiProvider()) {
-    try {
-      const cmsAuthors = await fetchCmsAuthors();
-      if (cmsAuthors.length > 0) {
-        return cmsAuthors
-          .map(cmsAuthorToAuthorRow)
-          .map(applyAuthorCanonicalOverrides);
-      }
-      console.warn('Strapi returned empty authors list, falling back to legacy source.');
-    } catch (error) {
-      console.warn('Strapi not available for getAuthors(), falling back to legacy source:', error);
-    }
   }
 
   try {
     return await executeRscQuery(async (dataSource) => {
       const authorRepository = dataSource.getRepository(AuthorSchema);
       const authors = await authorRepository.find({
+        where: {
+          publishedAt: Not(IsNull()),
+        },
         order: { name: 'ASC' },
-        // Ensure we load all required fields explicitly
-        select: ['id', 'slug', 'name', 'displayName', 'img', 'bio'],
+        select: ['id', 'slug', 'name', 'displayName', 'img', 'bio', 'sourceHash'],
       });
 
       // Transform to UI-friendly format with explicit string conversion
@@ -122,6 +106,7 @@ export async function getAuthors(): Promise<AuthorRow[]> {
           displayName: String(author.displayName),
           img: author.img ? String(author.img) : null,
           bio: author.bio ? String(author.bio) : null,
+          sourceHash: author.sourceHash ? String(author.sourceHash) : undefined,
         }))
         .map(applyAuthorCanonicalOverrides);
     });
@@ -131,34 +116,20 @@ export async function getAuthors(): Promise<AuthorRow[]> {
   }
 }
 
-export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null> {
+async function getAuthorBySlugUncached(slug: string): Promise<AuthorDetail | null> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return null;
-  }
-
-  if (isStrapiProvider()) {
-    try {
-      const cmsAuthor = await fetchCmsAuthorBySlug(slug);
-      if (cmsAuthor) {
-        const cmsAnalyses = await fetchCmsAnalysesByAuthorSlug(slug);
-        const detail = cmsAuthorToAuthorDetail(cmsAuthor, cmsAnalyses);
-        return {
-          ...detail,
-          author: applyAuthorCanonicalOverrides(detail.author),
-        };
-      }
-      console.warn(`Strapi author not found for slug=${slug}, falling back to legacy source.`);
-    } catch (error) {
-      console.warn('Strapi not available for getAuthorBySlug(), falling back to legacy source:', error);
-    }
   }
 
   try {
     return await executeRscQuery(async (dataSource) => {
       const authorRepository = dataSource.getRepository(AuthorSchema);
       const author = await authorRepository.findOne({
-        where: { slug },
+        where: {
+          slug,
+          publishedAt: Not(IsNull()),
+        },
       });
 
       if (!author) {
@@ -167,7 +138,10 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
 
       const analysisRepository = dataSource.getRepository(AnalysisSchema);
       const analyses = await analysisRepository.find({
-        where: { authorId: author.id },
+        where: {
+          authorId: author.id,
+          publishedAt: Not(IsNull()),
+        },
         order: { id: 'DESC' },
         select: ['id', 'title', 'slug'],
       });
@@ -182,6 +156,7 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
         displayName: authorEntity.displayName,
         img: authorEntity.img || undefined,
         bio: authorEntity.bio || undefined,
+        sourceHash: authorEntity.sourceHash || undefined,
       });
       return {
         author: normalizedAuthor,
@@ -202,4 +177,34 @@ export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null
       author: applyAuthorCanonicalOverrides(detail.author),
     };
   }
+}
+
+const getAuthorsCached =
+  typeof unstable_cache === "function"
+    ? unstable_cache(getAuthorsUncached, AUTHOR_LIST_CACHE_KEY, {
+        tags: ["authors"],
+      })
+    : getAuthorsUncached;
+
+const getAuthorBySlugCached =
+  typeof unstable_cache === "function"
+    ? unstable_cache(getAuthorBySlugUncached, AUTHOR_DETAIL_CACHE_KEY, {
+        tags: AUTHOR_DETAIL_CACHE_TAGS,
+      })
+    : getAuthorBySlugUncached;
+
+export async function getAuthors(): Promise<AuthorRow[]> {
+  if (process.env.NODE_ENV === "test") {
+    return getAuthorsUncached();
+  }
+
+  return getAuthorsCached();
+}
+
+export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null> {
+  if (process.env.NODE_ENV === "test") {
+    return getAuthorBySlugUncached(slug);
+  }
+
+  return getAuthorBySlugCached(slug);
 }

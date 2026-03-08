@@ -4,6 +4,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 
 let Header: any;
 let hasComp = false;
+
+jest.mock('@/components/SearchModal', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 try {
   Header = require('@/components/Header').default;
   hasComp = !!Header;

@@ -3,6 +3,9 @@ import 'server-only';
 import { DataSource } from 'typeorm';
 import { AuthorSchema } from './entities/Author';
 import { AnalysisSchema } from './entities/Analysis';
+import { IssueCollectionSchema } from './entities/IssueCollection';
+import { InitialSetup1736424470000 } from '../migrations/1736424470000-InitialSetup';
+import { AddCmsReadModel1736424470002 } from '../migrations/1736424470002-AddCmsReadModel';
 
 // RSC-specific DataSource creation (not a global singleton)
 // Each RSC call gets its own fresh connection
@@ -59,8 +62,12 @@ export async function createRscDataSource(): Promise<DataSource> {
 
   const dataSource = new DataSource({
     ...dbConfig,
-    entities: [AuthorSchema, AnalysisSchema],
-    migrations: [], // No migrations needed for RSC - handled by bootstrap
+    entities: [AuthorSchema, AnalysisSchema, IssueCollectionSchema],
+    migrations: [
+      InitialSetup1736424470000,
+      AddCmsReadModel1736424470002,
+    ],
+    migrationsRun: true,
     subscribers: [],
   });
 

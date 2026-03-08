@@ -5,6 +5,14 @@ export interface AnalysisEntity {
   title: string;
   slug: string;
   authorId: number;
+  lead?: string | null;
+  description?: string | null;
+  date?: string | null;
+  category?: string | null;
+  contentMdx?: string | null;
+  strapiId?: number | null;
+  sourceHash?: string | null;
+  publishedAt?: Date | null;
   author?: unknown;
 }
 
@@ -28,6 +36,41 @@ export const AnalysisSchema = new EntitySchema<AnalysisEntity>({
     },
     authorId: {
       type: Number,
+    },
+    lead: {
+      type: "text",
+      nullable: true,
+    },
+    description: {
+      type: "text",
+      nullable: true,
+    },
+    date: {
+      type: "date",
+      nullable: true,
+    },
+    category: {
+      type: String,
+      length: 255,
+      nullable: true,
+    },
+    contentMdx: {
+      type: "longtext",
+      nullable: true,
+    },
+    strapiId: {
+      type: Number,
+      unique: true,
+      nullable: true,
+    },
+    sourceHash: {
+      type: String,
+      length: 191,
+      nullable: true,
+    },
+    publishedAt: {
+      type: Date,
+      nullable: true,
     },
   },
   relations: {

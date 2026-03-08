@@ -22,13 +22,26 @@ function AuthorsGrid({ authors }: { authors: AuthorRow[] }) {
               return (
                 <div className="col-lg-3 col-md-6" key={String(a.id)}>
                   <div className="our-team-box mt-2 mb-4">
-                    <div className="team-img">
+                    <div
+                      className="team-img position-relative overflow-hidden rounded"
+                      data-testid={`author-card-media-${String(a.slug)}`}
+                      style={{
+                        aspectRatio: "4 / 5",
+                        backgroundColor: "#f3f4f6",
+                      }}
+                    >
                       <Image
                         src={String(avatarSrc)}
                         alt={String(a.displayName)}
-                        className="img-fluid d-block rounded"
-                        width={600}
-                        height={600}
+                        className="d-block w-100 h-100"
+                        data-testid={`author-card-image-${String(a.slug)}`}
+                        width={800}
+                        height={1000}
+                        sizes="(min-width: 992px) 25vw, (min-width: 768px) 50vw, 100vw"
+                        style={{
+                          objectFit: "cover",
+                          objectPosition: "center top",
+                        }}
                         unoptimized
                       />
                       <div className="our-team-name text-center">

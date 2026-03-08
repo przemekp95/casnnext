@@ -1,18 +1,19 @@
 # Strapi CMS Integration
 
-This project supports two content providers:
+This project uses:
 
-- `legacy`: existing MySQL + `posts/*.mdx`
-- `strapi`: Strapi as source-of-truth for authors, analyses and issue collections
+- Strapi as the editorial CMS and media library
+- MySQL as the public runtime read model for authors, analyses and issue collections
+- `posts/*.mdx` only as migration/backfill input for legacy content
 
 ## Environment Variables
 
 Set these in runtime environments:
 
-- `CONTENT_PROVIDER=legacy|strapi`
 - `STRAPI_INTERNAL_URL` (server-to-server URL, e.g. `http://strapi:1337`)
 - `NEXT_PUBLIC_STRAPI_URL` (browser-facing URL, e.g. `https://casn.pl/cms`)
 - `STRAPI_API_TOKEN` (required for write/import operations)
+- `CMS_SYNC_SECRET` (recommended secret for `/api/cms/sync`)
 - `STRAPI_WEBHOOK_SECRET` and/or `REVALIDATE_SECRET`
 
 For reverse proxy setup under `/cms`, also set:
@@ -56,15 +57,16 @@ Checks:
 
 Use Strapi webhook to call:
 
-- `POST /api/revalidate`
+- `POST /api/cms/sync`
 
 Provide secret via one of:
 
+- `x-cms-sync-secret` header
 - `x-revalidate-secret` header
 - `x-strapi-secret` header
 - `Authorization: Bearer <secret>`
 
-`/api/revalidate` revalidates inferred tags for models:
+`/api/cms/sync` fetches the changed entry from Strapi, upserts it into MySQL, and revalidates inferred tags for models:
 
 - analysis -> `analyses`, `articles`
 - author -> `authors`, `analyses`, `articles`
@@ -73,12 +75,12 @@ Provide secret via one of:
 ## Compatibility Notes
 
 - Public URLs remain unchanged: `/analizy/[slug]`, `/autor/[slug]`, `/autorzy`, `/zbiory`.
-- Existing Next API endpoints stay available and are mapped to Strapi in Strapi mode.
-- Legacy DB tables remain archival read-only after cutover.
+- Public runtime reads come only from MySQL; request-time reads from Strapi are intentionally disabled.
+- Strapi downtime should not take down the public site as long as MySQL still has synced content.
 
 ## Editorial Rules (MDX + media)
 
-- In Strapi mode, article content comes from `analysis.contentMdx`.
+- Article content is synced into `Analysis.contentMdx` in MySQL.
 - Always publish entries in Strapi (`publishedAt`) to make them visible publicly.
 - For Strapi uploaded files, use media paths under `/cms/uploads/...`.
 - Frontend includes a safety rewrite from `/uploads/...` to `/cms/uploads/...` during MDX rendering, but the recommended format is still `/cms/uploads/...`.
