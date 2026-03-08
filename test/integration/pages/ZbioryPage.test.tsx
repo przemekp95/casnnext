@@ -4,6 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 
 jest.mock('@/lib/server/issues', () => ({
   getIssueCollections: jest.fn(async () => ([
+    { id: '2026', year: 2026, file: 'http://localhost:1337/uploads/zeszyt-analiz-2026.pdf', title: 'Zeszyt Analiz 2026', cover: 'http://localhost:1337/uploads/zeszyt-analiz-2026.webp' },
     { id: '2025', year: 2025, file: '/wszystkie_teksty_druk_3mm_spad_04_12.pdf', title: 'Zeszyt Analiz 2025' },
     { id: '2024', year: 2024, file: '/Katalog CASN_online_08_12_24.pdf', title: 'Zeszyt Analiz 2024' },
     { id: '2023', year: 2023, file: '/Analizy_2023.pdf', title: 'Zeszyt Analiz 2023' },
@@ -44,6 +45,7 @@ async function renderPage() {
   it('renderuje wszystkie dostępne zbiory analiz', async () => {
     await renderPage();
 
+    expect(screen.getByText('Zeszyt Analiz 2026')).toBeInTheDocument();
     expect(screen.getByText('Zeszyt Analiz 2022')).toBeInTheDocument();
     expect(screen.getByText('Zeszyt Analiz 2023')).toBeInTheDocument();
     expect(screen.getByText('Zeszyt Analiz 2024')).toBeInTheDocument();
@@ -54,7 +56,7 @@ async function renderPage() {
     await renderPage();
 
     const downloadButtons = screen.getAllByRole('link', { name: 'POBIERZ' });
-    expect(downloadButtons).toHaveLength(4);
+    expect(downloadButtons).toHaveLength(5);
 
     downloadButtons.forEach(button => {
       expect(button).toHaveAttribute('target', '_blank');
@@ -66,6 +68,7 @@ async function renderPage() {
     await renderPage();
 
     // Check specific PDF links
+    expect(screen.getByRole('link', { name: /Zeszyt Analiz 2026/ })).toHaveAttribute('href', 'http://localhost:1337/uploads/zeszyt-analiz-2026.pdf');
     expect(screen.getByRole('link', { name: /Zeszyt Analiz 2022/ })).toHaveAttribute('href', '/CASN_gotowa_wersja_do_druku_24.01.2023.pdf');
     expect(screen.getByRole('link', { name: /Zeszyt Analiz 2023/ })).toHaveAttribute('href', '/Analizy_2023.pdf');
     expect(screen.getByRole('link', { name: /Zeszyt Analiz 2024/ })).toHaveAttribute('href', '/Katalog CASN_online_08_12_24.pdf');
@@ -76,9 +79,8 @@ async function renderPage() {
     await renderPage();
 
     const images = screen.getAllByRole('img');
-    // Should have at least 4 logo images (one for each issue)
-    const logoImages = images.filter(img => img.getAttribute('alt')?.includes('Logo'));
-    expect(logoImages.length).toBe(4);
+    const coverImages = images.filter(img => img.getAttribute('alt')?.includes('Okładka'));
+    expect(coverImages.length).toBe(5);
   });
 
   it('renderuje kartki zbiorów w odpowiednim layout', async () => {
@@ -93,7 +95,7 @@ async function renderPage() {
     const { container } = await renderPage();
 
     const cards = container.querySelectorAll('.blog-list-item');
-    expect(cards.length).toBe(4);
+    expect(cards.length).toBe(5);
 
     cards.forEach(card => {
       expect(card).toHaveClass('bg-white', 'rounded', 'mt-4');
@@ -126,7 +128,23 @@ async function renderPage() {
     const { container } = await renderPage();
 
     const columns = container.querySelectorAll('.col-lg-4');
-    expect(columns.length).toBe(4); // One for each issue
+    expect(columns.length).toBe(5); // One for each issue
+  });
+
+  it('renderuje kwadratowy viewport okładki dla CMS-owych zbiorów', async () => {
+    await renderPage();
+
+    const media = screen.getByTestId('issue-card-media-2026');
+    const image = screen.getByTestId('issue-card-image-2026');
+
+    expect(media).toHaveStyle({
+      aspectRatio: '1 / 1',
+      backgroundColor: 'rgb(243, 244, 246)',
+    });
+    expect(image).toHaveStyle({
+      objectFit: 'cover',
+      objectPosition: 'center center',
+    });
   });
 
   it('ma accessibility - obrazy mają alt text', async () => {

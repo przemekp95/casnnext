@@ -4,8 +4,6 @@ name: "CodeQL Config"
 paths-ignore:
   # Next.js build output
   - '.next'
-  - 'casn-standalone-package/static'
-  - 'casn-standalone-package/**/*.js'
   
   # Node modules
   - 'node_modules'

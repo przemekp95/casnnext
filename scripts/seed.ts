@@ -1,5 +1,5 @@
 // scripts/seed.ts
-import { AppDataSource } from '@/lib/db.server';
+import { AppDataSource } from '@/lib/db.shared';
 import { AuthorSchema, AnalysisSchema } from '@/lib/entities';
 
 async function main() {

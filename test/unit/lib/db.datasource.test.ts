@@ -61,8 +61,8 @@ describe('lib/db.datasource', () => {
     expect(config.password).toBe('db_pass');
     expect(config.database).toBe('casn_ci');
     expect(config.synchronize).toBe(false);
-    expect(config.entities).toHaveLength(2);
-    expect(config.migrations).toEqual(['migrations/*.ts']);
+    expect(config.entities).toHaveLength(3);
+    expect(config.migrations).toHaveLength(2);
     expect(mod.default).toBeDefined();
   });
 

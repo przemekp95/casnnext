@@ -51,7 +51,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: |
@@ -108,7 +108,7 @@ jobs:
 
       - name: Start application server
         run: |
-          npm start &
+          node server.js &
           echo $! > server.pid
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
@@ -190,7 +190,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: strapi/package-lock.json
 

@@ -1,4 +1,4 @@
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 type RevalidatePayload = {
@@ -28,17 +28,35 @@ function inferTags(payload: RevalidatePayload): string[] {
   if (payload.tag) return [payload.tag];
 
   const model = (payload.model || "").toLowerCase();
-  if (!model) return ["analyses", "authors", "issues", "articles"];
+  if (!model) return ["analyses", "authors", "issues", "articles", "sitemap"];
 
-  if (model.includes("analysis")) return ["analyses", "articles"];
-  if (model.includes("author")) return ["authors", "analyses", "articles"];
-  if (model.includes("issue")) return ["issues"];
-  return ["analyses", "authors", "issues", "articles"];
+  if (model.includes("analysis")) return ["analyses", "articles", "sitemap"];
+  if (model.includes("author")) return ["authors", "analyses", "articles", "sitemap"];
+  if (model.includes("issue")) return ["issues", "sitemap"];
+  return ["analyses", "authors", "issues", "articles", "sitemap"];
+}
+
+function inferPaths(payload: RevalidatePayload): string[] {
+  const model = (payload.model || "").toLowerCase();
+  if (!model) return ["/autorzy", "/analizy", "/zbiory", "/sitemap.xml"];
+
+  if (model.includes("analysis")) return ["/analizy", "/sitemap.xml"];
+  if (model.includes("author")) return ["/autorzy", "/analizy", "/sitemap.xml"];
+  if (model.includes("issue")) return ["/zbiory", "/sitemap.xml"];
+  return ["/autorzy", "/analizy", "/zbiory", "/sitemap.xml"];
 }
 
 function tryRevalidateTag(tag: string): void {
   try {
-    revalidateTag(tag, "next");
+    revalidateTag(tag, "max");
+  } catch {
+    // In tests or non-Next runtime, static generation store may be unavailable.
+  }
+}
+
+function tryRevalidatePath(path: string): void {
+  try {
+    revalidatePath(path);
   } catch {
     // In tests or non-Next runtime, static generation store may be unavailable.
   }
@@ -67,9 +85,13 @@ export async function POST(req: Request) {
   }
 
   const tags = inferTags(payload);
+  const paths = inferPaths(payload);
   for (const tag of tags) {
     tryRevalidateTag(tag);
   }
+  for (const path of paths) {
+    tryRevalidatePath(path);
+  }
 
-  return NextResponse.json({ ok: true, tags, event: payload.event || null, model: payload.model || null });
+  return NextResponse.json({ ok: true, tags, paths, event: payload.event || null, model: payload.model || null });
 }

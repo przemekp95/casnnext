@@ -5,14 +5,13 @@ import { NextResponse } from "next/server";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db.server";
 import { AuthorSchema, AnalysisSchema } from "@/lib/entities";
-import { getAnalyses } from "@/lib/analyses";
-import { isStrapiProvider } from "@/lib/content-provider";
 import {
   createCmsAnalysis,
   fetchCmsAuthorByLegacyId,
   fetchCmsAuthorBySlug,
 } from "@/lib/cms/strapi-client";
 import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
+import { syncCmsEntryById } from "@/lib/server/cms-sync";
 
 type ArticleRow = {
   id: number | string;
@@ -26,6 +25,10 @@ type ArticleRow = {
 type PostBodyBase = { title: string; slug: string };
 type BodyWithId = PostBodyBase & { authorId: number };
 type BodyWithSlug = PostBodyBase & { authorSlug: string };
+
+function isCmsWriteConfigured(): boolean {
+  return Boolean(process.env.STRAPI_API_TOKEN);
+}
 
 function isPostBodyBase(x: unknown): x is PostBodyBase {
   const y = x as Partial<PostBodyBase>;
@@ -67,7 +70,10 @@ function normalizeArticleAuthor(row: ArticleRow): ArticleRow {
 
 async function getLegacyArticles(): Promise<ArticleRow[]> {
   if (!isDatabaseConfigured()) return [];
-  if (!AppDataSource || !AppDataSource.isInitialized) return [];
+  if (!AppDataSource) return [];
+  if (!AppDataSource.isInitialized) {
+    await AppDataSource.initialize();
+  }
 
   if (typeof unstable_cache !== "undefined" && process.env.NODE_ENV !== "test") {
     const getArticlesCached = unstable_cache(
@@ -84,6 +90,7 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
             "author.name as author_name",
             "author.slug as author_slug",
           ])
+          .where("analysis.publishedAt IS NOT NULL")
           .orderBy("analysis.id", "DESC")
           .getRawMany();
 
@@ -117,6 +124,7 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
       "author.name as author_name",
       "author.slug as author_slug",
     ])
+    .where("analysis.publishedAt IS NOT NULL")
     .orderBy("analysis.id", "DESC")
     .getRawMany();
 
@@ -132,27 +140,13 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
     .map(normalizeArticleAuthor);
 }
 
-async function getStrapiArticles(): Promise<ArticleRow[]> {
-  const analyses = await getAnalyses();
-  return analyses
-    .map((analysis) => ({
-      id: analysis.id,
-      title: analysis.title,
-      slug: analysis.slug,
-      authorId: analysis.authorId,
-      author_name: analysis.author?.name || null,
-      author_slug: analysis.author?.slug || null,
-    }))
-    .map(normalizeArticleAuthor);
-}
-
 export async function GET() {
   try {
     if (process.env.NEXT_PHASE === "phase-production-build") {
       return responseWithCache([]);
     }
 
-    const articles = isStrapiProvider() ? await getStrapiArticles() : await getLegacyArticles();
+    const articles = await getLegacyArticles();
     return responseWithCache(articles);
   } catch (error) {
     console.error("Articles API error:", error);
@@ -164,8 +158,11 @@ async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlu
   if (!isDatabaseConfigured()) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
-  if (!AppDataSource || !AppDataSource.isInitialized) {
+  if (!AppDataSource) {
     return NextResponse.json({ error: "Database not available" }, { status: 503 });
+  }
+  if (!AppDataSource.isInitialized) {
+    await AppDataSource.initialize();
   }
 
   let authorId: number | null = null;
@@ -189,6 +186,7 @@ async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlu
     title: body.title,
     slug: body.slug,
     authorId,
+    publishedAt: new Date(),
   });
 
   const articleWithAuthor = await analysisRepository
@@ -206,7 +204,7 @@ async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlu
     .getRawOne();
 
   if (typeof revalidateTag !== "undefined" && process.env.NODE_ENV !== "test") {
-    revalidateTag("articles", "next");
+    revalidateTag("articles", "max");
   }
 
   return NextResponse.json(
@@ -223,13 +221,6 @@ async function createLegacyArticle(body: PostBodyBase | BodyWithId | BodyWithSlu
 }
 
 async function createStrapiArticle(body: PostBodyBase | BodyWithId | BodyWithSlug) {
-  if (!process.env.STRAPI_API_TOKEN) {
-    return NextResponse.json(
-      { error: "STRAPI_API_TOKEN is required to create articles in Strapi mode" },
-      { status: 503 }
-    );
-  }
-
   let author = null;
   if (isBodyWithId(body)) {
     author = await fetchCmsAuthorByLegacyId(body.authorId);
@@ -247,22 +238,29 @@ async function createStrapiArticle(body: PostBodyBase | BodyWithId | BodyWithSlu
     authorStrapiId: author.id,
   });
 
-  if (typeof revalidateTag !== "undefined" && process.env.NODE_ENV !== "test") {
-    revalidateTag("articles", "next");
-    revalidateTag("analyses", "next");
+  const synced = await syncCmsEntryById("analysis", created.id);
+  if (!synced) {
+    return NextResponse.json(
+      { error: "Article was created in Strapi but could not be synced to the database" },
+      { status: 502 }
+    );
   }
 
-  return NextResponse.json(
-    normalizeArticleAuthor({
-      id: created.id,
-      title: created.title,
-      slug: created.slug,
-      authorId: author.legacyId ?? author.id,
-      author_name: author.name,
-      author_slug: author.slug,
-    }),
-    { status: 201 }
-  );
+  const articles = await getLegacyArticles();
+  const article = articles.find((entry) => entry.slug === created.slug);
+  if (!article) {
+    return NextResponse.json(
+      { error: "Article sync completed but the database record could not be read back" },
+      { status: 502 }
+    );
+  }
+
+  if (typeof revalidateTag !== "undefined" && process.env.NODE_ENV !== "test") {
+    revalidateTag("articles", "max");
+    revalidateTag("analyses", "max");
+  }
+
+  return NextResponse.json(article, { status: 201 });
 }
 
 export async function POST(req: Request) {
@@ -282,7 +280,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    if (isStrapiProvider()) {
+    if (isCmsWriteConfigured()) {
       return await createStrapiArticle(body);
     }
 

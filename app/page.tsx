@@ -58,11 +58,12 @@ export default function HomePage() {
                 <Image
                   src="/images/ikonka.webp"
                   alt="Ikonka"
-                  width={512}
-                  height={512}
-                  className="img-fluid d-block mx-auto"
-                  loading="lazy" // DODANE
-                  style={{ height: "auto", width: "auto", maxWidth: "100%" }}
+                  width={247}
+                  height={247}
+                  className="img-fluid d-block mx-auto about-illustration"
+                  loading="lazy"
+                  sizes="(max-width: 768px) 160px, 247px"
+                  style={{ height: "auto" }}
                 />
               </div>
             </div>
@@ -74,17 +75,17 @@ export default function HomePage() {
                     "Choć niepodległość państwowa i narodowa we współczesnym, globalizującym się świecie stanowi pojęcie coraz trudniejsze do jednoznacznego zdefiniowania, stoimy na stanowisku, iż możliwe i konieczne pozostaje określenie jej istoty oraz warunków jej realnego sprawowania."
                   )}
                 </h2>
-                <p className="text-muted" style={{ textAlign: "justify" }}>
+                <p className="home-copy-muted" style={{ textAlign: "justify" }}>
                   {bindOrphans(
                     "W tym kontekście szczególnego znaczenia nabierają badania porównawcze odnoszące się do doświadczeń państw i narodów o wysokim poziomie sprawczości politycznej, gospodarczej i kulturowej. Do takiego modelu państwowości i wspólnoty narodowej aspirujemy, tak też rozumiemy naszą misję i służbę na rzecz Niepodległej. Na niniejszych łamach podejmujemy systematyczną refleksję analityczną nad kluczowymi wymiarami współczesnej suwerenności, obejmującymi m.in. suwerenność informacyjną, energetyczną, konstytucyjną, militarną, gospodarczą, edukacyjną oraz kulturową, ujmowanymi w perspektywie całościowej i interdyscyplinarnej."
                   )}
                 </p>
-                <p className="text-muted" style={{ textAlign: "justify" }}>
+                <p className="home-copy-muted" style={{ textAlign: "justify" }}>
                   {bindOrphans(
                     "Poniżej przedstawiamy analizy przygotowane na przestrzeni ostatnich lat przez zespół naszych autorów."
                   )}
                 </p>
-                <p className="text-muted" style={{ textAlign: "justify" }}>
+                <p className="home-copy-muted" style={{ textAlign: "justify" }}>
                   {bindOrphans(
                     "Zapraszamy do lektury oraz do współpracy badawczej i eksperckiej."
                   )}
@@ -106,10 +107,10 @@ export default function HomePage() {
           <div className="row align-items-center">
             <div className="col-lg-7">
               <div className="work-content">
-                <h3 className="text-muted">Dążymy do dostarczenia najwyższej jakości analiz i raportów.</h3>
+                <h3 className="home-copy-muted">Dążymy do dostarczenia najwyższej jakości analiz i raportów.</h3>
                 <div className="title-border mt-4" />
                 <br />
-                <p className="text-muted" style={{ textAlign: "justify" }}>
+                <p className="home-copy-muted" style={{ textAlign: "justify" }}>
                   Dzięki wykwalifikowanemu i dynamicznemu zespołowi, kontaktom w
                   środowisku rządowym, pozarządowym i akademickim, nie tylko
                   dotrzymujemy kroku dynamicznie zmieniającemu się otoczeniu, ale

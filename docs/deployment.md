@@ -97,7 +97,7 @@ docker-compose -f docker-compose.portainer.yml up -d
 ```
 
 `docker-compose.portainer.yml` currently exposes:
-- nginx: `18080:80`
+- nginx: `18080:8080`
 - Next.js app internal port: `3000` (behind nginx)
 
 ## Image Name Consistency Check

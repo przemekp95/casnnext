@@ -16,6 +16,8 @@ Object.defineProperty(window, 'performance', {
 });
 
 describe('SearchModal', () => {
+  let consoleErrorSpy: jest.SpyInstance;
+
   const mockProps = {
     isOpen: true,
     onClose: jest.fn()
@@ -42,6 +44,7 @@ describe('SearchModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockSearchIndex)
@@ -51,6 +54,7 @@ describe('SearchModal', () => {
 
   afterEach(() => {
     mockPerformanceNow.mockReturnValue(1000);
+    consoleErrorSpy.mockRestore();
   });
 
   it('renders search modal when isOpen is true', async () => {
@@ -185,10 +189,32 @@ describe('SearchModal', () => {
     }, { timeout: 3000 });
   });
 
-  // Skipped: Complex timing test for filtering - main functionality verified by other tests
-  it.skip('filters to show no results when filtering by author field that contains no matches', async () => {
-    // This test is skipped due to complex timing issues with React component state updates
-    // The main filtering functionality is verified by the 'filters by author when author filter is selected' test
+  it('filters to show no results when filtering by author field that contains no matches', async () => {
+    render(<SearchModal {...mockProps} />);
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    const input = screen.getByPlaceholderText('Szukaj w analizach...');
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Article' } });
+    });
+
+    await waitFor(() => {
+      const links = screen.getAllByRole('link');
+      expect(links.length).toBe(2);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Autorzy'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Nie znaleziono wyników dla "Article"')).toBeInTheDocument();
+      expect(screen.queryAllByRole('link')).toHaveLength(0);
+    });
   });
 
   it('sorts by relevance when relevance sort is selected', async () => {
