@@ -12,11 +12,11 @@ export function ContactSection() {
               </div>
               <p className="text-muted mb-0">
                 <a
-                  href="mailto:p.balcerowski@sluzbaniepodleglej.pl"
+                  href="mailto:fundacja@sluzbaniepodleglej.pl"
                   className="text-muted"
                   style={{ textDecoration: 'none' }}
                 >
-                  p.balcerowski@sluzbaniepodleglej.pl
+                  fundacja@sluzbaniepodleglej.pl
                 </a>
               </p>
             </div>
