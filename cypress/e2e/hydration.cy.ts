@@ -311,7 +311,7 @@ describe('Hydration Tests', () => {
     cy.get('a[href*="mailto:"]').should('exist').and('be.visible');
 
     // Verify the email text is properly restored by our client component
-    cy.get('a[href*="mailto:"]').should('contain', 'p.balcerowski@sluzbaniepodleglej.pl');
+    cy.get('a[href*="mailto:"]').should('contain', 'fundacja@sluzbaniepodleglej.pl');
 
     // Verify no data-cfemail attributes exist (Cloudflare protection markers)
     cy.get('[data-cfemail]').should('not.exist');

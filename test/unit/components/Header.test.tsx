@@ -104,8 +104,8 @@ try {
     // Sprawdź czy jest link do email
     const emailLink = screen.queryByRole('link', { name: /wyślij email/i });
     if (emailLink) {
-      expect(emailLink).toHaveAttribute('href', 'mailto:p.balcerowski@sluzbaniepodleglej.pl');
-      expect(emailLink).toHaveTextContent('p.balcerowski@sluzbaniepodleglej.pl');
+      expect(emailLink).toHaveAttribute('href', 'mailto:fundacja@sluzbaniepodleglej.pl');
+      expect(emailLink).toHaveTextContent('fundacja@sluzbaniepodleglej.pl');
     }
   });
 });

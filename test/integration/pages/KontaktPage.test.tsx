@@ -42,9 +42,9 @@ try {
   it('renderuje informacje kontaktowe - email', () => {
     render(<PageComponent />);
 
-    const emailLink = screen.getByRole('link', { name: /p\.balcerowski@sluzbaniepodleglej\.pl/ });
+    const emailLink = screen.getByRole('link', { name: /fundacja@sluzbaniepodleglej\.pl/ });
     expect(emailLink).toBeInTheDocument();
-    expect(emailLink).toHaveAttribute('href', 'mailto:p.balcerowski@sluzbaniepodleglej.pl');
+    expect(emailLink).toHaveAttribute('href', 'mailto:fundacja@sluzbaniepodleglej.pl');
   });
 
   it('renderuje informacje kontaktowe - strona www', () => {
