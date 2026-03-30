@@ -123,7 +123,7 @@ export default function Header() {
                 }}
               >
                 <EmailLink
-                  email="p.balcerowski@sluzbaniepodleglej.pl"
+                  email="fundacja@sluzbaniepodleglej.pl"
                   ariaLabel="Wyślij email do Piotra Balcerowskiego"
                   className="text-white"
                   iconClass="mdi mdi-email mr-1 text-custom"
