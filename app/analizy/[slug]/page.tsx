@@ -5,7 +5,6 @@ import { cache } from "react";
 import ArticleLayout from "@/components/ArticleLayout";
 import { notFound } from "next/navigation";
 import { getAnalyses, getAnalysisBySlug } from "@/lib/analyses";
-import Script from "next/script";
 import { normalizeCmsMdxMediaPaths } from "@/lib/cms/mdx-media";
 import { replacePlaceholders } from "@/lib/cms/placeholders";
 
@@ -314,7 +313,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     // Generate structured data
     const articleStructuredData = {
       "@context": "https://schema.org",
-      "@type": "Article",
+      "@type": "BlogPosting",
       "headline": article.title,
       "description": article.description,
       "author": {
@@ -368,19 +367,13 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     // 3) Render (MDX renderuje komponent MDXContent — bez sieciowych pluginów)
     return (
       <>
-        <Script
-          id="article-structured-data"
+        <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(articleStructuredData)
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleStructuredData) }}
         />
-        <Script
-          id="breadcrumb-structured-data"
+        <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(breadcrumbStructuredData)
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
         />
         <div id="analysis-page" data-page-type="analysis"></div>
         <ArticleLayout
