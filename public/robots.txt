@@ -8,8 +8,6 @@ Sitemap: https://casn.pl/sitemap.xml
 Disallow: /api/
 Disallow: /_next/
 Disallow: /admin/
-Disallow: /*.json$
-Disallow: /*?*
 
 # Pozwolenie na dostęp do CSS i JS
 Allow: /_next/static/

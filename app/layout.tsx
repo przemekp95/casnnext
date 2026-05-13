@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-css-tags */
 import "./globals.css";
 import Script from "next/script";
+import type { Metadata } from "next";
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -28,7 +29,7 @@ const rubik = Rubik({
   variable: "--font-rubik",    // ⬅️ dodane
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   metadataBase: new URL("https://casn.pl"),
   title: "Centrum Analiz Służby Niepodległej",
   description: "Strona Centrum Analiz Fundacji Służby Niepodległej",
@@ -42,7 +43,16 @@ export const metadata = {
     google: "m2YyW7pzg0z3nL2idpMZ2finxS8sCwvYKOe4whiY3kA",
   },
   openGraph: {
-    images: "/images/home2.webp",
+    type: "website",
+    url: "https://casn.pl",
+    images: [
+      {
+        url: "/images/home2.webp",
+        width: 1200,
+        height: 630,
+        alt: "Centrum Analiz Służby Niepodległej",
+      },
+    ],
     title: "Centrum Analiz Służby Niepodległej",
     description: "Analizy polityki i społeczeństwa",
   },
@@ -50,9 +60,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Centrum Analiz Służby Niepodległej",
     description: "Analizy polityki i społeczeństwa",
-  },
-  alternates: {
-    canonical: "https://casn.pl",
+    images: ["/images/home2.webp"],
   },
   robots: {
     index: true,
@@ -83,39 +91,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="w-full min-h-screen">{children}</main>
         <CtaSection />
         <Footer />
-
-        {/* Organization Structured Data */}
-        <Script
-          id="organization-structured-data"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              "name": "Centrum Analiz Służby Niepodległej",
-              "url": "https://casn.pl",
-              "logo": "https://casn.pl/images/logo.jpg",
-              "description": "Strona Centrum Analiz Fundacji Służby Niepodległej - analizy polityki i społeczeństwa",
-              "sameAs": [
-                "https://www.facebook.com/casn",
-                "https://www.twitter.com/casn",
-                "https://www.linkedin.com/company/casn"
-              ],
-              "contactPoint": {
-                "@type": "ContactPoint",
-                "telephone": "+48-XXX-XXX-XXX",
-                "contactType": "customer service",
-                "availableLanguage": "Polish"
-              },
-              "address": {
-                "@type": "PostalAddress",
-                "addressCountry": "PL",
-                "addressLocality": "Warszawa"
-              },
-              "foundingDate": "2023"
-            })
-          }}
-        />
 
         {/* istniejący inline script na navbar zostaje */}
 
