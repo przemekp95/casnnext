@@ -136,7 +136,7 @@ export default function HomePage() {
                 </p>
 
                 <div className="pt-3">
-                  <a href="/zbiory" className="btn btn-custom">Przeczytaj analizy</a>
+                  <a href="/analizy" className="btn btn-custom">Przeczytaj analizy</a>
                 </div>
               </div>
             </div>

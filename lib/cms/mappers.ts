@@ -3,6 +3,7 @@ import type { AuthorDetail, AuthorRow } from "@/types/author";
 import type { IssueCollectionRow } from "@/types/issue";
 import { getStrapiPublicUrl } from "./config";
 import type { CmsAnalysis, CmsAuthor, CmsIssue } from "./types";
+import { createExcerpt, stripMarkdown } from "@/lib/searchUtils";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -58,6 +59,17 @@ function mediaUrlFromField(value: unknown): string | null {
 
   const direct = toStringOrNull(media.url);
   return resolveMediaUrl(direct);
+}
+
+function stripMdxFrontmatter(source: string): string {
+  if (!source.trim().startsWith("---")) return source;
+  return source.replace(/^---[\s\S]*?---\s*/, "");
+}
+
+function toIsoDateOrEmpty(value: string | null | undefined): string {
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
 }
 
 type AuthorCanonicalOverride = {
@@ -245,16 +257,44 @@ export function cmsAuthorToAuthorDetail(author: CmsAuthor, analyses: CmsAnalysis
       id: String(analysis.id),
       title: analysis.title,
       slug: analysis.slug,
+      authorId: String(analysis.author?.id ?? author.id),
+      publishedAt: toIsoDateOrEmpty(analysis.publishedAt ?? analysis.date ?? undefined),
+      excerpt: createExcerpt(
+        (analysis.lead && analysis.lead.trim()) ||
+          (analysis.description && analysis.description.trim()) ||
+          stripMdxFrontmatter(analysis.contentMdx || "") ||
+          analysis.title,
+        220,
+      ),
+      bodyText: stripMarkdown(stripMdxFrontmatter(analysis.contentMdx || "")).trim(),
+      isPublished: Boolean(analysis.publishedAt ?? analysis.date),
+      date: analysis.date ?? undefined,
+      lead: analysis.lead ?? undefined,
+      description: analysis.description ?? undefined,
+      category: analysis.category ?? undefined,
+      sourceHash: analysis.sourceHash ?? undefined,
     })),
   };
 }
 
 export function cmsAnalysisToAnalysisRow(analysis: CmsAnalysis): AnalysisRow {
+  const normalizedContent = stripMdxFrontmatter(analysis.contentMdx || "");
+  const bodyText = stripMarkdown(normalizedContent);
+  const excerptSource =
+    (analysis.lead && analysis.lead.trim()) ||
+    (analysis.description && analysis.description.trim()) ||
+    normalizedContent ||
+    analysis.title;
+
   return {
     id: String(analysis.id),
     title: analysis.title,
     slug: analysis.slug,
     authorId: String(analysis.author?.id ?? ""),
+    publishedAt: toIsoDateOrEmpty(analysis.publishedAt ?? analysis.date ?? undefined),
+    excerpt: createExcerpt(excerptSource, 220),
+    bodyText,
+    isPublished: Boolean(analysis.publishedAt ?? analysis.date),
     date: analysis.date ?? undefined,
     lead: analysis.lead ?? undefined,
     description: analysis.description ?? undefined,
