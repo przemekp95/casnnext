@@ -28,7 +28,24 @@ jobs:
         run: |
           git fetch origin main dev
           git checkout -B codex/dev-main-integration origin/main
-          git merge --no-edit -X theirs origin/dev
+          if ! git merge --no-edit -X theirs origin/dev; then
+            echo "Merge reported conflicts. Resolving all unmerged paths in favor of origin/dev..."
+            while IFS= read -r path; do
+              if ! git checkout --theirs -- "$path" 2>/dev/null; then
+                # If 'theirs' deleted the file, remove ours from index/worktree.
+                git rm -f -- "$path" 2>/dev/null || true
+              fi
+              git add -- "$path"
+            done < <(git diff --name-only --diff-filter=U)
+
+            if git diff --name-only --diff-filter=U | grep -q .; then
+              echo "Unresolved conflicts remain after fallback:"
+              git diff --name-only --diff-filter=U
+              exit 1
+            fi
+
+            git commit --no-edit
+          fi
 
       - name: Push refreshed integration branch
         run: |
