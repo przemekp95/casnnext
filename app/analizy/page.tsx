@@ -5,6 +5,7 @@ import Image, { getImageProps } from "next/image";
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { getAnalyses } from "@/lib/analyses";
+import Hero from "@/components/Hero";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic"; // Build-safe shell; content comes from tag-invalidated DB cache
@@ -43,77 +44,16 @@ export default async function AnalysesPage() {
       if (bTime !== aTime) return bTime - aTime;
       return a.title.localeCompare(b.title, "pl");
     });
-    const heroMediaStyle = {
-      '--hero-background-position': 'center 35%',
-    } as CSSProperties;
-    const {
-      props: { srcSet: mobileHeroSrcSet },
-    } = getImageProps({
-      src: "/images/logo.jpg",
-      alt: "",
-      width: 2000,
-      height: 2000,
-      sizes: "100vw",
-      quality: 68,
-      loading: "eager",
-      fetchPriority: "high",
-      decoding: "async",
-    });
-    const {
-      props: { srcSet: desktopHeroSrcSet, src: desktopHeroSrc, ...desktopHeroImgProps },
-    } = getImageProps({
-      src: "/images/home2.webp",
-      alt: "",
-      width: 1225,
-      height: 560,
-      sizes: "100vw",
-      quality: 74,
-      loading: "eager",
-      fetchPriority: "high",
-      decoding: "async",
-    });
 
     return (
       <main className="bg-gray-100 min-h-screen pb-12">
-        {/* HEADER START */}
-        <section className="contact-us-home section" id="home">
-          <picture className="hero-picture" style={heroMediaStyle}>
-            <source media="(max-width: 768px)" srcSet={mobileHeroSrcSet} />
-            <img
-              {...desktopHeroImgProps}
-              src={desktopHeroSrc}
-              srcSet={desktopHeroSrcSet}
-              alt=""
-              className="hero-bg"
-            />
-          </picture>
-        </section>
-
-        <div className="bg-overlay"></div>
-        <div className="home-center">
-          <div className="home-desc-center">
-            <div className="container">
-              <div className="row justify-content-center">
-                <div className="col-lg-8" style={{ background: "rgba(30, 30, 30, 0.65)" }}>
-                  <div className="home-page-title text-center">
-                    <h1 className="text-white mb-2">Analizy</h1>
-                    <nav aria-label="breadcrumb">
-                      <ol className="breadcrumb justify-content-center bg-transparent">
-                        <li className="breadcrumb-item text-white">
-                          <Link href="/" className="text-white">Strona główna</Link>
-                        </li>
-                        <li className="breadcrumb-item active" aria-current="page">
-                          <Link href="/analizy" className="text-custom">Analizy</Link>
-                        </li>
-                      </ol>
-                    </nav>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* HEADER END */}
+        <Hero
+          title="Analizy"
+          breadcrumbs={[
+            { label: "Strona główna", href: "/" },
+            { label: "Analizy", href: "/analizy", active: true },
+          ]}
+        />
 
         {/* ANALYSES LIST START */}
         <section className="section">
@@ -160,25 +100,27 @@ export default async function AnalysesPage() {
 
                 <div className="row projects-wrapper">
                   {sortedAnalyses.map((analysis) => (
-                    <div className="col-lg-4 col-md-6 management international" key={analysis.id}>
-                      <div className="blog-list-item bg-white rounded mt-4">
-                        <div className="blog-list-img">
+                    <div className="col-lg-4 col-md-6 management international analyses-grid-item" key={analysis.id}>
+                      <div className="blog-list-item bg-white rounded analyses-card d-flex flex-column h-100">
+                        <div className="blog-list-img analyses-card-image">
                           <Image
                             src={analysis.author?.img || "/images/placeholder.png"}
-                            width={300}
-                            height={300}
-                            className="img-fluid d-block mx-auto rounded"
+                            width={800}
+                            height={1000}
+                            className="d-block w-100 h-100"
+                            sizes="(min-width: 992px) 33vw, (min-width: 768px) 50vw, 100vw"
+                            style={{ objectFit: "cover", objectPosition: "center top" }}
                             alt={analysis.author?.name || "Autor"}
                           />
                           <div className="blog-list-overlay"></div>
                         </div>
-                        <div className="cases-desc text-center p-3">
-                          <h5 className="cases-subtitle mb-2">
+                        <div className="cases-desc text-center p-3 analyses-card-content">
+                          <h5 className="cases-subtitle mb-2 analyses-card-title">
                             <Link href={`/analizy/${analysis.slug}`} className="text-dark">
                               {analysis.title}
                             </Link>
                           </h5>
-                          <p className="text-muted">
+                          <p className="text-muted mb-0 analyses-card-author">
                             {analysis.author?.slug && analysis.author?.name ? (
                               <Link href={`/autor/${analysis.author.slug}`} className="text-custom">
                                 {analysis.author.name}
@@ -188,7 +130,7 @@ export default async function AnalysesPage() {
                             )}
                           </p>
                         </div>
-                        <div className="learn-more text-center">
+                        <div className="learn-more text-center mt-auto">
                           <Link href={`/analizy/${analysis.slug}`} className="btn btn-custom btn-block">
                             PRZECZYTAJ
                           </Link>
