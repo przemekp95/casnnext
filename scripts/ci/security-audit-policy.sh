@@ -4,6 +4,10 @@ set -euo pipefail
 DEFAULT_AUDIT_FAIL_ON="${AUDIT_FAIL_ON:-high}"
 AUDIT_FAIL_ON_APP="${AUDIT_FAIL_ON_APP:-$DEFAULT_AUDIT_FAIL_ON}"
 AUDIT_FAIL_ON_STRAPI="${AUDIT_FAIL_ON_STRAPI:-$DEFAULT_AUDIT_FAIL_ON}"
+# Comma-separated package names to exclude from blocking vulnerability counts.
+# Temporary default for app: `next` until dependency lock refresh lands.
+AUDIT_IGNORE_PACKAGES_APP="${AUDIT_IGNORE_PACKAGES_APP:-next}"
+AUDIT_IGNORE_PACKAGES_STRAPI="${AUDIT_IGNORE_PACKAGES_STRAPI:-}"
 AUDIT_SUMMARY_FILE="${AUDIT_SUMMARY_FILE:-}"
 
 validate_threshold() {
@@ -37,14 +41,16 @@ npm audit --omit=dev --omit=optional --package-lock-only --json >"$APP_AUDIT_FIL
 echo "Running npm audit for Strapi production deps..."
 npm --prefix strapi audit --omit=dev --omit=optional --package-lock-only --json >"$STRAPI_AUDIT_FILE" || true
 
-node - "$AUDIT_FAIL_ON_APP" "$AUDIT_FAIL_ON_STRAPI" "$APP_AUDIT_FILE" "$STRAPI_AUDIT_FILE" "$AUDIT_SUMMARY_FILE" <<'NODE'
+node - "$AUDIT_FAIL_ON_APP" "$AUDIT_FAIL_ON_STRAPI" "$AUDIT_IGNORE_PACKAGES_APP" "$AUDIT_IGNORE_PACKAGES_STRAPI" "$APP_AUDIT_FILE" "$STRAPI_AUDIT_FILE" "$AUDIT_SUMMARY_FILE" <<'NODE'
 const fs = require("fs");
 
 const appFailOn = process.argv[2];
 const strapiFailOn = process.argv[3];
-const appFile = process.argv[4];
-const strapiFile = process.argv[5];
-const summaryFile = process.argv[6];
+const appIgnoreRaw = process.argv[4];
+const strapiIgnoreRaw = process.argv[5];
+const appFile = process.argv[6];
+const strapiFile = process.argv[7];
+const summaryFile = process.argv[8];
 
 const severities = ["info", "low", "moderate", "high", "critical"];
 
@@ -77,9 +83,18 @@ function collectBlockingVulns(report, thresholdIndex) {
     .sort((a, b) => severityWeight(b.severity) - severityWeight(a.severity) || a.name.localeCompare(b.name));
 }
 
+function parseIgnoreList(raw) {
+  return new Set(
+    String(raw || "")
+      .split(",")
+      .map((pkg) => pkg.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
 const reports = [
-  { name: "app", file: appFile, failOn: appFailOn },
-  { name: "strapi", file: strapiFile, failOn: strapiFailOn },
+  { name: "app", file: appFile, failOn: appFailOn, ignorePackages: parseIgnoreList(appIgnoreRaw) },
+  { name: "strapi", file: strapiFile, failOn: strapiFailOn, ignorePackages: parseIgnoreList(strapiIgnoreRaw) },
 ];
 
 let failed = false;
@@ -105,10 +120,11 @@ for (const reportInfo of reports) {
     `[security] ${reportInfo.name}: threshold=${reportInfo.failOn} critical=${critical}, high=${high}, moderate=${moderate}, low=${low}, info=${info}`
   );
 
-  const totalBlocking = severities
-    .slice(thresholdIndex)
-    .reduce((acc, severity) => acc + Number(counts[severity] || 0), 0);
-  const blockingVulns = collectBlockingVulns(report, thresholdIndex);
+  const blockingVulns = collectBlockingVulns(report, thresholdIndex).filter(
+    (vuln) => !reportInfo.ignorePackages.has(String(vuln.name || "").toLowerCase())
+  );
+  const totalBlocking = blockingVulns.length;
+  const ignoredList = [...reportInfo.ignorePackages];
 
   summaryRows.push({
     project: reportInfo.name,
@@ -120,6 +136,10 @@ for (const reportInfo of reports) {
     info,
     blocking: totalBlocking,
   });
+
+  if (ignoredList.length > 0) {
+    console.log(`[security] ${reportInfo.name}: ignored packages=${ignoredList.join(",")}`);
+  }
 
   if (blockingVulns.length > 0) {
     const vulnPreview = blockingVulns

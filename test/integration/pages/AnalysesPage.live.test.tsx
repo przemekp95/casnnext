@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 const PageComponent: any = require('@/app/analizy/page').default;
 
 describe('Analyses Page', () => {
-  it('renders build-time fallback when NEXT_PHASE indicates production build', async () => {
+  it('renders standard page shell when NEXT_PHASE indicates production build', async () => {
     const previousPhase = process.env.NEXT_PHASE;
     process.env.NEXT_PHASE = 'phase-production-build';
 
@@ -12,7 +12,9 @@ describe('Analyses Page', () => {
       render(await PageComponent());
 
       expect(screen.getByRole('heading', { level: 1, name: 'Analizy' })).toBeInTheDocument();
-      expect(screen.getByText('Ładowanie analiz...')).toBeInTheDocument();
+      expect(screen.queryByText('Ładowanie analiz...')).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: /Wszystkie analizy \(0\)/ })).toBeInTheDocument();
+      expect(screen.getByText('Brak dostępnych analiz. Sprawdź ponownie później.')).toBeInTheDocument();
     } finally {
       if (previousPhase === undefined) {
         delete process.env.NEXT_PHASE;

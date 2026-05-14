@@ -1,3 +1,5 @@
+import type { ArticleRecord } from "@/types/analysis";
+
 export interface AuthorRow {
   id: string;
   legacyId?: number;
@@ -20,9 +22,5 @@ export interface AuthorDetail {
     bio?: string | null;
     sourceHash?: string;
   };
-  analyses: Array<{
-    id: string;
-    title: string;
-    slug: string;
-  }>;
+  analyses: ArticleRecord[];
 }

@@ -8,10 +8,15 @@ import { IsNull, Not } from "typeorm";
 
 const fallbackIssues: IssueCollectionRow[] = [
   { id: "2025", year: 2025, file: "/wszystkie_teksty_druk_3mm_spad_04_12.pdf", title: "Zeszyt Analiz 2025" },
-  { id: "2024", year: 2024, file: "/Katalog CASN_online_08_12_24.pdf", title: "Zeszyt Analiz 2024" },
+  { id: "2024", year: 2024, file: "/Katalog%20CASN_online_08_12_24.pdf", title: "Zeszyt Analiz 2024" },
   { id: "2023", year: 2023, file: "/Analizy_2023.pdf", title: "Zeszyt Analiz 2023" },
   { id: "2022", year: 2022, file: "/CASN_gotowa_wersja_do_druku_24.01.2023.pdf", title: "Zeszyt Analiz 2022" },
 ];
+
+function normalizeIssueFileUrl(fileUrl: string): string {
+  if (!fileUrl.includes(" ")) return fileUrl;
+  return fileUrl.replace(/ /g, "%20");
+}
 
 async function getIssueCollectionsUncached(): Promise<IssueCollectionRow[]> {
   try {
@@ -25,7 +30,10 @@ async function getIssueCollectionsUncached(): Promise<IssueCollectionRow[]> {
       });
 
       if (issues.length === 0) {
-        return fallbackIssues;
+        return fallbackIssues.map((issue) => ({
+          ...issue,
+          file: normalizeIssueFileUrl(issue.file),
+        }));
       }
 
       return issues
@@ -34,13 +42,16 @@ async function getIssueCollectionsUncached(): Promise<IssueCollectionRow[]> {
           id: String(issue.id),
           year: issue.year,
           title: issue.title,
-          file: issue.fileUrl,
+          file: normalizeIssueFileUrl(issue.fileUrl),
           cover: issue.coverUrl ?? null,
         }));
     });
   } catch (error) {
     console.warn("Failed to fetch issue collections from the database, using fallback:", error);
-    return fallbackIssues;
+    return fallbackIssues.map((issue) => ({
+      ...issue,
+      file: normalizeIssueFileUrl(issue.file),
+    }));
   }
 }
 

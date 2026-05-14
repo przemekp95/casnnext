@@ -60,6 +60,12 @@ export default function Header() {
                 </li>
 
                 <li className="active" role="listitem">
+                  <Link href="/analizy" onClick={closeMenu}>
+                    Analizy
+                  </Link>
+                </li>
+
+                <li className="active" role="listitem">
                   <Link href="/zbiory" onClick={closeMenu}>
                     Zbiory analiz
                   </Link>

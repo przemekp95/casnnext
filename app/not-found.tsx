@@ -1,4 +1,18 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "404 - Nie znaleziono strony",
+  description: "Strona, której szukasz, nie istnieje.",
+  robots: {
+    index: false,
+    follow: true,
+    googleBot: {
+      index: false,
+      follow: true,
+    },
+  },
+};
 
 export default function NotFound() {
   return (

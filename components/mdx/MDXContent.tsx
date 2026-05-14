@@ -10,6 +10,8 @@ const components = {
   // MDX component props require any types due to dynamic nature
   img: (props: any) => <SafeImage {...props} />,
   Image: (props: any) => <SafeImage {...props} />,
+  // Article pages already render the main H1 in Hero; demote in-content H1s.
+  h1: (props: any) => <h2 {...props} />,
   Chart: Chart as any,
   Map: Map as any,
   // Linki zostają jako zwykłe <a> w MDX
