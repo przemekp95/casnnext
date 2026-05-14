@@ -125,6 +125,8 @@ const mockAuthorDetails: Record<string, AuthorDetail> = {
 const AUTHOR_LIST_CACHE_KEY = ["authors:list"];
 const AUTHOR_DETAIL_CACHE_KEY = ["authors:detail"];
 const AUTHOR_DETAIL_CACHE_TAGS = ["authors", "analyses", "articles"];
+const isProductionBuildPhase = (): boolean =>
+  process.env.NEXT_PHASE === "phase-production-build";
 
 function toIsoDateValue(value: unknown): string {
   if (!value) return "";
@@ -174,7 +176,7 @@ function buildExcerpt(analysis: {
 
 async function getAuthorsUncached(): Promise<AuthorRow[]> {
   // Skip during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  if (isProductionBuildPhase()) {
     return [];
   }
 
@@ -210,7 +212,7 @@ async function getAuthorsUncached(): Promise<AuthorRow[]> {
 
 async function getAuthorBySlugUncached(slug: string): Promise<AuthorDetail | null> {
   // Skip during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  if (isProductionBuildPhase()) {
     return null;
   }
 
@@ -294,7 +296,7 @@ const getAuthorBySlugCached =
     : getAuthorBySlugUncached;
 
 export async function getAuthors(): Promise<AuthorRow[]> {
-  if (process.env.NODE_ENV === "test") {
+  if (process.env.NODE_ENV === "test" || isProductionBuildPhase()) {
     return getAuthorsUncached();
   }
 
@@ -302,7 +304,7 @@ export async function getAuthors(): Promise<AuthorRow[]> {
 }
 
 export async function getAuthorBySlug(slug: string): Promise<AuthorDetail | null> {
-  if (process.env.NODE_ENV === "test") {
+  if (process.env.NODE_ENV === "test" || isProductionBuildPhase()) {
     return getAuthorBySlugUncached(slug);
   }
 
