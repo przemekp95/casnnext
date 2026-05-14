@@ -5,6 +5,7 @@ import { executeRscQuery } from "../db.rsc";
 import { AnalysisSchema } from "../entities";
 import { AnalysisRow, AnalysisDetail } from "../../types/analysis";
 import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
+import { createExcerpt, stripMarkdown } from "@/lib/searchUtils";
 import { IsNull, Not } from "typeorm";
 
 // Mock data for development/testing
@@ -119,6 +120,49 @@ function toDateValue(value: unknown): string | undefined {
   return undefined;
 }
 
+function toIsoDateValue(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+
+  return undefined;
+}
+
+function stripMdxFrontmatter(source: string): string {
+  if (!source.trim().startsWith("---")) return source;
+  return source.replace(/^---[\s\S]*?---\s*/, "");
+}
+
+function buildExcerpt(analysis: {
+  lead?: string | null;
+  description?: string | null;
+  contentMdx?: string | null;
+  title: string;
+}): string {
+  const fromLead = typeof analysis.lead === "string" ? analysis.lead.trim() : "";
+  if (fromLead.length > 0) return createExcerpt(fromLead, 220);
+
+  const fromDescription = typeof analysis.description === "string" ? analysis.description.trim() : "";
+  if (fromDescription.length > 0) return createExcerpt(fromDescription, 220);
+
+  const contentSource = stripMdxFrontmatter(analysis.contentMdx ?? "");
+  const fromBody = createExcerpt(contentSource, 220);
+  if (fromBody.length > 0) return fromBody;
+
+  return analysis.title;
+}
+
+function buildBodyText(contentMdx?: string | null): string {
+  const source = stripMdxFrontmatter(contentMdx ?? "");
+  const cleaned = stripMarkdown(source);
+  return cleaned.trim();
+}
+
 async function getAnalysesUncached(): Promise<AnalysisRow[]> {
   // Skip during build time
   if (process.env.NEXT_PHASE === 'phase-production-build') {
@@ -135,7 +179,7 @@ async function getAnalysesUncached(): Promise<AnalysisRow[]> {
         where: {
           publishedAt: Not(IsNull()),
         },
-        order: { id: 'DESC' },
+        order: { publishedAt: 'DESC', id: 'DESC' },
       });
 
       // Transform to UI-friendly format
@@ -146,6 +190,13 @@ async function getAnalysesUncached(): Promise<AnalysisRow[]> {
         slug: String(analysis.slug),
         authorId: String(analysis.authorId),
         date: toDateValue(analysis.date),
+        publishedAt:
+          toIsoDateValue(analysis.publishedAt) ??
+          toIsoDateValue(analysis.date) ??
+          "",
+        excerpt: buildExcerpt(analysis),
+        bodyText: buildBodyText(analysis.contentMdx),
+        isPublished: Boolean(analysis.publishedAt),
         lead: analysis.lead ?? undefined,
         description: analysis.description ?? undefined,
         category: analysis.category ?? undefined,
@@ -169,6 +220,10 @@ async function getAnalysesUncached(): Promise<AnalysisRow[]> {
     console.warn('Database not available for getAnalyses(), using mock data:', error);
     return mockAnalyses.map((analysis) => ({
       ...analysis,
+      publishedAt: analysis.publishedAt ?? "",
+      excerpt: analysis.excerpt ?? analysis.title,
+      bodyText: analysis.bodyText ?? analysis.title,
+      isPublished: analysis.isPublished ?? true,
       author: analysis.author
         ? applyAuthorCanonicalOverrides(analysis.author)
         : undefined,

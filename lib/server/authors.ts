@@ -5,6 +5,7 @@ import { executeRscQuery } from "../db.rsc";
 import { AuthorSchema, AnalysisSchema } from "../entities";
 import { AuthorRow, AuthorDetail } from "../../types/author";
 import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
+import { createExcerpt, stripMarkdown } from "@/lib/searchUtils";
 import { IsNull, Not } from "typeorm";
 
 // Mock data for development/testing
@@ -55,9 +56,36 @@ const mockAuthorDetails: Record<string, AuthorDetail> = {
       bio: "Analityk polityczny specjalizujcy si w geopolityce Europy Zrodkowej i Wschodniej."
     },
     analyses: [
-      { id: "1", title: "Geopolityka Europy Zrodkowej", slug: "geopolityka-europy-srodkowej" },
-      { id: "2", title: "Transformacje polityczne w regionie", slug: "transformacje-polityczne-region" },
-      { id: "3", title: "O pojciu Nacjonalizmu", slug: "balcerowski-nacjonalizm" }
+      {
+        id: "1",
+        title: "Geopolityka Europy Zrodkowej",
+        slug: "geopolityka-europy-srodkowej",
+        authorId: "1",
+        publishedAt: "2025-01-01T00:00:00.000Z",
+        excerpt: "Geopolityka Europy Zrodkowej",
+        bodyText: "Geopolityka Europy Zrodkowej",
+        isPublished: true,
+      },
+      {
+        id: "2",
+        title: "Transformacje polityczne w regionie",
+        slug: "transformacje-polityczne-region",
+        authorId: "1",
+        publishedAt: "2024-01-01T00:00:00.000Z",
+        excerpt: "Transformacje polityczne w regionie",
+        bodyText: "Transformacje polityczne w regionie",
+        isPublished: true,
+      },
+      {
+        id: "3",
+        title: "O pojciu Nacjonalizmu",
+        slug: "balcerowski-nacjonalizm",
+        authorId: "1",
+        publishedAt: "2023-01-01T00:00:00.000Z",
+        excerpt: "O pojciu Nacjonalizmu",
+        bodyText: "O pojciu Nacjonalizmu",
+        isPublished: true,
+      }
     ]
   },
   "anna-domanska": {
@@ -70,8 +98,26 @@ const mockAuthorDetails: Record<string, AuthorDetail> = {
       bio: "Ekspertka ds. bezpieczeDstwa midzynarodowego i transformacji cyfrowej."
     },
     analyses: [
-      { id: "3", title: "BezpieczeDstwo cybernetyczne", slug: "bezpieczenstwo-cybernetyczne" },
-      { id: "4", title: "Transformacja cyfrowa w administracji", slug: "transformacja-cyfrowa-administracji" }
+      {
+        id: "3",
+        title: "BezpieczeDstwo cybernetyczne",
+        slug: "bezpieczenstwo-cybernetyczne",
+        authorId: "2",
+        publishedAt: "2025-02-01T00:00:00.000Z",
+        excerpt: "BezpieczeDstwo cybernetyczne",
+        bodyText: "BezpieczeDstwo cybernetyczne",
+        isPublished: true,
+      },
+      {
+        id: "4",
+        title: "Transformacja cyfrowa w administracji",
+        slug: "transformacja-cyfrowa-administracji",
+        authorId: "2",
+        publishedAt: "2024-02-01T00:00:00.000Z",
+        excerpt: "Transformacja cyfrowa w administracji",
+        bodyText: "Transformacja cyfrowa w administracji",
+        isPublished: true,
+      }
     ]
   }
 };
@@ -79,6 +125,52 @@ const mockAuthorDetails: Record<string, AuthorDetail> = {
 const AUTHOR_LIST_CACHE_KEY = ["authors:list"];
 const AUTHOR_DETAIL_CACHE_KEY = ["authors:detail"];
 const AUTHOR_DETAIL_CACHE_TAGS = ["authors", "analyses", "articles"];
+
+function toIsoDateValue(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+  return "";
+}
+
+function toDateValue(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  return undefined;
+}
+
+function stripMdxFrontmatter(source: string): string {
+  if (!source.trim().startsWith("---")) return source;
+  return source.replace(/^---[\s\S]*?---\s*/, "");
+}
+
+function buildBodyText(contentMdx?: string | null): string {
+  const source = stripMdxFrontmatter(contentMdx ?? "");
+  return stripMarkdown(source).trim();
+}
+
+function buildExcerpt(analysis: {
+  lead?: string | null;
+  description?: string | null;
+  contentMdx?: string | null;
+  title: string;
+}): string {
+  const source =
+    (typeof analysis.lead === "string" && analysis.lead.trim()) ||
+    (typeof analysis.description === "string" && analysis.description.trim()) ||
+    stripMdxFrontmatter(analysis.contentMdx ?? "") ||
+    analysis.title;
+
+  return createExcerpt(source, 220);
+}
 
 async function getAuthorsUncached(): Promise<AuthorRow[]> {
   // Skip during build time
@@ -142,8 +234,8 @@ async function getAuthorBySlugUncached(slug: string): Promise<AuthorDetail | nul
           authorId: author.id,
           publishedAt: Not(IsNull()),
         },
-        order: { id: 'DESC' },
-        select: ['id', 'title', 'slug'],
+        order: { publishedAt: 'DESC', id: 'DESC' },
+        select: ['id', 'title', 'slug', 'authorId', 'date', 'lead', 'description', 'contentMdx', 'publishedAt'],
       });
 
       // Transform to UI-friendly format
@@ -164,6 +256,14 @@ async function getAuthorBySlugUncached(slug: string): Promise<AuthorDetail | nul
           id: String(analysis.id),
           title: analysis.title,
           slug: analysis.slug,
+          authorId: String(analysis.authorId),
+          publishedAt: toIsoDateValue(analysis.publishedAt ?? analysis.date),
+          excerpt: buildExcerpt(analysis),
+          bodyText: buildBodyText(analysis.contentMdx),
+          isPublished: true,
+          date: toDateValue(analysis.date),
+          lead: analysis.lead ?? undefined,
+          description: analysis.description ?? undefined,
         })),
       };
     });

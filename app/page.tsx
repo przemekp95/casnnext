@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Metadata } from "next";
 import Hero from "@/components/Hero";
 
@@ -28,25 +29,69 @@ export const metadata: Metadata = {
     title: "Centrum Analiz Służby Niepodległej",
     description: "Niezależne analizy polityczne, gospodarcze i społeczne. Badania suwerenności informacyjnej, energetycznej, konstytucyjnej i kulturowej.",
     type: "website",
+    url: "https://casn.pl",
     siteName: "Centrum Analiz Służby Niepodległej",
-    images: "/images/home2.webp",
+    images: [
+      {
+        url: "/images/home2.webp",
+        width: 1200,
+        height: 630,
+        alt: "Centrum Analiz Służby Niepodległej",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Centrum Analiz Służby Niepodległej",
     description: "Niezależne analizy polityczne, gospodarcze i społeczne. Badania suwerenności informacyjnej, energetycznej, konstytucyjnej i kulturowej.",
+    images: ["/images/home2.webp"],
+  },
+  alternates: {
+    canonical: "https://casn.pl",
   },
 };
 
 export default function HomePage() {
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Centrum Analiz Służby Niepodległej",
+    url: "https://casn.pl",
+    logo: "https://casn.pl/images/logo.jpg",
+    description:
+      "Strona Centrum Analiz Fundacji Służby Niepodległej - analizy polityki i społeczeństwa",
+  };
+
+  const webSiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Centrum Analiz Służby Niepodległej",
+    url: "https://casn.pl",
+    publisher: {
+      "@type": "Organization",
+      name: "Centrum Analiz Służby Niepodległej",
+      url: "https://casn.pl",
+    },
+    inLanguage: "pl-PL",
+  };
+
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
+      />
       {/* Global Hero - Background only variant for home page */}
       <Hero
         variant="background-only"
         title="Centrum Analiz Służby Niepodległej"
         showBreadcrumbs={false}
       />
+      <h1 className="sr-only">Centrum Analiz Służby Niepodległej</h1>
       {/* HOME END */}
 
       {/* ABOUT START — DODANE: section-below-fold */}
@@ -92,7 +137,9 @@ export default function HomePage() {
                 </p>
 
                 <div className="pt-3">
-                  <a href="/zbiory" className="btn btn-custom">Przeczytaj analizy</a>
+                  <Link href="/analizy" className="btn btn-custom">
+                    Przeczytaj analizy
+                  </Link>
                 </div>
               </div>
             </div>

@@ -4,10 +4,11 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import ArticleLayout from "@/components/ArticleLayout";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getAnalyses, getAnalysisBySlug } from "@/lib/analyses";
-import Script from "next/script";
 import { normalizeCmsMdxMediaPaths } from "@/lib/cms/mdx-media";
 import { replacePlaceholders } from "@/lib/cms/placeholders";
+import { getRelatedAnalysesBySlug } from "@/lib/server/related-analyses";
 
 import MDXContent from "@/components/mdx/MDXContent";
 
@@ -34,11 +35,13 @@ export async function generateStaticParams() {
 type FrontmatterMap = Record<string, unknown>;
 
 type AnalysisPageData = {
+  id: string;
   slug: string;
   title: string;
   description: string;
   lead?: string;
-  author?: string;
+  authorName?: string;
+  authorSlug?: string;
   dateValue?: string;
   dateIso?: string;
   category?: string;
@@ -170,7 +173,7 @@ async function loadAnalysisData(slug: string, requireContent: boolean): Promise<
   const lead =
     replaceTemplate(frontmatter.lead, placeholders) ||
     replaceTemplate(analysis.lead, placeholders);
-  const author =
+  const authorName =
     replaceTemplate(frontmatter.author, placeholders) ||
     replaceTemplate(analysis.author?.name, placeholders);
   const category =
@@ -203,11 +206,13 @@ async function loadAnalysisData(slug: string, requireContent: boolean): Promise<
   const ogImageUrl = toAbsoluteUrl(imageValue) || `${SITE_URL}${DEFAULT_OG_IMAGE}`;
 
   return {
+    id: analysis.id,
     slug,
     title,
     description,
     lead,
-    author,
+    authorName,
+    authorSlug: analysis.author?.slug,
     dateValue,
     dateIso,
     category,
@@ -261,7 +266,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         type: "article",
         url: article.canonicalUrl,
         siteName: SITE_NAME,
-        authors: article.author ? [article.author] : [],
+        authors: article.authorName ? [article.authorName] : [],
         images: [
           {
             url: article.ogImageUrl,
@@ -308,18 +313,21 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     if (!slug) return notFound();
     const article = await getAnalysisPageData(slug);
     if (!article) return notFound();
+    const related = await getRelatedAnalysesBySlug(slug);
+    const relatedEntries = related?.related ?? [];
+    const authorProfileHref = article.authorSlug ? `/autor/${article.authorSlug}` : null;
 
     const publishedDate = article.dateIso || new Date().toISOString();
 
     // Generate structured data
     const articleStructuredData = {
       "@context": "https://schema.org",
-      "@type": "Article",
+      "@type": "BlogPosting",
       "headline": article.title,
       "description": article.description,
       "author": {
         "@type": "Person",
-        "name": article.author || SITE_NAME
+        "name": article.authorName || SITE_NAME
       },
       "publisher": {
         "@type": "Organization",
@@ -368,25 +376,19 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     // 3) Render (MDX renderuje komponent MDXContent — bez sieciowych pluginów)
     return (
       <>
-        <Script
-          id="article-structured-data"
+        <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(articleStructuredData)
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleStructuredData) }}
         />
-        <Script
-          id="breadcrumb-structured-data"
+        <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(breadcrumbStructuredData)
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
         />
         <div id="analysis-page" data-page-type="analysis"></div>
         <ArticleLayout
           title={article.title || "Artykuł"}
           date={article.dateValue}
-          author={article.author}
+          author={article.authorName}
           lead={article.lead}
           breadcrumbs={[
             { label: "Strona główna", href: "/" },
@@ -394,7 +396,31 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
             { label: article.title ?? slug, active: true },
           ]}
         >
+          <div className="analysis-internal-links mb-4">
+            <p className="mb-2">
+              <strong>Nawigacja:</strong>{" "}
+              <Link href="/analizy">Wróć do wszystkich analiz</Link>
+            </p>
+            {authorProfileHref && article.authorName ? (
+              <p className="mb-0">
+                <strong>Autor artykułu:</strong>{" "}
+                <Link href={authorProfileHref}>{article.authorName}</Link>
+              </p>
+            ) : null}
+          </div>
           <MDXContent source={article.content} />
+          {relatedEntries.length > 0 ? (
+            <section className="mt-5 pt-4 border-top" aria-label="Powiązane analizy">
+              <h2 className="h4 mb-3">Powiązane analizy</h2>
+              <ul className="list-unstyled mb-0">
+                {relatedEntries.map((entry) => (
+                  <li key={entry.slug} className="mb-2">
+                    <Link href={`/analizy/${entry.slug}`}>{entry.title}</Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </ArticleLayout>
       </>
     );

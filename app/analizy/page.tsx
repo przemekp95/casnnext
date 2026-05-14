@@ -35,22 +35,14 @@ export const metadata: Metadata = {
 };
 
 export default async function AnalysesPage() {
-  // Skip during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
-    return (
-      <main className="bg-gray-100 min-h-screen pb-12">
-        <div className="container py-12">
-          <div className="text-center">
-            <h1>Analizy</h1>
-            <p>Ładowanie analiz...</p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   try {
     const analyses = await getAnalyses();
+    const sortedAnalyses = [...analyses].sort((a, b) => {
+      const bTime = new Date(b.publishedAt ?? b.date ?? 0).getTime() || 0;
+      const aTime = new Date(a.publishedAt ?? a.date ?? 0).getTime() || 0;
+      if (bTime !== aTime) return bTime - aTime;
+      return a.title.localeCompare(b.title, "pl");
+    });
     const heroMediaStyle = {
       '--hero-background-position': 'center 35%',
     } as CSSProperties;
@@ -129,54 +121,83 @@ export default async function AnalysesPage() {
             <div className="row">
               <div className="col-12">
                 <div className="section-title text-center">
-                  <h2>Wszystkie analizy ({analyses.length})</h2>
+                  <h2>Wszystkie analizy ({sortedAnalyses.length})</h2>
                   <p>Znajdź interesujące Cię analizy polityczne, gospodarcze i społeczne.</p>
                 </div>
               </div>
             </div>
 
-            {analyses.length === 0 ? (
+            {sortedAnalyses.length === 0 ? (
               <div className="row">
                 <div className="col-12 text-center">
                   <p>Brak dostępnych analiz. Sprawdź ponownie później.</p>
                 </div>
               </div>
             ) : (
-              <div className="row projects-wrapper">
-                {analyses.map((analysis) => (
-                  <div className="col-lg-4 col-md-6 management international" key={analysis.id}>
-                    <div className="blog-list-item bg-white rounded mt-4">
-                      <div className="blog-list-img">
-                        <Image
-                          src={analysis.author?.img || "/images/placeholder.png"}
-                          width={300}
-                          height={300}
-                          className="img-fluid d-block mx-auto rounded"
-                          alt={analysis.author?.name || "Autor"}
-                        />
-                        <div className="blog-list-overlay"></div>
-                      </div>
-                      <div className="cases-desc text-center p-3">
-                        <h5 className="cases-subtitle mb-2">
-                          <Link href={`/analizy/${analysis.slug}`} className="text-dark">
+              <>
+                <div className="row mb-4">
+                  <div className="col-12">
+                    <ul className="list-unstyled mb-0">
+                      {sortedAnalyses.map((analysis) => (
+                        <li key={`hub-link-${analysis.id}`} className="mb-2">
+                          <Link href={`/analizy/${analysis.slug}`} className="text-dark fw-semibold">
                             {analysis.title}
                           </Link>
-                        </h5>
-                        <p className="text-muted">
-                          <Link href={`/autor/${analysis.author?.slug}`} className="text-custom">
-                            {analysis.author?.name || "Nieznany autor"}
+                          {analysis.author?.slug && analysis.author?.name ? (
+                            <>
+                              {" "}
+                              <span className="text-muted">—</span>{" "}
+                              <Link href={`/autor/${analysis.author.slug}`} className="text-custom">
+                                {analysis.author.name}
+                              </Link>
+                            </>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="row projects-wrapper">
+                  {sortedAnalyses.map((analysis) => (
+                    <div className="col-lg-4 col-md-6 management international" key={analysis.id}>
+                      <div className="blog-list-item bg-white rounded mt-4">
+                        <div className="blog-list-img">
+                          <Image
+                            src={analysis.author?.img || "/images/placeholder.png"}
+                            width={300}
+                            height={300}
+                            className="img-fluid d-block mx-auto rounded"
+                            alt={analysis.author?.name || "Autor"}
+                          />
+                          <div className="blog-list-overlay"></div>
+                        </div>
+                        <div className="cases-desc text-center p-3">
+                          <h5 className="cases-subtitle mb-2">
+                            <Link href={`/analizy/${analysis.slug}`} className="text-dark">
+                              {analysis.title}
+                            </Link>
+                          </h5>
+                          <p className="text-muted">
+                            {analysis.author?.slug && analysis.author?.name ? (
+                              <Link href={`/autor/${analysis.author.slug}`} className="text-custom">
+                                {analysis.author.name}
+                              </Link>
+                            ) : (
+                              <span>Nieznany autor</span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="learn-more text-center">
+                          <Link href={`/analizy/${analysis.slug}`} className="btn btn-custom btn-block">
+                            PRZECZYTAJ
                           </Link>
-                        </p>
-                      </div>
-                      <div className="learn-more text-center">
-                        <Link href={`/analizy/${analysis.slug}`} className="btn btn-custom btn-block">
-                          PRZECZYTAJ
-                        </Link>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </section>
