@@ -50,3 +50,41 @@ h1, h2, h3, h4, h5, h6,
     color-scheme: dark;
   }
 }
+
+/* Analyses page: keep cards visually consistent regardless of title length */
+.analyses-grid-item {
+  display: flex;
+}
+
+.analyses-card {
+  width: 100%;
+  margin-top: 1.5rem;
+  overflow: hidden;
+}
+
+.analyses-card-image {
+  aspect-ratio: 4 / 3;
+  background-color: #f3f4f6;
+}
+
+.analyses-card-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.analyses-card-title {
+  min-height: 5.4rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.analyses-card-author {
+  min-height: 3.2rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
