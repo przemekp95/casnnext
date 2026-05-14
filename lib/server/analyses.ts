@@ -109,6 +109,8 @@ const mockAnalysisDetails: Record<string, AnalysisDetail> = {
 const ANALYSIS_LIST_CACHE_KEY = ["analyses:list"];
 const ANALYSIS_DETAIL_CACHE_KEY = ["analyses:detail"];
 const ANALYSIS_CACHE_TAGS = ["analyses", "articles", "authors"];
+const isProductionBuildPhase = (): boolean =>
+  process.env.NEXT_PHASE === "phase-production-build";
 
 function toDateValue(value: unknown): string | undefined {
   if (!value) return undefined;
@@ -165,7 +167,7 @@ function buildBodyText(contentMdx?: string | null): string {
 
 async function getAnalysesUncached(): Promise<AnalysisRow[]> {
   // Skip during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  if (isProductionBuildPhase()) {
     return [];
   }
 
@@ -233,7 +235,7 @@ async function getAnalysesUncached(): Promise<AnalysisRow[]> {
 
 async function getAnalysisBySlugUncached(slug: string): Promise<AnalysisDetail | null> {
   // Skip during build time
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  if (isProductionBuildPhase()) {
     return null;
   }
 
@@ -307,7 +309,7 @@ const getAnalysisBySlugCached =
     : getAnalysisBySlugUncached;
 
 export async function getAnalyses(): Promise<AnalysisRow[]> {
-  if (process.env.NODE_ENV === "test") {
+  if (process.env.NODE_ENV === "test" || isProductionBuildPhase()) {
     return getAnalysesUncached();
   }
 
@@ -315,7 +317,7 @@ export async function getAnalyses(): Promise<AnalysisRow[]> {
 }
 
 export async function getAnalysisBySlug(slug: string): Promise<AnalysisDetail | null> {
-  if (process.env.NODE_ENV === "test") {
+  if (process.env.NODE_ENV === "test" || isProductionBuildPhase()) {
     return getAnalysisBySlugUncached(slug);
   }
 

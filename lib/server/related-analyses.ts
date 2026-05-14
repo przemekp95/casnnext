@@ -12,6 +12,8 @@ const MAX_RELATED = 4;
 const BM25_K1 = 1.5;
 const BM25_B = 0.75;
 const TOKEN_PATTERN = /[0-9a-ząćęłńóśźż]+/gi;
+const isProductionBuildPhase = (): boolean =>
+  process.env.NEXT_PHASE === "phase-production-build";
 
 const POLISH_STOP_WORDS = new Set([
   "a", "aby", "ach", "aj", "albo", "ale", "ani", "aż", "bardzo", "bez", "bo", "by", "być",
@@ -254,7 +256,7 @@ export async function getRelatedAnalysesBySlug(
   slug: string,
 ): Promise<RelatedArticlesResult | null> {
   const map =
-    process.env.NODE_ENV === "test"
+    process.env.NODE_ENV === "test" || isProductionBuildPhase()
       ? await buildRelatedArticlesMapUncached()
       : await getRelatedArticlesMapCached();
 
