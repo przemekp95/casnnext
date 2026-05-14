@@ -94,5 +94,9 @@ describe("lib/server/issues", () => {
     const issues = await getIssueCollections();
 
     expect(issues.map((issue) => issue.year)).toEqual([2025, 2024, 2023, 2022]);
+    expect(issues.every((issue) => !issue.file.includes(" "))).toBe(true);
+    expect(issues.find((issue) => issue.year === 2024)?.file).toBe(
+      "/Katalog%20CASN_online_08_12_24.pdf",
+    );
   });
 });

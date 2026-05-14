@@ -15,6 +15,10 @@ jest.mock('@/lib/cms/mdx-media', () => ({
   normalizeCmsMdxMediaPaths: jest.fn((value: string) => value.replace('/uploads/', '/cms/uploads/')),
 }));
 
+jest.mock('@/lib/server/related-analyses', () => ({
+  getRelatedAnalysesBySlug: jest.fn().mockResolvedValue(null),
+}));
+
 jest.mock('next/script', () => ({
   __esModule: true,
   default: () => null,

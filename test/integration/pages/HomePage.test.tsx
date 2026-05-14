@@ -32,7 +32,7 @@ try {
 
     const link = screen.getByRole('link', { name: /Przeczytaj analizy/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/zbiory');
+    expect(link).toHaveAttribute('href', '/analizy');
   });
 
   it('renderuje wszystkie obrazy z odpowiednimi atrybutami', () => {

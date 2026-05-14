@@ -59,6 +59,10 @@ jest.mock('@/components/mdx/MDXContent', () => ({
   default: ({ source }: { source: string }) => <div data-testid="mdx-content">{source}</div>,
 }));
 
+jest.mock('@/lib/server/related-analyses', () => ({
+  getRelatedAnalysesBySlug: jest.fn().mockResolvedValue(null),
+}));
+
 describe('Analyses Pages - Comprehensive Coverage', () => {
   const mockedGetAnalyses = getAnalyses as jest.MockedFunction<typeof getAnalyses>;
   const mockedGetAnalysisBySlug = getAnalysisBySlug as jest.MockedFunction<typeof getAnalysisBySlug>;
@@ -90,10 +94,10 @@ describe('Analyses Pages - Comprehensive Coverage', () => {
 
       expect(screen.getByRole('heading', { name: 'Analizy' })).toBeInTheDocument();
       expect(screen.getByText('Wszystkie analizy (1)')).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Test Analysis' })).toHaveAttribute(
-        'href',
-        '/analizy/test-analysis',
-      );
+      const analysisLinks = screen.getAllByRole('link', { name: 'Test Analysis' });
+      expect(
+        analysisLinks.some((link) => link.getAttribute('href') === '/analizy/test-analysis'),
+      ).toBe(true);
     });
 
     it('displays empty state when there are no analyses', async () => {
