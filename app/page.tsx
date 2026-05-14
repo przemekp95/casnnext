@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Metadata } from "next";
 import Hero from "@/components/Hero";
 
@@ -136,7 +137,9 @@ export default function HomePage() {
                 </p>
 
                 <div className="pt-3">
-                  <a href="/analizy" className="btn btn-custom">Przeczytaj analizy</a>
+                  <Link href="/analizy" className="btn btn-custom">
+                    Przeczytaj analizy
+                  </Link>
                 </div>
               </div>
             </div>
