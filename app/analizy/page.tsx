@@ -109,7 +109,7 @@ export default async function AnalysesPage() {
                             height={1000}
                             className="d-block w-100 h-100"
                             sizes="(min-width: 992px) 33vw, (min-width: 768px) 50vw, 100vw"
-                            style={{ objectFit: "cover", objectPosition: "center top" }}
+                            style={{ objectFit: "contain", objectPosition: "center center" }}
                             alt={analysis.author?.name || "Autor"}
                           />
                           <div className="blog-list-overlay"></div>
