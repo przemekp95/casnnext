@@ -92,7 +92,7 @@ export default function Hero({
 
       {/* Overlay */}
       <div
-        className="bg-overlay hero-contrast-overlay"
+        className={`bg-overlay${variant === 'background-only' ? '' : ' hero-contrast-overlay'}`}
         style={{
           position: 'absolute',
           top: 0,
