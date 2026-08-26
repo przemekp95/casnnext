@@ -66,7 +66,7 @@ case "$args" in
   *" exec "*"information_schema.EVENTS"*) printf '0\\n' ;;
   *" exec "*"mysqldump "*) printf 'database-dump' ;;
   *" run "*"candidate-directus"*"find /from"*) printf '%s\\n' "\${FAKE_DIRECTUS_FILES:-2}" ;;
-  *" run "*"candidate-legacy"*"find /from"*) printf '3\\n' ;;
+  *" run "*"candidate-legacy"*"find /from"*) printf '%s\\n' "\${FAKE_LEGACY_FILES:-3}" ;;
   *" run "*"candidate-directus"*"tar -C /from"*) printf 'directus-archive' ;;
   *" run "*"candidate-legacy"*"tar -C /from"*) printf 'legacy-archive' ;;
   *" inspect mysql-id directus-id app-id nginx-id "*)
@@ -95,7 +95,7 @@ esac
 `;
 }
 
-type Mismatch = "tables" | "public" | "media" | "network" | "environment" | "uuid";
+type Mismatch = "tables" | "public" | "media" | "network" | "environment" | "uuid" | "emptyMedia";
 
 function runVerifier(mismatch?: Mismatch) {
   const root = mkdtempSync(join(tmpdir(), "casn-parity-test-"));
@@ -109,13 +109,13 @@ function runVerifier(mismatch?: Mismatch) {
   const authors = Array.from({ length: 32 }, (_, index) => ({
     id: index + 1,
     slug: `author-${index + 1}`,
-    avatar: index === 0 ? "/cms/assets/author-1.jpg" : null,
+    avatar: index === 0 && mismatch !== "emptyMedia" ? "/cms/assets/author-1.jpg" : null,
     privateToken: index === 0 ? sentinel : undefined,
   }));
   const analyses = Array.from({ length: 39 }, (_, index) => ({
     id: index + 1,
     slug: `analysis-${index + 1}`,
-    legacyFile: index === 0 ? "/cms/uploads/analysis-1.jpg" : null,
+    legacyFile: index === 0 && mismatch !== "emptyMedia" ? "/cms/uploads/analysis-1.jpg" : null,
   }));
   const paths = ["/", "/autorzy", "/analizy", "/zbiory"];
   while (paths.length < 80) paths.push(`/analizy/analysis-${paths.length}`);
@@ -136,8 +136,8 @@ function runVerifier(mismatch?: Mismatch) {
     source: { databaseNameHash: sha256("casn"), serverUuidHash: sha256("prod-uuid") },
     database: { tables: 18, views: 0, triggers: 2, routines: 1, events: 0, sha256: sha256("database-dump") },
     media: {
-      directus: { files: 2, sha256: sha256("directus-archive") },
-      legacy: { files: 3, sha256: sha256("legacy-archive") },
+      directus: { files: mismatch === "emptyMedia" ? 0 : 2, sha256: sha256("directus-archive") },
+      legacy: { files: mismatch === "emptyMedia" ? 0 : 3, sha256: sha256("legacy-archive") },
     },
     public: {
       authors: { count: 32, sha256: sha256(normalizedJson(authors)) },
@@ -178,6 +178,8 @@ function runVerifier(mismatch?: Mismatch) {
       FAKE_TABLES: mismatch === "tables" ? "17" : "18",
       FAKE_PUBLIC_MISMATCH: mismatch === "public" ? "1" : "0",
       FAKE_DIRECTUS_FILES: mismatch === "media" ? "1" : "2",
+      FAKE_LEGACY_FILES: mismatch === "emptyMedia" ? "0" : "3",
+      ...(mismatch === "emptyMedia" ? { FAKE_DIRECTUS_FILES: "0" } : {}),
       FAKE_EXTERNAL_NETWORK: mismatch === "network" ? "1" : "0",
       FAKE_FORBIDDEN_ENV: mismatch === "environment" ? "1" : "0",
       FAKE_UUID: mismatch === "uuid" ? "prod-uuid" : "local-uuid",
@@ -221,4 +223,14 @@ describe("candidate parity verifier", () => {
       }
     },
   );
+
+  it("accepts empty media inventories without inventing an asset request", () => {
+    const run = runVerifier("emptyMedia");
+    try {
+      expect(run.result).toMatchObject({ status: 0, stderr: "" });
+      expect(readFileSync(run.report, "utf8")).toContain('"media": true');
+    } finally {
+      run.cleanup();
+    }
+  });
 });

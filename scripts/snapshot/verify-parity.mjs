@@ -244,11 +244,16 @@ function main() {
   const analysisSlug = analyses.value.find((entry) => typeof entry?.slug === "string")?.slug;
   const directusAsset = findPath([authors.value, analyses.value], "/cms/assets/");
   const legacyAsset = findPath([authors.value, analyses.value], "/cms/uploads/");
-  if (!authorSlug || !analysisSlug || !directusAsset || !legacyAsset) fail();
-  for (const path of [
+  if (!authorSlug || !analysisSlug) fail();
+  if (manifest.media.directus.files > 0 && !directusAsset) fail();
+  if (manifest.media.legacy.files > 0 && !legacyAsset) fail();
+  const representativePaths = [
     "/", "/autorzy", "/analizy", "/zbiory", `/autor/${encodeURIComponent(authorSlug)}`,
-    `/analizy/${encodeURIComponent(analysisSlug)}`, "/api/health", "/cms/server/ping", directusAsset, legacyAsset,
-  ]) fetch(baseUrl, path);
+    `/analizy/${encodeURIComponent(analysisSlug)}`, "/api/health", "/cms/server/ping",
+  ];
+  if (directusAsset) representativePaths.push(directusAsset);
+  if (legacyAsset) representativePaths.push(legacyAsset);
+  for (const path of representativePaths) fetch(baseUrl, path);
 
   const inspectedContainers = JSON.parse(command("docker", ["inspect", ...Object.values(containers)]));
   const inspectedNetwork = JSON.parse(command("docker", ["network", "inspect", network]));
