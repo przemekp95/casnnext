@@ -1,123 +1,83 @@
-# Deployment Guide
+# Deployment workflow contract
 
-This document describes the deployment-related GitHub Actions workflows and how they currently behave in this repository.
+This document describes checked-in workflow behavior. It does not record a
+deployment, published artifact, reachable service, or production acceptance.
 
-## Workflows
+## CI and artifact workflow
 
-- `docker.yml` (`.github/workflows/docker.yml`)
-  - Runs CI (type-check, lint, tests, Strapi smoke).
-  - Builds and pushes Docker images to GHCR after CI passes.
-- `deploy.yml` (`.github/workflows/deploy.yml`)
-  - Runs CI again on `main`.
-  - Runs deployment steps (SSH, Portainer stub, or manual notification).
-- `release.yml` (`.github/workflows/release.yml`)
-  - Creates a GitHub Release for tags matching `v*.*.*`.
+`.github/workflows/docker.yml` runs on pushes to `main` and `dev`, matching
+`v*` tags, and pull requests to `main` or `dev`.
 
-## Trigger Matrix
+- The `test` job runs migrations in its MySQL test service, type checks, lint,
+  content checks, the root dependency audit policy, unit/integration/E2E tests.
+- `directus-smoke` runs `npm run directus:smoke` with the pinned Directus image.
+- `build-and-push` waits for both jobs. Pull requests build app and Nginx images
+  without publishing; qualifying pushes publish their tags to GHCR.
+- Directus is not built or published by this workflow. Compose uses the pinned
+  upstream Directus image.
 
-### `docker.yml`
+`.github/workflows/release.yml` creates a GitHub Release for a `v*.*.*` tag.
+It has no deployment job. Its release text must not be treated as runtime or
+production evidence.
 
-- Push to `main`: CI + push app, Strapi, and nginx image tags for `main`.
-- Push to `dev`: CI + push app, Strapi, and nginx image tags for `dev`.
-- Push tag `v*`: CI + push app, Strapi, and nginx semver tags.
-- Pull request to `main` or `dev`: CI + build-only app, Strapi, and nginx images (no push).
+## Manual deployment workflow
 
-### `deploy.yml`
+`.github/workflows/deploy.yml` runs only through `workflow_dispatch`. Its
+required inputs are:
 
-- Push to `main`: CI + deploy job.
-- Manual trigger (`workflow_dispatch`): CI + deploy job.
+- `environment`: `production` or `staging`;
+- `app_image`: `ghcr.io/...@sha256:...`;
+- `nginx_image`: `ghcr.io/...@sha256:...`;
+- `app_revision`: the full 40-hex Git revision matching the workflow ref and
+  both image OCI revision labels.
 
-### `release.yml`
+Before its deployment path, the workflow reruns application and Directus smoke
+checks, rejects invalid immutable artifact inputs, pulls the supplied app and
+Nginx digests, and checks their OCI revision labels. With `DEPLOY_HOST`, it
+uses SSH to check out the supplied revision, writes the artifact references to
+`.env` using `scripts/deploy/write-artifact-env.sh`, validates
+`docker-compose.portainer.yml`, and starts it with `docker compose ... up -d
+--remove-orphans`.
 
-- Push tag `v*.*.*`: create GitHub release.
+Without `DEPLOY_HOST`, a set `PORTAINER_URL` deliberately fails because a
+Portainer-only path cannot inject validated immutable artifacts. With neither,
+the workflow only prints a manual-deployment notification. A set
+`HEALTH_CHECK_URL` causes a retrying HTTP check, but that check alone is not a
+complete post-deploy acceptance suite.
 
-## GHCR Image Naming Used by Workflows
+## Runtime contract
 
-Both `docker.yml` and `deploy.yml` use:
+The production-oriented Compose file is `docker-compose.portainer.yml`.
+It requires all deployment variables and secrets from a deployment-only `.env`.
+It exposes Nginx at `18080:8080`; `docker-compose.final.yml` is the analogous
+local/rehearsal topology at `3001:8080`.
 
-- `REGISTRY=ghcr.io`
-- `APP_IMAGE_NAME=${{ github.repository }}`
-- `STRAPI_IMAGE_NAME=${{ github.repository_owner }}/casn-strapi`
-- `NGINX_IMAGE_NAME=${{ github.repository_owner }}/casn-nginx`
+- MySQL must become healthy before the app or Directus starts.
+- The app health check calls database-backed `GET /api/health`.
+- Directus health requires `GET /server/ping` and
+  `/directus/.casn_bootstrapped`.
+- Nginx waits for both application readiness and Directus health; its own probe
+  is `GET /nginx-health`.
+- `/cms/` proxies to Directus, `/cms/assets/` is new Directus media, and the
+  historical `/cms/uploads/` path is read-only legacy-volume access.
 
-So images are published and pulled as:
+The application does not automatically migrate unless both
+`RUN_DB_MIGRATIONS=1` and
+`DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS` are present. The supplied Compose
+files deliberately do not inject either value. `npm run migration:run` remains
+an explicit migration command and must be used only in an approved isolated
+rehearsal or separately approved change.
 
-```text
-ghcr.io/<owner>/<repo>:<tag>
-ghcr.io/<owner>/casn-strapi:<tag>
-ghcr.io/<owner>/casn-nginx:<tag>
-```
+## Required secrets and artifact variables
 
-For this repository, that is typically:
+See `docker-compose.env.example` for the exact variable names:
+`APP_IMAGE`, `NGINX_IMAGE`, `APP_REVISION`, `MYSQL_ROOT_PASSWORD`,
+`MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `DIRECTUS_KEY`,
+`DIRECTUS_SECRET`, `DIRECTUS_ADMIN_EMAIL`, `DIRECTUS_ADMIN_PASSWORD`,
+`DIRECTUS_PUBLIC_URL`, `REVALIDATE_SECRET`, `NEXTAUTH_SECRET`, and
+`APP_PUBLIC_URL`. Do not commit populated values or place credentials in
+workflow logs.
 
-```text
-ghcr.io/przemekp95/casnnext:<tag>
-ghcr.io/przemekp95/casn-strapi:<tag>
-ghcr.io/przemekp95/casn-nginx:<tag>
-```
-
-## Deployment Paths in `deploy.yml`
-
-The deploy job can run one of three paths:
-
-1. SSH deployment (`appleboy/ssh-action`)
-   - Condition: `if: secrets.DEPLOY_HOST != ''`
-2. Portainer API placeholder step
-   - Condition: `if: secrets.PORTAINER_URL != '' && secrets.DEPLOY_HOST == ''`
-3. Manual deployment notification
-   - Condition: when both are false
-
-Optional health check:
-
-- Condition: `if: secrets.HEALTH_CHECK_URL != ''`
-- Uses `curl` with retries (30 attempts, every 10 seconds).
-
-## Secrets Used by `deploy.yml`
-
-When corresponding steps are enabled, these secrets are referenced:
-
-```text
-DEPLOY_HOST
-DEPLOY_USER
-DEPLOY_KEY
-DEPLOY_PORT
-DEPLOY_PATH
-PORTAINER_URL
-PORTAINER_WEBHOOK_ID
-HEALTH_CHECK_URL
-```
-
-## Target Compose File and Runtime
-
-The SSH deployment script in `deploy.yml` runs:
-
-```bash
-docker-compose -f docker-compose.portainer.yml down
-docker-compose -f docker-compose.portainer.yml up -d
-```
-
-`docker-compose.portainer.yml` currently exposes:
-- nginx: `18080:8080`
-- Next.js app internal port: `3000` (behind nginx)
-
-## Image Name Consistency Check
-
-Image naming is now aligned between workflow and compose:
-
-- `deploy.yml` pulls `ghcr.io/<owner>/<repo>:main` and `ghcr.io/<owner>/casn-strapi:main`
-- `deploy.yml` also pulls `ghcr.io/<owner>/casn-nginx:main`
-- `docker-compose.portainer.yml` uses `ghcr.io/przemekp95/casnnext:main`, `ghcr.io/przemekp95/casn-strapi:main`, and `ghcr.io/przemekp95/casn-nginx:main`
-
-## Manual Deployment (Current Compose)
-
-If automated deployment is not active, deploy manually on the server:
-
-```bash
-cd /opt/casn
-git pull origin main
-docker pull ghcr.io/przemekp95/casnnext:main
-docker pull ghcr.io/przemekp95/casn-strapi:main
-docker pull ghcr.io/przemekp95/casn-nginx:main
-docker-compose -f docker-compose.portainer.yml down
-docker-compose -f docker-compose.portainer.yml up -d
-```
+For the mandatory capture, restore, parity, cutover, and rollback gates, use
+[deployment-reconciliation.md](deployment-reconciliation.md). None of those
+operator steps has been run as part of this repository reconciliation.

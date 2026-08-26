@@ -1,9 +1,8 @@
 // app/analizy/page.tsx
 import React from "react";
 import Link from "next/link";
-import Image, { getImageProps } from "next/image";
+import Image from "next/image";
 import type { Metadata } from "next";
-import type { CSSProperties } from "react";
 import { getAnalyses } from "@/lib/analyses";
 import Hero from "@/components/Hero";
 
@@ -46,7 +45,7 @@ export default async function AnalysesPage() {
     });
 
     return (
-      <main className="bg-gray-100 min-h-screen pb-12">
+      <main className="bg-gray-100 min-h-screen pb-12 analyses-page">
         <Hero
           title="Analizy"
           breadcrumbs={[

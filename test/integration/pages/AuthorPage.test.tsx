@@ -88,25 +88,25 @@ describe('Author Page', () => {
     expect(screen.getByRole('link', { name: 'Analiza 1' })).toHaveAttribute('href', '/analizy/analiza-1');
   });
 
-  it('renderuje structured data z poprawnym absolutnym URL zdjęcia autora ze Strapi', async () => {
+  it('renderuje structured data z poprawnym absolutnym URL zdjęcia autora z legacy CMS', async () => {
     mockedGetAuthorBySlug.mockResolvedValueOnce({
       author: {
         id: '15',
-        slug: 'autor-strapi',
-        name: 'Autor Strapi',
-        displayName: 'Autor Strapi',
-        bio: 'Biogram autora ze Strapi',
-        img: 'https://cms.example.com/cms/uploads/autor-strapi.png',
+        slug: 'autor-legacy-cms',
+        name: 'Autor Legacy CMS',
+        displayName: 'Autor Legacy CMS',
+        bio: 'Biogram autora z legacy CMS',
+        img: 'https://cms.example.com/cms/uploads/autor-legacy-cms.png',
       },
       analyses: [{ id: '51', slug: 'nowy-mdx', title: 'Nowy MDX' }],
     });
 
-    const page = await AuthorPage({ params: Promise.resolve({ slug: 'autor-strapi' }) });
+    const page = await AuthorPage({ params: Promise.resolve({ slug: 'autor-legacy-cms' }) });
     render(page);
 
-    expect(screen.getByAltText('Zdjęcie Autor Strapi')).toHaveAttribute(
+    expect(screen.getByAltText('Zdjęcie Autor Legacy CMS')).toHaveAttribute(
       'src',
-      'https://cms.example.com/cms/uploads/autor-strapi.png',
+      'https://cms.example.com/cms/uploads/autor-legacy-cms.png',
     );
 
     const authorStructuredData = JSON.parse(
@@ -116,9 +116,9 @@ describe('Author Page', () => {
       screen.getByTestId('breadcrumb-structured-data').innerHTML,
     ) as { itemListElement?: Array<{ item?: string }> };
 
-    expect(authorStructuredData.image).toBe('https://cms.example.com/cms/uploads/autor-strapi.png');
+    expect(authorStructuredData.image).toBe('https://cms.example.com/cms/uploads/autor-legacy-cms.png');
     expect(authorStructuredData.knowsAbout).toContain('Nowy MDX');
-    expect(breadcrumbStructuredData.itemListElement?.[2]?.item).toBe('https://casn.pl/autor/autor-strapi');
+    expect(breadcrumbStructuredData.itemListElement?.[2]?.item).toBe('https://casn.pl/autor/autor-legacy-cms');
   });
 
   it('używa placeholdera gdy autor nie ma zdjęcia', async () => {
@@ -141,7 +141,7 @@ describe('Author Page', () => {
     expect(screen.queryByText('Artykuły')).not.toBeInTheDocument();
   });
 
-  it('generuje SEO metadata dla nowego autora ze zdjęciem ze Strapi', async () => {
+  it('generuje SEO metadata dla nowego autora ze zdjęciem z legacy CMS', async () => {
     mockedGetAuthorBySlug.mockResolvedValueOnce({
       author: {
         id: '21',

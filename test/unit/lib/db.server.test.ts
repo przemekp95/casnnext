@@ -1,6 +1,15 @@
 export {};
 
-const ENV_KEYS = ['DATABASE_URL', 'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'] as const;
+const ENV_KEYS = [
+  'DATABASE_URL',
+  'DB_HOST',
+  'DB_PORT',
+  'DB_USER',
+  'DB_PASSWORD',
+  'DB_NAME',
+  'RUN_DB_MIGRATIONS',
+  'DB_MIGRATION_CONFIRM',
+] as const;
 
 type EnvSnapshot = Partial<Record<(typeof ENV_KEYS)[number], string>>;
 
@@ -64,13 +73,15 @@ describe('lib/db.server', () => {
     await expect(mod.query('SELECT 1')).rejects.toThrow('Database not initialized');
   });
 
-  it('parses DATABASE_URL and creates datasource with migrations enabled', async () => {
+  it('parses DATABASE_URL and disables automatic migrations without both confirmations', async () => {
     process.env.DATABASE_URL = 'mysql://casn_user:casn_pass@db.internal:3308/casn_prod';
     delete process.env.DB_HOST;
     delete process.env.DB_PORT;
     delete process.env.DB_USER;
     delete process.env.DB_PASSWORD;
     delete process.env.DB_NAME;
+    delete process.env.RUN_DB_MIGRATIONS;
+    delete process.env.DB_MIGRATION_CONFIRM;
 
     const { mod, DataSourceMock } = await loadModule();
     const [config] = DataSourceMock.mock.calls[0];
@@ -82,10 +93,21 @@ describe('lib/db.server', () => {
     expect(config.username).toBe('casn_user');
     expect(config.password).toBe('casn_pass');
     expect(config.database).toBe('casn_prod');
-    expect(config.migrationsRun).toBe(true);
+    expect(config.migrationsRun).toBe(false);
     expect(config.synchronize).toBe(false);
 
     await expect(mod.query('SELECT 1')).rejects.toThrow('Database not initialized');
+  });
+
+  it('enables automatic migrations only with both exact confirmations', async () => {
+    process.env.DATABASE_URL = 'mysql://casn_user:casn_pass@db.internal:3308/casn_prod';
+    process.env.RUN_DB_MIGRATIONS = '1';
+    process.env.DB_MIGRATION_CONFIRM = 'RUN_CASN_MIGRATIONS';
+
+    const { DataSourceMock } = await loadModule();
+    const [config] = DataSourceMock.mock.calls[0];
+
+    expect(config.migrationsRun).toBe(true);
   });
 
   it('executes query and always releases query runner', async () => {
