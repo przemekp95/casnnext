@@ -27,6 +27,21 @@ const analysisDetailFixture = {
 
 const createSlugContext = (slug: string) => ({ params: Promise.resolve({ slug }) });
 
+async function withTestNextPhase<T>(operation: () => Promise<T>): Promise<T> {
+  const callerNextPhase = process.env.NEXT_PHASE;
+  delete process.env.NEXT_PHASE;
+
+  try {
+    return await operation();
+  } finally {
+    if (callerNextPhase === undefined) {
+      delete process.env.NEXT_PHASE;
+    } else {
+      process.env.NEXT_PHASE = callerNextPhase;
+    }
+  }
+}
+
 describe('Analyses API', () => {
   let analysesRoute: AnalysesRoute;
   let analysesSlugRoute: AnalysesSlugRoute;
@@ -42,8 +57,10 @@ describe('Analyses API', () => {
       getAnalysisBySlug: getAnalysisBySlugMock,
     }));
 
-    analysesRoute = await import('@/app/api/analyses/route');
-    analysesSlugRoute = await import('@/app/api/analyses/[slug]/route');
+    [analysesRoute, analysesSlugRoute] = await withTestNextPhase(async () => [
+      await import('@/app/api/analyses/route'),
+      await import('@/app/api/analyses/[slug]/route'),
+    ]);
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
@@ -51,11 +68,33 @@ describe('Analyses API', () => {
     jest.restoreAllMocks();
   });
 
+  it('restores a caller build phase after a rejected provider assertion', async () => {
+    const nextPhaseBeforeAssertion = process.env.NEXT_PHASE;
+    process.env.NEXT_PHASE = 'phase-production-build';
+
+    try {
+      await expect(
+        withTestNextPhase(async () => {
+          expect(process.env.NEXT_PHASE).toBeUndefined();
+          throw new Error('provider rejected');
+        }),
+      ).rejects.toThrow('provider rejected');
+
+      expect(process.env.NEXT_PHASE).toBe('phase-production-build');
+    } finally {
+      if (nextPhaseBeforeAssertion === undefined) {
+        delete process.env.NEXT_PHASE;
+      } else {
+        process.env.NEXT_PHASE = nextPhaseBeforeAssertion;
+      }
+    }
+  });
+
   describe('GET /api/analyses', () => {
     it('returns the fixed analysis fixture', async () => {
       getAnalysesMock.mockResolvedValue([analysisFixture]);
 
-      const response = await analysesRoute.GET();
+      const response = await withTestNextPhase(() => analysesRoute.GET());
 
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual([expect.objectContaining(analysisFixture)]);
@@ -64,7 +103,7 @@ describe('Analyses API', () => {
     it('returns the exact internal-server-error response when the query fails', async () => {
       getAnalysesMock.mockRejectedValue(new Error('database unavailable'));
 
-      const response = await analysesRoute.GET();
+      const response = await withTestNextPhase(() => analysesRoute.GET());
 
       expect(response.status).toBe(500);
       expect(await response.json()).toEqual({ error: 'Internal server error' });
@@ -75,10 +114,10 @@ describe('Analyses API', () => {
     it('returns the fixed detail fixture for an existing slug', async () => {
       getAnalysisBySlugMock.mockResolvedValue(analysisDetailFixture);
 
-      const response = await analysesSlugRoute.GET(
+      const response = await withTestNextPhase(() => analysesSlugRoute.GET(
         new Request('http://localhost:3000/api/analyses/first-analysis'),
         createSlugContext('first-analysis'),
-      );
+      ));
 
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual(analysisDetailFixture);
@@ -87,10 +126,10 @@ describe('Analyses API', () => {
     it('returns the exact not-found response for an unknown slug', async () => {
       getAnalysisBySlugMock.mockResolvedValue(null);
 
-      const response = await analysesSlugRoute.GET(
+      const response = await withTestNextPhase(() => analysesSlugRoute.GET(
         new Request('http://localhost:3000/api/analyses/missing-analysis'),
         createSlugContext('missing-analysis'),
-      );
+      ));
 
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: 'Analysis not found' });
@@ -99,10 +138,10 @@ describe('Analyses API', () => {
     it('returns the exact internal-server-error response when the detail query fails', async () => {
       getAnalysisBySlugMock.mockRejectedValue(new Error('database unavailable'));
 
-      const response = await analysesSlugRoute.GET(
+      const response = await withTestNextPhase(() => analysesSlugRoute.GET(
         new Request('http://localhost:3000/api/analyses/first-analysis'),
         createSlugContext('first-analysis'),
-      );
+      ));
 
       expect(response.status).toBe(500);
       expect(await response.json()).toEqual({ error: 'Internal server error' });
