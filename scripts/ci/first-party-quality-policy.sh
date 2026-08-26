@@ -114,7 +114,22 @@ check_workflow() {
   if ! node - "$root/$workflow" <<'NODE'
 const fs = require('fs');
 const workflow = fs.readFileSync(process.argv[2], 'utf8');
-const hasExactLintCommand = /^\s*-\s*run:\s*["']?npm run lint["']?\s*(?:#.*)?$/m.test(workflow);
+const lines = workflow.split(/\r?\n/);
+const exactLintCommand = /^\s*npm run lint\s*(?:#.*)?$/;
+const hasInlineLintCommand = /^\s*-\s*run:\s*["']?npm run lint["']?\s*(?:#.*)?$/m.test(workflow);
+const hasBlockLintCommand = lines.some((line, index) => {
+  const block = /^(\s*)-\s*run:\s*\|\s*(?:#.*)?$/.exec(line);
+  if (!block) return false;
+
+  const blockIndent = block[1].length;
+  for (let lineIndex = index + 1; lineIndex < lines.length; lineIndex += 1) {
+    const candidate = lines[lineIndex];
+    if (candidate.trim() && candidate.match(/^\s*/)[0].length <= blockIndent) break;
+    if (exactLintCommand.test(candidate)) return true;
+  }
+  return false;
+});
+const hasExactLintCommand = hasInlineLintCommand || hasBlockLintCommand;
 process.exit(hasExactLintCommand ? 0 : 1);
 NODE
   then

@@ -39,6 +39,11 @@ reset_fixture
 "$policy" "$test_root/repo"
 
 reset_fixture
+printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - run: |' '        npm run lint' '        npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+"$policy" "$test_root/repo"
+
+reset_fixture
 sed -i '1i /* eslint-disable */' "$test_root/repo/app/page.tsx"
 git -C "$test_root/repo" add .
 expect_rejected 'inline-eslint-directive'
