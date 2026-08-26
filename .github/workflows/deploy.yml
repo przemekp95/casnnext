@@ -236,6 +236,8 @@ jobs:
       NGINX_IMAGE: ${{ inputs.nginx_image }}
       APP_REVISION: ${{ inputs.app_revision }}
       EXPECTED_APP_REVISION: ${{ github.sha }}
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      GHCR_USERNAME: ${{ github.repository_owner }}
 
     steps:
       - name: Checkout repository
@@ -295,7 +297,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION
+          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME
           script: |
             set -eu
             cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
@@ -305,6 +307,7 @@ jobs:
             test "$(git rev-parse HEAD)" = "$APP_REVISION"
 
             scripts/deploy/write-artifact-env.sh .env
+            scripts/deploy/login-registry.sh
             docker pull "$APP_IMAGE"
             docker pull "$NGINX_IMAGE"
 
@@ -328,10 +331,11 @@ jobs:
           echo ""
           echo "Manual deployment steps:"
           echo "1. Check out commit: $APP_REVISION"
-          echo '2. Preserve existing secrets and set APP_IMAGE, NGINX_IMAGE, and APP_REVISION in .env'
-          echo '3. Validate: docker compose --env-file .env -f docker-compose.portainer.yml config --quiet'
-          echo '4. Pull the exact app/nginx references printed above'
-          echo '5. Deploy: docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans'
+          echo '2. Authenticate to GHCR with a read:packages token via scripts/deploy/login-registry.sh'
+          echo '3. Preserve existing secrets and set APP_IMAGE, NGINX_IMAGE, and APP_REVISION in .env'
+          echo '4. Validate: docker compose --env-file .env -f docker-compose.portainer.yml config --quiet'
+          echo '5. Pull the exact app/nginx references printed above'
+          echo '6. Deploy: docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans'
 
       - name: Health check
         if: ${{ env.HEALTH_CHECK_URL != '' }}

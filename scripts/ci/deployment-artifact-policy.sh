@@ -3,6 +3,7 @@ set -euo pipefail
 
 readonly DEPLOY_WORKFLOW='.github/workflows/deploy.yml'
 readonly ARTIFACT_ENV_WRITER='scripts/deploy/write-artifact-env.sh'
+readonly REGISTRY_LOGIN='scripts/deploy/login-registry.sh'
 readonly ACTIONLINT_IMAGE='rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9'
 readonly APP_IMAGE_FIXTURE='ghcr.io/example/casn@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 readonly NGINX_IMAGE_FIXTURE='ghcr.io/example/casn-nginx@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -45,8 +46,11 @@ for required_source in \
   'nginx_image:' \
   'app_revision:' \
   "EXPECTED_APP_REVISION: \${{ github.sha }}" \
-  'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION' \
+  'GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}' \
+  'GHCR_USERNAME: ${{ github.repository_owner }}' \
+  'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME' \
   'scripts/deploy/write-artifact-env.sh .env' \
+  'scripts/deploy/login-registry.sh' \
   "docker pull \"\$APP_IMAGE\"" \
   "docker pull \"\$NGINX_IMAGE\"" \
   'docker compose --env-file .env -f docker-compose.portainer.yml config --quiet' \
@@ -61,6 +65,32 @@ if [[ ! -x "$ARTIFACT_ENV_WRITER" ]]; then
   echo "$ARTIFACT_ENV_WRITER must exist and be executable" >&2
   exit 1
 fi
+
+if [[ ! -x "$REGISTRY_LOGIN" ]]; then
+  echo "$REGISTRY_LOGIN must exist and be executable" >&2
+  exit 1
+fi
+
+fake_docker="$policy_tmp_dir/docker"
+fake_docker_args="$policy_tmp_dir/docker-args"
+fake_docker_stdin="$policy_tmp_dir/docker-stdin"
+printf '%s\n' \
+  '#!/bin/sh' \
+  'set -eu' \
+  'printf "%s\\n" "$@" > "$FAKE_DOCKER_ARGS"' \
+  'cat > "$FAKE_DOCKER_STDIN"' > "$fake_docker"
+chmod 700 "$fake_docker"
+
+GHCR_TOKEN='registry-policy-secret' \
+GHCR_USERNAME='registry-policy-user' \
+DOCKER_BIN="$fake_docker" \
+FAKE_DOCKER_ARGS="$fake_docker_args" \
+FAKE_DOCKER_STDIN="$fake_docker_stdin" \
+  "$REGISTRY_LOGIN"
+
+printf '%s\n' login ghcr.io --username registry-policy-user --password-stdin > "$policy_tmp_dir/expected-docker-args"
+cmp "$policy_tmp_dir/expected-docker-args" "$fake_docker_args"
+test "$(cat "$fake_docker_stdin")" = 'registry-policy-secret'
 
 deployment_env="$policy_tmp_dir/deployment.env"
 printf '%s\n' \
