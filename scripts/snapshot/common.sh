@@ -34,15 +34,15 @@ require_owner_only_file() {
 }
 
 require_empty_directory() {
-  local path="${1-}" resolved repository_root
+  local path="${1-}" resolved detected_repository_root
   [[ -n "$path" && -d "$path" && ! -L "$path" ]] || die 'path is not a directory'
   resolved="$(realpath -e -- "$path")"
   [[ "$resolved" != / ]] || die 'filesystem root is not an allowed target'
 
-  repository_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  if [[ -n "$repository_root" ]]; then
-    repository_root="$(realpath -e -- "$repository_root")"
-    [[ "$resolved" != "$repository_root" && "$resolved" != "$repository_root/"* ]] ||
+  detected_repository_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$detected_repository_root" ]]; then
+    detected_repository_root="$(realpath -e -- "$detected_repository_root")"
+    [[ "$resolved" != "$detected_repository_root" && "$resolved" != "$detected_repository_root/"* ]] ||
       die 'repository paths are not allowed targets'
   fi
 

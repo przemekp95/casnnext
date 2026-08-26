@@ -428,7 +428,8 @@ Require `--artifact`, `--manifest`, `--identity`, `--env-file`, and `--snapshot-
 Derive the project name internally; do not accept a caller-provided project:
 
 ```bash
-project="casn_snapshot_${snapshot_id//[^a-zA-Z0-9]/}"
+project="casn_snapshot_${snapshot_id,,}"
+project="${project//[^a-z0-9_-]/}"
 database_name=casn_local
 ```
 
