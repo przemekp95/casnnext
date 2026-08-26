@@ -120,6 +120,9 @@ jobs:
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
 
+      - name: Verify isolated runtime artifact
+        run: npm run runtime:policy
+
       - name: Run comprehensive integration tests
         run: |
           # Start Next.js server in background

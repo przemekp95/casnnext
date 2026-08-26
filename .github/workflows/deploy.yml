@@ -132,6 +132,9 @@ jobs:
           RUN_DB_MIGRATIONS: "1"
           DB_MIGRATION_CONFIRM: RUN_CASN_MIGRATIONS
 
+      - name: Verify isolated runtime artifact
+        run: npm run runtime:policy
+
       - name: Start application server
         run: |
           node server.cjs &

@@ -57,11 +57,9 @@ if ! npm run runtime:policy:test; then
   report_failure 'Runtime source policy fixture contract failed.'
 fi
 
-for runtime_policy_mode in sources build launcher; do
-  if ! bash scripts/ci/runtime-source-policy.sh . "$runtime_policy_mode"; then
-    report_failure "Runtime source policy failed: $runtime_policy_mode"
-  fi
-done
+if ! npm run runtime:policy; then
+  report_failure 'Runtime source policy failed.'
+fi
 
 if ! bash scripts/ci/server-launcher-test.sh; then
   report_failure 'Server launcher fixture contract failed.'
