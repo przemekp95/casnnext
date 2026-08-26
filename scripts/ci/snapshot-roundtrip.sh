@@ -254,10 +254,12 @@ http_port="$(<"$port_file")"
 [[ "$http_port" =~ ^[0-9]+$ ]] || die
 
 handoff="$temporary_directory/$snapshot_id.candidate.json"
+database_content_hash="$(sed 's/CHARACTER SET utf8mb4 //g' "$restored/database.sql" | sha256sum | awk '{print $1}')"
 jq -n \
   --arg snapshot_id "$snapshot_id" --arg project "$project" --arg http_port "$http_port" \
   --arg manifest_hash "$(sha256sum "$manifest" | awk '{print $1}')" \
-  '{snapshotId:$snapshot_id,project:$project,database:"casn_local",dbPort:"0",httpPort:$http_port,manifestSha256:$manifest_hash,previousProject:""}' \
+  --arg database_content_hash "$database_content_hash" \
+  '{snapshotId:$snapshot_id,project:$project,database:"casn_local",dbPort:"0",httpPort:$http_port,manifestSha256:$manifest_hash,databaseContentSha256:$database_content_hash,previousProject:""}' \
   > "$handoff"
 chmod 600 "$handoff"
 report="$temporary_directory/parity-report.json"
