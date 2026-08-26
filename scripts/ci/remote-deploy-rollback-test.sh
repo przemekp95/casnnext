@@ -2,6 +2,7 @@
 set -euo pipefail
 
 readonly REMOTE_DEPLOY_SCRIPT='scripts/deploy/remote-deploy.sh'
+readonly DEPLOYMENT_MUTATION_CHECK='scripts/ci/assert-no-deployment-db-mutation.sh'
 readonly PREVIOUS_REVISION='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 readonly CANDIDATE_REVISION='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 readonly PREVIOUS_APP_IMAGE='ghcr.io/example/casn@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -13,6 +14,8 @@ if [[ ! -f "$REMOTE_DEPLOY_SCRIPT" ]]; then
   echo "Missing remote deployment script: $REMOTE_DEPLOY_SCRIPT" >&2
   exit 1
 fi
+
+"$DEPLOYMENT_MUTATION_CHECK" "$REMOTE_DEPLOY_SCRIPT" >/dev/null
 
 test_root="$(mktemp -d)"
 cleanup() {

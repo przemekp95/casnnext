@@ -48,6 +48,13 @@ does not reverse MySQL migrations or Directus metadata changes. A failed
 rollback emits a critical error and requires the separately approved recovery
 procedure in `deployment-reconciliation.md`.
 
+`npm run deploy:policy` mechanically rejects application migration commands,
+migration gate variables, and Directus schema/bootstrap mutation in both the
+remote deployment implementation and the workflow's SSH deployment block.
+Database or Directus recovery must therefore use the separately approved,
+backup-backed reconciliation procedure; it cannot be smuggled into artifact
+rollback.
+
 Without `DEPLOY_HOST`, a set `PORTAINER_URL` deliberately fails because a
 Portainer-only path cannot inject validated immutable artifacts. With neither,
 the workflow only prints a manual-deployment notification. SSH deployment

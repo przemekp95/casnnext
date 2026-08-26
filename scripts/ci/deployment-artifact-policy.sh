@@ -6,6 +6,7 @@ readonly ARTIFACT_ENV_WRITER='scripts/deploy/write-artifact-env.sh'
 readonly REGISTRY_LOGIN='scripts/deploy/login-registry.sh'
 readonly REMOTE_DEPLOY='scripts/deploy/remote-deploy.sh'
 readonly REMOTE_DEPLOY_TEST='scripts/ci/remote-deploy-rollback-test.sh'
+readonly DEPLOYMENT_MUTATION_CHECK='scripts/ci/assert-no-deployment-db-mutation.sh'
 readonly ACTIONLINT_IMAGE='rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9'
 readonly APP_IMAGE_FIXTURE='ghcr.io/example/casn@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 readonly NGINX_IMAGE_FIXTURE='ghcr.io/example/casn-nginx@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -16,6 +17,21 @@ cleanup() {
   rm -rf "$policy_tmp_dir"
 }
 trap cleanup EXIT
+
+ssh_deploy_block="$policy_tmp_dir/ssh-deploy-block.yml"
+awk '
+  /- name: Deploy via SSH/ { in_deploy=1 }
+  /- name: Reject unimplemented Portainer-only deployment/ { in_deploy=0 }
+  in_deploy { print }
+' "$DEPLOY_WORKFLOW" >"$ssh_deploy_block"
+
+forbidden_fixture="$policy_tmp_dir/forbidden-remote-deploy.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'npm run migration:run' >"$forbidden_fixture"
+if "$DEPLOYMENT_MUTATION_CHECK" "$forbidden_fixture" >/dev/null 2>&1; then
+  echo 'Deployment mutation checker accepted a forbidden migration command.' >&2
+  exit 1
+fi
+"$DEPLOYMENT_MUTATION_CHECK" "$REMOTE_DEPLOY" "$ssh_deploy_block"
 
 assert_single_assignment() {
   local key="$1"
@@ -73,8 +89,8 @@ if [[ ! -x "$REGISTRY_LOGIN" ]]; then
   exit 1
 fi
 
-if [[ ! -x "$REMOTE_DEPLOY" || ! -x "$REMOTE_DEPLOY_TEST" ]]; then
-  echo 'Remote deployment and rollback behavior test must be executable.' >&2
+if [[ ! -x "$REMOTE_DEPLOY" || ! -x "$REMOTE_DEPLOY_TEST" || ! -x "$DEPLOYMENT_MUTATION_CHECK" ]]; then
+  echo 'Remote deployment, rollback test, and mutation boundary checker must be executable.' >&2
   exit 1
 fi
 

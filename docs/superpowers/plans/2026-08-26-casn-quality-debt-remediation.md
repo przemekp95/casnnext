@@ -325,6 +325,7 @@ provides the selectors required by this task.
 ### Task 5: Enforce the database rollback boundary
 
 **Files:**
+- Create: `scripts/ci/assert-no-deployment-db-mutation.sh`
 - Modify: `scripts/ci/deployment-artifact-policy.sh`
 - Modify: `scripts/ci/remote-deploy-rollback-test.sh`
 - Modify: `docs/deployment.md`
