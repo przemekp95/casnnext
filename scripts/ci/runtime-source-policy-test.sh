@@ -116,11 +116,27 @@ printf "const runtime = require('./dist/runtime/server.js');\n" >>"$fixture/serv
 expect_rejected 'server.cjs must not contain require(.' launcher
 
 create_fixture
+printf "const runtime = require ('./dist/runtime/server.js');\n" >>"$fixture/server.cjs"
+expect_rejected 'server.cjs must not contain require(.' launcher
+
+create_fixture
 printf "void import('./dist/runtime/not-server.js');\n" >"$fixture/server.cjs"
 expect_rejected 'server.cjs must load ./dist/runtime/server.js.' launcher
 
 create_fixture
+printf "// void import('./dist/runtime/server.js');\n" >"$fixture/server.cjs"
+expect_rejected 'server.cjs must load ./dist/runtime/server.js.' launcher
+
+create_fixture
+printf "const runtimePath = './dist/runtime/server.js';\n" >"$fixture/server.cjs"
+expect_rejected 'server.cjs must load ./dist/runtime/server.js.' launcher
+
+create_fixture
 printf 'COPY lib /app/lib\n' >>"$fixture/Dockerfile"
+expect_rejected 'Dockerfile must not copy /app/lib or /app/migrations.' image
+
+create_fixture
+printf 'COPY migrations /app/migrations\n' >>"$fixture/Dockerfile"
 expect_rejected 'Dockerfile must not copy /app/lib or /app/migrations.' image
 
 create_fixture

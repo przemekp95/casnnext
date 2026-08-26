@@ -98,10 +98,78 @@ check_build() {
 
 check_launcher() {
   require_file server.cjs
-  if rg -Fq 'require(' "$ROOT/server.cjs"; then
+
+  local launcher_tokens
+  launcher_tokens="$(node -e '
+    const fs = require("fs");
+    const source = fs.readFileSync(process.argv[1], "utf8");
+    const isIdentifier = (character) => /[A-Za-z0-9_$]/.test(character ?? "");
+    const skipWhitespace = (index) => {
+      while (/\s/.test(source[index] ?? "")) index += 1;
+      return index;
+    };
+    const readString = (start) => {
+      const quote = source[start];
+      let value = "";
+      for (let index = start + 1; index < source.length; index += 1) {
+        const character = source[index];
+        if (character === String.fromCharCode(92)) {
+          index += 1;
+          continue;
+        }
+        if (character === quote) return { end: index + 1, value };
+        value += character;
+      }
+      return null;
+    };
+
+    let hasRequire = false;
+    let hasRuntimeImport = false;
+    for (let index = 0; index < source.length;) {
+      if (source.startsWith("//", index)) {
+        const newline = source.indexOf(String.fromCharCode(10), index + 2);
+        index = newline === -1 ? source.length : newline + 1;
+        continue;
+      }
+      if (source.startsWith("/*", index)) {
+        const end = source.indexOf("*/", index + 2);
+        index = end === -1 ? source.length : end + 2;
+        continue;
+      }
+      if ([String.fromCharCode(34), String.fromCharCode(39), "`"].includes(source[index])) {
+        const string = readString(index);
+        index = string ? string.end : source.length;
+        continue;
+      }
+
+      const word = source.slice(index).match(/^[A-Za-z_$][A-Za-z0-9_$]*/)?.[0];
+      if (!word || isIdentifier(source[index - 1])) {
+        index += 1;
+        continue;
+      }
+
+      let next = skipWhitespace(index + word.length);
+      if (word === "require" && source[next] === "(") hasRequire = true;
+      if (word === "import" && source[next] === "(") {
+        next = skipWhitespace(next + 1);
+        if (source[next] === String.fromCharCode(34) || source[next] === String.fromCharCode(39)) {
+          const runtimePath = readString(next);
+          if (runtimePath && runtimePath.value === "./dist/runtime/server.js") {
+            next = skipWhitespace(runtimePath.end);
+            if (source[next] === ")") hasRuntimeImport = true;
+          }
+        }
+      }
+      index += word.length;
+    }
+
+    process.stdout.write(`${hasRequire ? "1" : "0"}${hasRuntimeImport ? "1" : "0"}`);
+  ' "$ROOT/server.cjs" 2>/dev/null)" || fail 'server.cjs must be readable JavaScript.'
+
+  if [[ "${launcher_tokens:0:1}" == '1' ]]; then
     fail 'server.cjs must not contain require(.'
   fi
-  rg -Fq './dist/runtime/server.js' "$ROOT/server.cjs" \
+  [[ "${launcher_tokens:1:1}" == '1' ]] \
     || fail 'server.cjs must load ./dist/runtime/server.js.'
 }
 
