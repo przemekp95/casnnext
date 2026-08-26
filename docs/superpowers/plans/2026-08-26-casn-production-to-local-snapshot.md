@@ -154,7 +154,11 @@ const manifest = {
     directus: { sha256: directusHash, files: 2 },
     legacy: { sha256: legacyHash, files: 3 },
   },
-  public: { authors: 32, analyses: 39, sitemapUrls: 80 },
+  public: {
+    authors: { count: 32, sha256: "c".repeat(64) },
+    analyses: { count: 39, sha256: "d".repeat(64) },
+    sitemap: { count: 80, sha256: "e".repeat(64) },
+  },
 };
 ```
 
@@ -171,8 +175,9 @@ Expected: FAIL because the CLI does not exist.
 - [ ] **Step 3: Implement strict build and verify subcommands**
 
 Use Bash, jq, and sha256sum only. Reject unknown keys at every object level,
-require 64-character lowercase hex hashes, integer counts greater than or equal
-to zero, an ISO UTC capture timestamp, and exactly these payload filenames:
+require 64-character lowercase hex hashes for every payload and normalized
+public-data inventory, integer counts greater than or equal to zero, an ISO UTC
+capture timestamp, and exactly these payload filenames:
 
 ```bash
 readonly database_payload=database.sql
