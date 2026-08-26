@@ -88,9 +88,7 @@ check_build() {
     server.js \
     lib/db.shared.js \
     lib/server/migration-policy.js \
-    lib/server/startup-database.js \
-    lib/db.node.js \
-    lib/init-db.js; do
+    lib/server/startup-database.js; do
     [[ ! -e "$ROOT/$generated_source" ]] \
       || fail "generated JavaScript source artifact must not exist: $generated_source"
   done

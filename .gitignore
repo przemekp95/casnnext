@@ -88,6 +88,7 @@ tmp/
 
 # build artifacts
 build-casn.tgz
+/dist/runtime/
 
 # local editor settings
 .vscode/settings.json

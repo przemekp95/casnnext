@@ -1,21 +1,17 @@
 /** @jest-environment node */
 
-type StartupDataSource = {
+import {
+  requireDatabaseReady,
+  type StartupDataSource,
+} from "@/lib/server/startup-database";
+
+type MockStartupDataSource = StartupDataSource & {
   isInitialized: boolean;
   initialize: jest.Mock<Promise<void>, []>;
   query: jest.Mock<Promise<unknown>, [string]>;
 };
 
-const { requireDatabaseReady } = jest.requireActual(
-  "@/lib/server/startup-database",
-) as {
-  requireDatabaseReady(input: {
-    dataSource: StartupDataSource | null;
-    isConfigured: () => boolean;
-  }): Promise<void>;
-};
-
-function dataSource(isInitialized = false): StartupDataSource {
+function dataSource(isInitialized = false): MockStartupDataSource {
   return {
     isInitialized,
     initialize: jest.fn().mockResolvedValue(undefined),
