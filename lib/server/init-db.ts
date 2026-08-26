@@ -172,8 +172,7 @@ export async function initializeDatabase() {
       await AppDataSource.initialize();
       console.log('Database connection established successfully');
 
-      // Migrations are run automatically with migrationsRun: true
-      console.log('Migrations run automatically with migrationsRun: true');
+      console.log('Database migrations are controlled by the startup environment policy');
 
       // Verify migrations actually worked by checking database content
       console.log('Verifying migration success...');

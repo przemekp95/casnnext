@@ -52,7 +52,7 @@ h1, h2, h3, h4, h5, h6,
 }
 
 /* Analyses page: keep cards visually consistent regardless of title length */
-.projects-wrapper {
+.analyses-page .projects-wrapper {
   row-gap: 1.5rem;
 }
 

@@ -17,7 +17,7 @@ describe("normalizeCmsMdxMediaPaths", () => {
     expect(normalized).toContain("[Plik](/cms/uploads/b.pdf)");
   });
 
-  it("keeps non-Strapi paths intact", () => {
+  it("keeps non-legacy CMS paths intact", () => {
     const source = '<img src="/images/logo.jpg" alt="logo" />\n![Ok](/cms/uploads/x.png)';
     const normalized = normalizeCmsMdxMediaPaths(source);
 

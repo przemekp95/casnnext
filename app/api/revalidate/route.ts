@@ -1,4 +1,5 @@
 import { revalidatePath, revalidateTag } from "next/cache";
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 type RevalidatePayload = {
@@ -9,17 +10,25 @@ type RevalidatePayload = {
 };
 
 function getExpectedSecret(): string {
-  return process.env.REVALIDATE_SECRET || process.env.STRAPI_WEBHOOK_SECRET || "";
+  return process.env.REVALIDATE_SECRET || process.env.DIRECTUS_WEBHOOK_SECRET || "";
 }
 
-function getProvidedSecret(request: Request, payload: RevalidatePayload): string {
+function getProvidedSecret(request: Request): string {
+  const headerSecret =
+    request.headers.get("x-revalidate-secret") || request.headers.get("x-directus-secret");
+  if (headerSecret) return headerSecret;
+
+  const authorization = request.headers.get("authorization") || "";
+  const bearerMatch = authorization.match(/^Bearer\s+(.+)$/i);
+  return bearerMatch?.[1] || "";
+}
+
+function secretsMatch(expected: string, provided: string): boolean {
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(provided);
   return (
-    request.headers.get("x-revalidate-secret") ||
-    request.headers.get("x-strapi-secret") ||
-    (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "") ||
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (payload as any)?.secret ||
-    ""
+    expectedBuffer.length === providedBuffer.length &&
+    timingSafeEqual(expectedBuffer, providedBuffer)
   );
 }
 
@@ -71,7 +80,7 @@ export async function POST(req: Request) {
   }
 
   const expected = getExpectedSecret();
-  const provided = getProvidedSecret(req, payload);
+  const provided = getProvidedSecret(req);
 
   if (!expected) {
     return NextResponse.json(
@@ -80,7 +89,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (expected && provided !== expected) {
+  if (!secretsMatch(expected, provided)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 

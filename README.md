@@ -1,191 +1,129 @@
 # CASN
 
-CASN is a Next.js 16 application for publishing analyses and articles for Centrum Analiz Sluzby Niepodleglej.
+CASN is a Next.js 16 application for publishing analyses and articles for
+Centrum Analiz Sluzby Niepodleglej.
 
-Runtime reads are DB-only:
-- Strapi 5 is the editorial CMS and media storage
-- MySQL is the public read model for Next.js
-- `posts/*.mdx` are legacy migration inputs, not a runtime content source
+The public application reads MySQL directly. Directus is the authenticated
+editorial UI for the existing `Author`, `Analysis`, and `IssueCollection`
+tables; it is not a public CMS read dependency. Public rows satisfy
+`publishedAt IS NOT NULL`.
 
 ## Stack
 
-- Next.js 16 (App Router)
-- React 19
-- TypeScript 5
-- TypeORM + MySQL 8
-- Strapi 5 (`strapi/`, editorial CMS)
-- Docker / Docker Compose / Nginx
+- Next.js 16, React 19, TypeScript 5
+- TypeORM with MySQL 8
+- Directus 12.3.1 (pinned upstream image) for editorial administration
+- Docker Compose and Nginx
 
-## Repository Layout
+## Repository layout
 
 ```text
-app/                Next.js routes (pages + API)
-components/         Shared UI components
-lib/                DB, CMS, server-side logic
-migrations/         TypeORM migrations
-posts/              Legacy MDX files kept for migration/backfill
-public/             Static assets
-strapi/             Strapi project
-scripts/            Utility and CI scripts
-test/               Unit and integration tests
+app/        Next.js pages and API routes
+directus/   Directus bootstrap, entrypoint, and field-guard extension
+lib/        database and server-side read logic
+migrations/ TypeORM migrations
+posts/      historical MDX inputs and legacy-media compatibility fixtures
+public/     static assets
+scripts/    CI, deployment, and verification scripts
+test/       unit and integration tests
 ```
 
-## Prerequisites
+## Local application development
 
-- Node.js 20+
-- npm
-- MySQL 8 (local or Docker)
-- Docker (optional)
-
-If the DB is unavailable, some server paths fall back to mock/fallback data instead of hard failing.
-
-## Local Development (without Docker)
-
-1. Install dependencies:
+Requirements: Node.js `>=22.19`, npm, and MySQL 8. Create a local
+`.env.local` with either `DATABASE_URL` or the `DB_HOST`, `DB_PORT`, `DB_USER`,
+`DB_PASSWORD`, and `DB_NAME` values required by the database connection. Do not
+copy a production deployment `.env` into the repository.
 
 ```bash
-npm install
-```
-
-2. Create local runtime env file:
-
-```bash
-cp .env.example .env.local
-```
-
-3. Start MySQL and ensure credentials match your env values.
-
-4. Run migrations (recommended with explicit DB URL):
-
-```bash
-DATABASE_URL="mysql://casn_user:casn_password123@127.0.0.1:3306/casn" npm run migration:run
-```
-
-5. Start Next.js:
-
-```bash
+npm ci
+npm run migration:run
 npm run dev
 ```
 
-App URL: `http://localhost:3000`
+The development server listens on `http://localhost:3000` by default.
+`npm run migration:run` is an explicit TypeORM action: the initial migration
+can recreate and seed `Author` and `Analysis`, so use only an approved local or
+isolated database.
 
-## Migration Safety
+## Runtime safety
 
-`migrations/1736424470000-InitialSetup.ts` drops and recreates `Author` and `Analysis`, then seeds data.
+- `GET /api/health/live` is database-free liveness and returns
+  `{ "status": "alive" }`.
+- `GET /api/health` is database-backed readiness. It returns `200` only after
+  `SELECT 1` succeeds and otherwise returns `503` without exposing errors.
+- Application startup does not automatically run migrations unless both
+  `RUN_DB_MIGRATIONS=1` and
+  `DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS` are present. Neither variable is
+  injected by the supplied production Compose files.
+- `POST /api/articles` is disabled (`405`) and both methods of `/api/db-init`
+  are disabled (`404`). Editorial writes go through Directus.
 
-Treat `npm run migration:run` as destructive for those two tables.
+## Directus and legacy media
 
-## Strapi
+Read [docs/directus-cms.md](docs/directus-cms.md) for the Directus access,
+revalidation, and smoke contracts. New Directus media is `/cms/assets/`.
+Historical `/cms/uploads/` remains a read-only compatibility path backed by the
+legacy `strapi_uploads` volume; the word "Strapi" there is historical only and
+does not denote a running service.
 
-Run Strapi:
+## Compose and immutable artifacts
+
+Both Compose files require a deployment-only `.env` based on
+`docker-compose.env.example`. It must contain explicit MySQL, Directus,
+revalidation, and NextAuth secrets plus `APP_IMAGE`, `NGINX_IMAGE`, and
+`APP_REVISION`. The app and Nginx images must be GHCR `@sha256:` references,
+not mutable tags. Validate before starting a stack:
 
 ```bash
-npm run strapi:dev
+docker compose --env-file .env -f docker-compose.portainer.yml config --quiet
+docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans
 ```
 
-Build/start Strapi in production mode:
+`docker-compose.final.yml` maps Nginx to `3001:8080`; the Portainer-oriented
+file maps it to `18080:8080`. In both, Nginx waits for app readiness and
+Directus bootstrap health. These commands describe a configured stack; they do
+not prove any production deployment occurred.
+
+## Verification commands
 
 ```bash
-npm run strapi:build
-npm run strapi:start
-```
-
-Sync helpers:
-
-```bash
-npm run cms:import
-npm run cms:verify
-npm run cms:sync-db
-```
-
-More details: `docs/strapi-cms.md`.
-
-## Docker
-
-### Local integrated stack (`docker-compose.final.yml`)
-
-Run:
-
-```bash
-docker compose -f docker-compose.final.yml up --build
-```
-
-Services:
-- `mysql` (published on `localhost:3306`)
-- `strapi`
-- `app`
-- `nginx` (published on `localhost:3001`)
-
-Default URLs:
-- App via nginx: `http://localhost:3001`
-- CMS via nginx: `http://localhost:3001/cms`
-- Strapi admin direct: `http://localhost:1337/cms`
-
-Important:
-- The `app` service uses prebuilt image `ghcr.io/przemekp95/casnnext:dev`.
-- `--build` rebuilds `strapi` and `nginx` (both use local Dockerfiles), but not the app image.
-- To run your current branch in this compose setup, build/tag the app image first:
-
-```bash
-docker build -t ghcr.io/przemekp95/casnnext:dev .
-docker compose -f docker-compose.final.yml up --build
-```
-
-### Portainer/server-oriented stack (`docker-compose.portainer.yml`)
-
-Run:
-
-```bash
-docker compose -f docker-compose.portainer.yml up --build -d
-```
-
-Differences:
-- nginx port mapping: `18080:8080`
-- app image: `ghcr.io/przemekp95/casnnext:main`
-- strapi image: `ghcr.io/przemekp95/casn-strapi:main`
-- nginx image: `ghcr.io/przemekp95/casn-nginx:main`
-- nginx config is baked into the nginx image (no host-mounted `nginx.conf`)
-
-## Useful Scripts
-
-```bash
-npm run dev
-npm run build
-npm run start
-npm run lint
-npm run lint:fix
 npm run type-check
-npm run test
+npm run lint
 npm run test:ci
-npm run test:integration:live
-npm run test:e2e
 npm run check:posts
 npm run check:cms-mdx-media
 npm run audit:policy
+npm run directus:smoke
+npm run compose:policy
+npm run deploy:policy
 ```
 
-## Environment Variables
+`npm run audit:policy` audits the complete application dependency tree,
+including development and optional packages, and blocks at `info` or higher.
+The current lockfile reports zero vulnerabilities in every severity category.
+There are no active security exceptions; see
+[SECURITY_EXCEPTIONS.md](SECURITY_EXCEPTIONS.md).
 
-See:
-- `.env.example`
-- `docker-compose.env.example`
+The toolchain intentionally remains on ESLint 9.39.5. Next 16.3.3 accepts
+ESLint 10, but its current React, import, accessibility, and hooks plugins do
+not yet declare ESLint 10 peer compatibility. Do not bypass that boundary with
+`--force`, `--legacy-peer-deps`, or peer overrides; upgrade only when the whole
+installed lint chain declares support.
 
-Most important:
-- DB: `DATABASE_URL`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- Strapi: `STRAPI_INTERNAL_URL`, `NEXT_PUBLIC_STRAPI_URL`, `STRAPI_API_TOKEN`
-- CMS sync / revalidation: `CMS_SYNC_SECRET`, `STRAPI_WEBHOOK_SECRET`, `REVALIDATE_SECRET`
-- NextAuth: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
+Project installs enforce `strict-allow-scripts=true`. `package.json` approves
+only the reviewed, exact versions of bcrypt, Cypress, esbuild, unrs-resolver,
+and the macOS-only optional fsevents package. A version change or a new package
+with lifecycle scripts must be reviewed and explicitly re-approved before
+`npm ci` can pass.
 
-## CI/CD
+## CI and release boundaries
 
-GitHub workflows:
-- `.github/workflows/docker.yml` (CI + build/push for app, Strapi, and nginx images)
-- `.github/workflows/deploy.yml` (deploy pipeline)
-- `.github/workflows/release.yml` (tag-based release)
-
-## Notes
-
-- `npm run start` is `next start -p $PORT`, so set `PORT`.
-- For reverse proxy setup under `/cms`, keep `nginx.conf` and Strapi env aligned:
-  `STRAPI_ADMIN_PATH=/cms`, `STRAPI_ADMIN_BACKEND_URL=/cms`, and `STRAPI_URL` without `/cms`
-  (for example `https://casn.pl`).
+`.github/workflows/docker.yml` runs application checks and the Directus smoke,
+then publishes app and Nginx images for qualifying pushes. It does not build a
+CASN Directus image. `.github/workflows/deploy.yml` is manual
+(`workflow_dispatch`) and requires immutable image digests plus a matching
+40-hex `app_revision`; it validates those inputs before an SSH deployment path.
+A GitHub Release is not deployment evidence. See
+[docs/docker-ghcr.md](docs/docker-ghcr.md) and
+[docs/deployment-reconciliation.md](docs/deployment-reconciliation.md).
