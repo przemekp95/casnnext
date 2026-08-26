@@ -26,6 +26,16 @@ require_hash() {
   [[ "${1-}" =~ ^[0-9a-f]{64}$ ]] || die 'invalid expected identity hash'
 }
 
+require_source_url() {
+  local value="${1-}" port
+  if [[ "$value" =~ ^https://[^/@:]+(:[0-9]+)?$ ]]; then
+    return 0
+  fi
+  [[ "$value" =~ ^http://127\.0\.0\.1:([1-9][0-9]{0,4})$ ]] || die 'invalid production source URL'
+  port="${BASH_REMATCH[1]}"
+  (( 10#$port <= 65535 )) || die 'production source URL port is outside TCP range'
+}
+
 resolve_single() {
   local kind="$1" project="$2" logical_key="$3" logical_value="$4" output
   case "$kind" in
@@ -159,7 +169,7 @@ main() {
   require_hash "$EXPECTED_DATABASE_NAME_HASH"
   require_hash "$EXPECTED_SERVER_UUID_HASH"
   [[ "$SNAPSHOT_AGE_RECIPIENT" =~ ^age1[0-9a-z]{20,}$ ]] || die 'invalid age recipient'
-  [[ "$SOURCE_PUBLIC_URL" =~ ^https://[^/@:]+(:[0-9]+)?$ ]] || die 'invalid production public URL'
+  require_source_url "$SOURCE_PUBLIC_URL"
   require_empty_directory "$SNAPSHOT_OUTPUT_DIRECTORY"
 
   resolve_single container "$SOURCE_COMPOSE_PROJECT" com.docker.compose.service "$SOURCE_MYSQL_SERVICE" >/dev/null

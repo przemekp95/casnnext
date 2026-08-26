@@ -260,4 +260,36 @@ describe("production snapshot exporter", () => {
       run.cleanup();
     }
   });
+
+  it("accepts an explicit loopback HTTP origin", () => {
+    const run = runExporter({
+      preflightOnly: true,
+      mutateEnv: (lines) => {
+        const index = lines.findIndex((line) => line.startsWith("SOURCE_PUBLIC_URL="));
+        lines[index] = "SOURCE_PUBLIC_URL=http://127.0.0.1:18080";
+      },
+    });
+    try {
+      expect(run.result.status).toBe(0);
+      expect(run.commandLog).not.toContain("docker stop");
+    } finally {
+      run.cleanup();
+    }
+  });
+
+  it("rejects non-loopback plain HTTP before resolving Docker resources", () => {
+    const run = runExporter({
+      preflightOnly: true,
+      mutateEnv: (lines) => {
+        const index = lines.findIndex((line) => line.startsWith("SOURCE_PUBLIC_URL="));
+        lines[index] = "SOURCE_PUBLIC_URL=http://casn.pl";
+      },
+    });
+    try {
+      expect(run.result.status).not.toBe(0);
+      expect(run.commandLog).toBe("");
+    } finally {
+      run.cleanup();
+    }
+  });
 });
