@@ -15,6 +15,8 @@ readonly mysql_password mysql_root_password container_name
 temp_dir=''
 app_pid=''
 mysql_port=''
+active_pid=''
+active_pgid=''
 
 fail() {
   printf '[disposable-app] ERROR: %s\n' "$1" >&2
@@ -22,20 +24,86 @@ fail() {
 }
 
 port_is_listening() {
-  ss -H -ltn "sport = :${app_port}" 2>/dev/null | grep -q .
+  local output
+
+  if ! output="$(ss -H -ltn "sport = :${app_port}" 2>&1)"; then
+    printf '[disposable-app] Unable to query port %s: %s\n' "$app_port" "$output" >&2
+    return 2
+  fi
+  [[ -n "$output" ]]
 }
 
 mysql_is_running() {
   [[ "$(docker container inspect --format '{{.State.Running}}' "$container_name" 2>/dev/null)" == 'true' ]]
 }
 
+terminate_active_command() {
+  local current_pgid=''
+  local attempt
+
+  [[ "$active_pid" =~ ^[0-9]+$ ]] || return 0
+
+  current_pgid="$(ps -o pgid= -p "$active_pid" 2>/dev/null | tr -d '[:space:]')"
+  if [[ "$active_pgid" =~ ^[0-9]+$ && "$current_pgid" == "$active_pgid" ]]; then
+    kill -TERM -- "-$active_pgid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 50; attempt += 1)); do
+      kill -0 -- "-$active_pgid" 2>/dev/null || break
+      sleep 0.1
+    done
+    if kill -0 -- "-$active_pgid" 2>/dev/null; then
+      kill -KILL -- "-$active_pgid" 2>/dev/null || true
+    fi
+  elif kill -0 "$active_pid" 2>/dev/null; then
+    kill -TERM "$active_pid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 50; attempt += 1)); do
+      kill -0 "$active_pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    if kill -0 "$active_pid" 2>/dev/null; then
+      kill -KILL "$active_pid" 2>/dev/null || true
+    fi
+  fi
+
+  wait "$active_pid" 2>/dev/null || true
+  active_pid=''
+  active_pgid=''
+}
+
+handle_signal() {
+  local signal_status="$1"
+  terminate_active_command
+  exit "$signal_status"
+}
+
+run_interruptible() {
+  local command_status
+
+  setsid --wait "$@" &
+  active_pid=$!
+  active_pgid=$active_pid
+
+  if wait "$active_pid"; then
+    command_status=0
+  else
+    command_status=$?
+  fi
+
+  active_pid=''
+  active_pgid=''
+  return "$command_status"
+}
+
 cleanup() {
   local original_status="$1"
   local cleanup_failed=0
   local attempt
+  local container_inventory=''
+  local port_status=0
 
   trap - EXIT INT TERM
   set +e
+
+  terminate_active_command
 
   if [[ "$app_pid" =~ ^[0-9]+$ ]]; then
     if kill -0 "$app_pid" 2>/dev/null; then
@@ -49,12 +117,14 @@ cleanup() {
       fi
     fi
     wait "$app_pid" 2>/dev/null
+    if kill -0 "$app_pid" 2>/dev/null; then
+      printf '[disposable-app] Application PID still exists after cleanup: %s\n' "$app_pid" >&2
+      cleanup_failed=1
+    fi
   fi
 
   if [[ "$container_name" =~ ^casn-quality-[0-9]+-[0-9a-f]{12}-mysql$ ]]; then
-    if docker container inspect "$container_name" >/dev/null 2>&1; then
-      docker container rm --force "$container_name" >/dev/null 2>&1 || cleanup_failed=1
-    fi
+    docker container rm --force "$container_name" >/dev/null 2>&1 || true
   else
     printf '[disposable-app] Refusing cleanup for invalid container name: %s\n' "$container_name" >&2
     cleanup_failed=1
@@ -68,18 +138,32 @@ cleanup() {
       cleanup_failed=1
     fi
   fi
+  if [[ -n "$temp_dir" && -e "$temp_dir" ]]; then
+    printf '[disposable-app] Temp directory still exists after cleanup: %s\n' "$temp_dir" >&2
+    cleanup_failed=1
+  fi
 
-  if docker container inspect "$container_name" >/dev/null 2>&1; then
+  if ! container_inventory="$(docker container ls -a --format '{{.Names}}' 2>&1)"; then
+    printf '[disposable-app] Unable to verify Docker container absence: %s\n' "$container_inventory" >&2
+    cleanup_failed=1
+  elif grep -Fxq "$container_name" <<<"$container_inventory"; then
     printf '[disposable-app] Container still exists after cleanup: %s\n' "$container_name" >&2
     cleanup_failed=1
   fi
 
   for ((attempt = 0; attempt < 20; attempt += 1)); do
-    port_is_listening || break
+    if port_is_listening; then
+      port_status=0
+    else
+      port_status=$?
+      break
+    fi
     sleep 0.1
   done
-  if port_is_listening; then
+  if ((port_status == 0)); then
     printf '[disposable-app] Port %s is still occupied after cleanup.\n' "$app_port" >&2
+    cleanup_failed=1
+  elif ((port_status == 2)); then
     cleanup_failed=1
   fi
 
@@ -93,8 +177,8 @@ cleanup() {
 }
 
 trap 'cleanup "$?"' EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+trap 'handle_signal 130' INT
+trap 'handle_signal 143' TERM
 
 wait_for_mysql() {
   local deadline=$((SECONDS + 180))
@@ -156,12 +240,15 @@ if (($# == 0)); then
   fail 'Usage: with-disposable-app.sh <command> [args...]'
 fi
 
-for required_command in curl docker mktemp npm node openssl ss; do
+for required_command in curl docker mktemp npm node openssl ps setsid ss; do
   command -v "$required_command" >/dev/null 2>&1 || fail "Required command is unavailable: $required_command"
 done
 
 if port_is_listening; then
   fail "Refusing to start because ${app_host}:${app_port} is already occupied."
+else
+  port_status=$?
+  ((port_status == 1)) || fail "Unable to verify that ${app_host}:${app_port} is free."
 fi
 
 [[ "$container_name" =~ ^casn-quality-[0-9]+-[0-9a-f]{12}-mysql$ ]] \
@@ -191,14 +278,15 @@ printf '[disposable-app] mysql_port=%s image=%s\n' "$mysql_port" "$mysql_image"
 
 wait_for_mysql
 
-RUN_DB_MIGRATIONS=1 \
-DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS \
-DATABASE_URL="$database_url" \
-npm run migration:run
+run_interruptible env \
+  RUN_DB_MIGRATIONS=1 \
+  DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS \
+  DATABASE_URL="$database_url" \
+  npm run migration:run
 
 mysql_is_running || fail "MySQL container exited after migrations: $container_name"
 
-npm run build
+run_interruptible npm run build
 
 mysql_is_running || fail "MySQL container exited during application build: $container_name"
 
@@ -212,19 +300,24 @@ app_pid=$!
 wait_for_app
 
 set +e
-DATABASE_URL="$database_url" \
-LIVE_BASE_URL="$app_base_url" \
-CYPRESS_baseUrl="$app_base_url" \
-"$@"
+run_interruptible env \
+  DATABASE_URL="$database_url" \
+  LIVE_BASE_URL="$app_base_url" \
+  CYPRESS_baseUrl="$app_base_url" \
+  "$@"
 child_status=$?
 set -e
 
+infrastructure_failed=0
 if ! mysql_is_running; then
   printf '[disposable-app] MySQL container exited while the child command ran: %s\n' "$container_name" >&2
-  child_status=1
+  infrastructure_failed=1
 fi
 if ! kill -0 "$app_pid" 2>/dev/null; then
   printf '[disposable-app] Application process exited while the child command ran: %s\n' "$app_pid" >&2
+  infrastructure_failed=1
+fi
+if ((child_status == 0 && infrastructure_failed != 0)); then
   child_status=1
 fi
 

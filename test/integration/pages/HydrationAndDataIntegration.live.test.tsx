@@ -133,6 +133,7 @@ describe('Hydration and Data Integration Tests - Live', () => {
       expect(author).toHaveProperty('displayName');
 
       expect(Array.isArray(detailData.analyses)).toBe(true);
+      expect(detailData.analyses.length).toBeGreaterThan(0);
       detailData.analyses.forEach((analysis: Record<string, unknown>) => {
         expect(analysis).toHaveProperty('id');
         expect(analysis).toHaveProperty('title');
