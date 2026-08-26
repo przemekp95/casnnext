@@ -65,6 +65,15 @@ for workflow in "$DOCKER_WORKFLOW" "$DEPLOY_WORKFLOW"; do
   fi
 done
 
+for runtime_file in package.json Dockerfile docker-compose.final.yml docker-compose.portainer.yml .github/workflows/deploy.yml; do
+  if rg -Fq 'server.js' "$runtime_file"; then
+    report_failure "$runtime_file still references the ambiguous server.js entrypoint."
+  fi
+  if ! rg -Fq 'server.cjs' "$runtime_file"; then
+    report_failure "$runtime_file must reference the explicit server.cjs entrypoint."
+  fi
+done
+
 if ((policy_failed != 0)); then
   exit 1
 fi

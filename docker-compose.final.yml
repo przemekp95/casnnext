@@ -95,7 +95,7 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       APP_REVISION: "${APP_REVISION:?APP_REVISION is required}"
       TZ: Europe/Warsaw
-    command: ["node", "server.js"]
+    command: ["node", "server.cjs"]
     healthcheck:
       test:
         ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health >/dev/null"]

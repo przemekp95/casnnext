@@ -58,7 +58,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Copy custom server for DB bootstrap
-COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
+COPY --from=builder --chown=nextjs:nodejs /app/server.cjs ./server.cjs
 
 # Copy lib directory for runtime entities and utilities
 COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
@@ -83,4 +83,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 EXPOSE 3000
 
 # Start the custom production server with DB bootstrap
-CMD ["node", "server.js"]
+CMD ["node", "server.cjs"]

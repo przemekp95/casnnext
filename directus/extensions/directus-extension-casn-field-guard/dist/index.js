@@ -38,7 +38,9 @@ export function guardTechnicalFields(payload, { collection }) {
   return payload;
 }
 
-export default ({ filter }) => {
+function registerFieldGuard({ filter }) {
   filter("items.create", guardTechnicalFields);
   filter("items.update", guardTechnicalFields);
-};
+}
+
+export default registerFieldGuard;

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 const { createServer } = require('http');
 const next = require('next');
 const { loadEnvConfig } = require('@next/env');

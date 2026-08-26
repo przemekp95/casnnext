@@ -108,7 +108,7 @@ git commit -m "test(quality): define zero-debt quality policy"
 - Modify: `docker-compose.final.yml`
 - Modify: `docker-compose.portainer.yml`
 - Modify: `.github/workflows/deploy.yml`
-- Modify: `test-typeorm-config.sh`
+- Delete: `test-typeorm-config.sh`
 - Modify: `lib/init-db.js`
 - Modify: `lib/db.datasource.ts`
 - Modify: `directus/extensions/directus-extension-casn-field-guard/dist/index.js`
@@ -154,9 +154,13 @@ CMD ["node", "server.cjs"]
 ```
 
 Update `.github/workflows/deploy.yml`, both production-oriented Compose files,
-`test-typeorm-config.sh`, and the bridge comment in `lib/init-db.js` to reference
-`server.cjs`. Historical committed plans may retain the filename that was
-correct when those plans were written.
+and the bridge comment in `lib/init-db.js` to reference `server.cjs`. Extend the
+quality policy to require `server.cjs` and reject `server.js` in each active
+runtime surface. Delete the unreferenced `test-typeorm-config.sh`; it asserts
+the obsolete `3001:3000` app mapping, automatic database initialization, and a
+release `casn.sql` flow superseded by `compose:policy` and the explicit migration
+runner. Historical committed plans may retain the filename that was correct
+when those plans were written.
 
 - [ ] **Step 4: Remove real warning sources**
 
@@ -198,6 +202,7 @@ npm run build:lib
 npm run lint
 npm run type-check
 npx jest --runInBand --runTestsByPath test/unit/lib/startup-database.test.ts
+npm run compose:policy
 git diff --check
 ```
 
