@@ -187,6 +187,8 @@ describe("production snapshot exporter", () => {
       expect(run.outputFiles.some((name) => name.endsWith(".manifest.json"))).toBe(true);
       expect(run.commandLog).toContain("docker stop");
       expect(run.commandLog).toContain("docker start verified-directus-id");
+      expect(run.commandLog).toContain("--skip-dump-date");
+      expect(run.commandLog).toContain("--compact");
       expect(run.commandLog).not.toContain("SENTINEL_EXPORT_PASSWORD");
       expect(run.result.stdout).not.toContain("SENTINEL_EXPORT_PASSWORD");
       expect(run.result.stderr).not.toContain("SENTINEL_EXPORT_PASSWORD");
