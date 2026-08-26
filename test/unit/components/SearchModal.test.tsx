@@ -295,12 +295,9 @@ describe('SearchModal', () => {
   it('closes modal when overlay is clicked', async () => {
     render(<SearchModal {...mockProps} />);
 
-    await waitFor(() => {
-      const overlay = document.querySelector('.search-overlay');
-      if (overlay) {
-        fireEvent.click(overlay);
-      }
-    });
+    const overlay = document.querySelector('.search-overlay');
+    expect(overlay).not.toBeNull();
+    fireEvent.click(overlay!);
 
     expect(mockProps.onClose).toHaveBeenCalled();
   });

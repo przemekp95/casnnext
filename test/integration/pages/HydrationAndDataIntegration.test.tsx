@@ -40,24 +40,21 @@ describe('Hydration and Data Integration Tests', () => {
       expect(screen.getByRole('heading', { name: 'Nasi autorzy' })).toBeInTheDocument();
 
       const authorCards = document.querySelectorAll('.our-team-box');
+      expect(authorCards.length).toBeGreaterThan(0);
+
       authorCards.forEach(card => {
         const img = card.querySelector('img');
         const nameElement = card.querySelector('.our-team-name h6');
         const link = card.querySelector('a');
 
-        if (img) {
-          expect(img).toHaveAttribute('alt');
-          expect(img).toHaveAttribute('src');
-        }
-
-        if (nameElement) {
-          expect(nameElement.textContent).toBeTruthy();
-        }
-
-        if (link) {
-          expect(link).toHaveAttribute('href');
-          expect(link.getAttribute('href')).toMatch(/^\/autor\//);
-        }
+        expect(img).not.toBeNull();
+        expect(img).toHaveAttribute('alt');
+        expect(img).toHaveAttribute('src');
+        expect(nameElement).not.toBeNull();
+        expect(nameElement?.textContent).toBeTruthy();
+        expect(link).not.toBeNull();
+        expect(link).toHaveAttribute('href');
+        expect(link?.getAttribute('href')).toMatch(/^\/autor\//);
       });
     });
   });
@@ -75,29 +72,25 @@ describe('Hydration and Data Integration Tests', () => {
       expect(within(breadcrumb).getByText('Zbiory analiz')).toBeInTheDocument();
 
       const analysisCards = document.querySelectorAll('.blog-list-item');
-      expect(analysisCards.length).toBeGreaterThanOrEqual(0);
+      expect(analysisCards.length).toBeGreaterThan(0);
 
       analysisCards.forEach(card => {
         expect(card).toHaveClass('bg-white', 'rounded', 'mt-4');
 
         const img = card.querySelector('img');
-        if (img) {
-          expect(img).toHaveAttribute('alt');
-          expect(img).toHaveAttribute('src');
-        }
-
         const titleElement = card.querySelector('.cases-desc h5');
-        if (titleElement) {
-          expect(titleElement.textContent).toBeTruthy();
-        }
-
         const downloadBtn = card.querySelector('.learn-more a');
-        if (downloadBtn) {
-          expect(downloadBtn).toHaveAttribute('href');
-          expect(downloadBtn).toHaveAttribute('target', '_blank');
-          expect(downloadBtn).toHaveAttribute('rel', 'noopener noreferrer');
-          expect(downloadBtn.textContent).toBe('POBIERZ');
-        }
+
+        expect(img).not.toBeNull();
+        expect(img).toHaveAttribute('alt');
+        expect(img).toHaveAttribute('src');
+        expect(titleElement).not.toBeNull();
+        expect(titleElement?.textContent).toBeTruthy();
+        expect(downloadBtn).not.toBeNull();
+        expect(downloadBtn).toHaveAttribute('href');
+        expect(downloadBtn).toHaveAttribute('target', '_blank');
+        expect(downloadBtn).toHaveAttribute('rel', 'noopener noreferrer');
+        expect(downloadBtn?.textContent).toBe('POBIERZ');
       });
     });
   });
