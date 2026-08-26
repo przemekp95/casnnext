@@ -5,6 +5,7 @@ script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly script_directory
 # shellcheck source=scripts/ci/disposable-process-identity.sh
 source "$script_directory/disposable-process-identity.sh"
+readonly process_supervisor="$script_directory/disposable-process-supervisor.sh"
 
 readonly app_host='127.0.0.1'
 readonly app_port='31337'
@@ -25,6 +26,11 @@ active_pgid=''
 active_start_time=''
 active_parent_pid=''
 active_session_id=''
+active_control_fd=''
+active_control_fifo=''
+active_status_file=''
+active_ready_file=''
+active_sequence=0
 app_start_time=''
 app_pgid=''
 app_parent_pid=''
@@ -55,7 +61,6 @@ capture_owned_process_identity() {
   local pid="$1"
   local require_group_leader="$2"
   local identity
-  local start_time
   local process_group
   local parent_pid
   local session_id
@@ -63,7 +68,7 @@ capture_owned_process_identity() {
 
   for ((attempt = 0; attempt < 500; attempt += 1)); do
     if identity="$(casn_read_process_identity "$pid")"; then
-      read -r start_time process_group parent_pid session_id <<<"$identity"
+      read -r _ process_group parent_pid session_id <<<"$identity"
       if [[ "$parent_pid" == "$$" ]]; then
         if [[ "$require_group_leader" == '0' \
           || ("$process_group" == "$pid" && "$session_id" == "$pid") ]]; then
@@ -89,16 +94,111 @@ app_identity_matches() {
     "$app_pid" "$app_start_time" "$app_pgid" "$app_parent_pid" "$app_session_id"
 }
 
+signal_owned_app() {
+  local signal_name="$1"
+
+  app_identity_matches || return 1
+  kill -"$signal_name" "$app_pid"
+}
+
+reap_owned_app_bounded() {
+  local max_attempts="$1"
+  local state
+  local attempt
+
+  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
+    if app_identity_matches; then
+      state="$(casn_read_process_state "$app_pid")" || return 2
+      if [[ "$state" == 'Z' ]]; then
+        wait "$app_pid" 2>/dev/null || true
+        return 0
+      fi
+    elif [[ ! -e "/proc/$app_pid/stat" ]]; then
+      wait "$app_pid" 2>/dev/null || true
+      return 0
+    else
+      return 2
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
 clear_active_identity() {
+  if [[ "$active_control_fd" =~ ^[0-9]+$ ]]; then
+    exec {active_control_fd}>&- || true
+  fi
+  if [[ -n "$active_control_fifo" && "$active_control_fifo" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+/active-[0-9]+\.control$ ]]; then
+    rm -f -- "$active_control_fifo"
+  fi
+  if [[ -n "$active_status_file" && "$active_status_file" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+/active-[0-9]+\.status$ ]]; then
+    rm -f -- "$active_status_file"
+  fi
+  if [[ -n "$active_ready_file" && "$active_ready_file" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+/active-[0-9]+\.ready$ ]]; then
+    rm -f -- "$active_ready_file"
+  fi
   active_pid=''
   active_pgid=''
   active_start_time=''
   active_parent_pid=''
   active_session_id=''
+  active_control_fd=''
+  active_control_fifo=''
+  active_status_file=''
+  active_ready_file=''
+}
+
+active_group_has_members() {
+  casn_process_group_has_members "$active_pgid" "$active_session_id" "$active_pid"
+}
+
+signal_active_group() {
+  local signal_name="$1"
+
+  active_identity_matches || return 1
+  kill -"$signal_name" -- "-$active_pgid"
+}
+
+request_active_supervisor_stop() {
+  active_identity_matches || return 1
+  printf 'stop\n' >&"$active_control_fd"
+}
+
+reap_active_supervisor_bounded() {
+  local max_attempts="$1"
+  local state
+  local attempt
+
+  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
+    if active_identity_matches; then
+      state="$(casn_read_process_state "$active_pid")" || return 2
+      if [[ "$state" == 'Z' ]]; then
+        wait "$active_pid" 2>/dev/null || true
+        return 0
+      fi
+    elif [[ ! -e "/proc/$active_pid/stat" ]]; then
+      wait "$active_pid" 2>/dev/null || true
+      return 0
+    else
+      return 2
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
+wait_for_active_group_members_to_exit() {
+  local max_attempts="$1"
+  local attempt
+
+  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
+    active_group_has_members || return 0
+    sleep 0.1
+  done
+  ! active_group_has_members
 }
 
 terminate_active_command() {
-  local attempt
   local termination_failed=0
 
   [[ "$active_pid" =~ ^[0-9]+$ ]] || return 0
@@ -109,36 +209,51 @@ terminate_active_command() {
       ownership_verification_failed=1
       termination_failed=1
     else
-      wait "$active_pid" 2>/dev/null || true
+      if ! reap_active_supervisor_bounded 1; then
+        termination_failed=1
+      fi
     fi
     clear_active_identity
     return "$termination_failed"
   fi
 
-  kill -TERM -- "-$active_pgid" 2>/dev/null || true
-  for ((attempt = 0; attempt < 50; attempt += 1)); do
-    if active_identity_matches; then
-      sleep 0.1
+  if ! signal_active_group TERM; then
+    printf '[disposable-app] Unable to signal the durably owned active group %s with TERM.\n' "$active_pgid" >&2
+    ownership_verification_failed=1
+    termination_failed=1
+  elif ! wait_for_active_group_members_to_exit 10; then
+    if signal_active_group KILL; then
+      printf '[disposable-app] active command required bounded KILL escalation group=%s\n' "$active_pgid" >&2
     else
-      if [[ -e "/proc/$active_pid/stat" ]]; then
-        printf '[disposable-app] Refusing further signals to active PID %s: durable identity changed.\n' "$active_pid" >&2
-        ownership_verification_failed=1
-        termination_failed=1
-      fi
-      break
+      printf '[disposable-app] Refusing KILL for active group %s: supervisor identity changed.\n' "$active_pgid" >&2
+      ownership_verification_failed=1
+      termination_failed=1
     fi
-  done
-  if active_identity_matches; then
-    kill -KILL -- "-$active_pgid" 2>/dev/null || true
+  else
+    request_active_supervisor_stop || {
+      printf '[disposable-app] Unable to stop the durably owned active supervisor %s.\n' "$active_pid" >&2
+      ownership_verification_failed=1
+      termination_failed=1
+    }
   fi
 
-  wait "$active_pid" 2>/dev/null || true
+  if ! reap_active_supervisor_bounded 50; then
+    printf '[disposable-app] Active supervisor did not become safely reapable within 5 seconds: %s\n' "$active_pid" >&2
+    ownership_verification_failed=1
+    termination_failed=1
+  fi
+  if ! wait_for_active_group_members_to_exit 50; then
+    printf '[disposable-app] Owned active group still has members after bounded cleanup: %s\n' "$active_pgid" >&2
+    ownership_verification_failed=1
+    termination_failed=1
+  fi
   clear_active_identity
   return "$termination_failed"
 }
 
 handle_signal() {
   local signal_status="$1"
+  printf '[disposable-app] signal received status=%s\n' "$signal_status" >&2
   if terminate_active_command; then
     printf '[disposable-app] signal active command terminated status=%s\n' "$signal_status" >&2
   else
@@ -150,8 +265,18 @@ handle_signal() {
 run_interruptible() {
   local command_status
   local identity
+  local attempt
+  local finalization_failed=0
 
-  setsid --wait "$@" &
+  active_sequence=$((active_sequence + 1))
+  active_control_fifo="$temp_dir/active-${active_sequence}.control"
+  active_status_file="$temp_dir/active-${active_sequence}.status"
+  active_ready_file="$temp_dir/active-${active_sequence}.ready"
+  mkfifo -- "$active_control_fifo"
+  exec {active_control_fd}<>"$active_control_fifo"
+
+  setsid "$process_supervisor" \
+    "$active_control_fd" "$active_status_file" "$active_ready_file" "$@" &
   active_pid=$!
   active_pgid=$active_pid
 
@@ -163,13 +288,47 @@ run_interruptible() {
     return 1
   fi
 
-  if wait "$active_pid"; then
-    command_status=0
+  for ((attempt = 0; attempt < 500; attempt += 1)); do
+    [[ -f "$active_ready_file" ]] && break
+    active_identity_matches || break
+    sleep 0.01
+  done
+  [[ -f "$active_ready_file" ]] || {
+    printf '[disposable-app] Active supervisor failed readiness: %s\n' "$active_pid" >&2
+    terminate_active_command || true
+    return 1
+  }
+
+  while [[ ! -f "$active_status_file" ]]; do
+    if ! active_identity_matches; then
+      printf '[disposable-app] Active supervisor exited before recording command status: %s\n' "$active_pid" >&2
+      ownership_verification_failed=1
+      reap_active_supervisor_bounded 1 || true
+      clear_active_identity
+      return 1
+    fi
+    sleep 0.05
+  done
+
+  command_status="$(<"$active_status_file")"
+  [[ "$command_status" =~ ^[0-9]+$ && "$command_status" -le 255 ]] || {
+    printf '[disposable-app] Active supervisor recorded invalid command status: %s\n' "$command_status" >&2
+    terminate_active_command || true
+    return 1
+  }
+
+  if active_group_has_members; then
+    terminate_active_command || finalization_failed=1
   else
-    command_status=$?
+    request_active_supervisor_stop || finalization_failed=1
+    reap_active_supervisor_bounded 50 || finalization_failed=1
+    clear_active_identity
   fi
 
-  clear_active_identity
+  if ((finalization_failed != 0)); then
+    ownership_verification_failed=1
+    ((command_status != 0)) || command_status=1
+  fi
   return "$command_status"
 }
 
@@ -179,7 +338,6 @@ cleanup() {
   local attempt
   local container_inventory=''
   local port_status=0
-  local app_was_owned=0
 
   trap - EXIT INT TERM
   set +e
@@ -189,10 +347,12 @@ cleanup() {
 
   if [[ "$app_pid" =~ ^[0-9]+$ ]]; then
     if app_identity_matches; then
-      app_was_owned=1
-      kill "$app_pid" 2>/dev/null
+      signal_owned_app TERM || cleanup_failed=1
       for attempt in {1..50}; do
         if app_identity_matches; then
+          if [[ "$(casn_read_process_state "$app_pid")" == 'Z' ]]; then
+            break
+          fi
           sleep 0.1
         else
           if [[ -e "/proc/$app_pid/stat" ]]; then
@@ -203,15 +363,15 @@ cleanup() {
         fi
       done
       if app_identity_matches; then
-        kill -KILL "$app_pid" 2>/dev/null
+        if [[ "$(casn_read_process_state "$app_pid")" != 'Z' ]]; then
+          signal_owned_app KILL || cleanup_failed=1
+        fi
       fi
     elif [[ -e "/proc/$app_pid/stat" ]]; then
       printf '[disposable-app] Refusing to signal app PID %s: durable identity mismatch.\n' "$app_pid" >&2
       cleanup_failed=1
     fi
-    if ((app_was_owned != 0)) || [[ ! -e "/proc/$app_pid/stat" ]]; then
-      wait "$app_pid" 2>/dev/null
-    fi
+    reap_owned_app_bounded 50 || cleanup_failed=1
     if app_identity_matches; then
       printf '[disposable-app] Owned application process still exists after cleanup: %s\n' "$app_pid" >&2
       cleanup_failed=1
@@ -338,7 +498,10 @@ if (($# == 0)); then
   fail 'Usage: with-disposable-app.sh <command> [args...]'
 fi
 
-for required_command in curl docker mktemp npm node openssl ps setsid ss; do
+[[ -x "$process_supervisor" ]] \
+  || fail "Disposable process supervisor is unavailable or not executable: $process_supervisor"
+
+for required_command in curl docker mktemp npm node openssl setsid ss; do
   command -v "$required_command" >/dev/null 2>&1 || fail "Required command is unavailable: $required_command"
 done
 

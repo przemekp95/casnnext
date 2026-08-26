@@ -45,3 +45,54 @@ casn_process_identity_matches() {
   [[ "$current_identity" == \
     "$expected_start_time $expected_process_group $expected_parent_pid $expected_session_id" ]]
 }
+
+casn_read_process_state() {
+  local pid="$1"
+  local proc_root="${2:-/proc}"
+  local stat_line
+  local stat_fields
+
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  IFS= read -r stat_line 2>/dev/null <"$proc_root/$pid/stat" || return 1
+  [[ "$stat_line" == "$pid ("*") "* ]] || return 1
+  stat_fields="${stat_line##*) }"
+  [[ "$stat_fields" != "$stat_line" ]] || return 1
+  printf '%s\n' "${stat_fields%% *}"
+}
+
+casn_process_group_has_members() {
+  local expected_process_group="$1"
+  local expected_session_id="$2"
+  local excluded_pid="$3"
+  local proc_root="${4:-/proc}"
+  local stat_path
+  local pid
+  local stat_line
+  local stat_fields
+  local -a fields
+  local process_group
+  local session_id
+
+  [[ "$expected_process_group" =~ ^[0-9]+$ \
+    && "$expected_session_id" =~ ^[0-9]+$ \
+    && "$excluded_pid" =~ ^[0-9]+$ ]] || return 2
+
+  for stat_path in "$proc_root"/[0-9]*/stat; do
+    [[ -r "$stat_path" ]] || continue
+    pid="${stat_path%/stat}"
+    pid="${pid##*/}"
+    [[ "$pid" == "$excluded_pid" ]] && continue
+    IFS= read -r stat_line 2>/dev/null <"$stat_path" || continue
+    [[ "$stat_line" == "$pid ("*") "* ]] || continue
+    stat_fields="${stat_line##*) }"
+    [[ "$stat_fields" != "$stat_line" ]] || continue
+    read -r -a fields <<<"$stat_fields"
+    ((${#fields[@]} >= 4)) || continue
+    process_group="${fields[2]}"
+    session_id="${fields[3]}"
+    if [[ "$process_group" == "$expected_process_group" && "$session_id" == "$expected_session_id" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}

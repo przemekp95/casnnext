@@ -5,6 +5,8 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 readonly repository_root
 readonly harness="$repository_root/scripts/ci/with-disposable-app.sh"
 readonly identity_library="$repository_root/scripts/ci/disposable-process-identity.sh"
+# shellcheck source=scripts/ci/disposable-process-identity.sh
+source "$identity_library"
 real_docker="$(command -v docker)"
 real_ss="$(command -v ss)"
 readonly real_docker real_ss
@@ -87,7 +89,7 @@ assert_resources_absent() {
 
   app_pid="$(sed -n 's/^\[disposable-app\] Application healthy pid=\([0-9][0-9]*\) url=http:\/\/127\.0\.0\.1:31337$/\1/p' "$log" | tail -n 1)"
   [[ "$app_pid" =~ ^[0-9]+$ ]] || fail "missing app PID in $log"
-  if kill -0 "$app_pid" 2>/dev/null; then
+  if [[ -e "/proc/$app_pid/stat" ]]; then
     fail "application PID remains after run: $app_pid"
   fi
 
@@ -130,9 +132,6 @@ run_identity_case() {
   local missing_status
   local observed
 
-  # shellcheck source=/dev/null
-  source "$identity_library"
-
   write_identity_stat "$proc_root" "$pid" "$expected_parent" "$expected_pgid" "$expected_session" "$expected_start"
   observed="$(casn_read_process_identity "$pid" "$proc_root")"
   [[ "$observed" == "$expected_start $expected_pgid $expected_parent $expected_session" ]] \
@@ -140,6 +139,16 @@ run_identity_case() {
   casn_process_identity_matches \
     "$pid" "$expected_start" "$expected_pgid" "$expected_parent" "$expected_session" "$proc_root" \
     || fail 'matching durable identity was rejected'
+  [[ "$(casn_read_process_state "$pid" "$proc_root")" == 'S' ]] \
+    || fail 'process state parser rejected a valid stat record'
+
+  write_identity_stat "$proc_root" '4343' "$pid" "$expected_pgid" "$expected_session" '6000'
+  casn_process_group_has_members "$expected_pgid" "$expected_session" "$pid" "$proc_root" \
+    || fail 'owned process-group member was not detected'
+  rm -rf -- "${proc_root:?}/4343"
+  if casn_process_group_has_members "$expected_pgid" "$expected_session" "$pid" "$proc_root"; then
+    fail 'excluded supervisor was reported as a process-group member'
+  fi
 
   write_identity_stat "$proc_root" "$pid" "$expected_parent" "$expected_pgid" "$expected_session" '5001'
   if casn_process_identity_matches \
@@ -176,6 +185,204 @@ run_identity_case() {
   printf '[disposable-app-regression] identity-mismatch passed\n'
 }
 
+capture_test_process_identity() {
+  local pid="$1"
+  local identity
+  local start_time
+  local process_group
+  local parent_pid
+  local session_id
+  local attempt
+
+  for ((attempt = 0; attempt < 100; attempt += 1)); do
+    if identity="$(casn_read_process_identity "$pid")"; then
+      read -r start_time process_group parent_pid session_id <<<"$identity"
+      if [[ "$parent_pid" == "$$" && "$process_group" == "$pid" && "$session_id" == "$pid" ]]; then
+        printf '%s\n' "$identity"
+        return 0
+      fi
+    elif [[ ! -e "/proc/$pid/stat" ]]; then
+      return 1
+    fi
+    sleep 0.01
+  done
+  return 1
+}
+
+test_identity_matches() {
+  local pid="$1"
+  local identity="$2"
+  local start_time
+  local process_group
+  local parent_pid
+  local session_id
+
+  read -r start_time process_group parent_pid session_id <<<"$identity"
+  casn_process_identity_matches "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id"
+}
+
+test_stable_identity_matches() {
+  local pid="$1"
+  local identity="$2"
+  local expected_start_time
+  local expected_process_group
+  local expected_session_id
+  local current_identity
+  local current_start_time
+  local current_process_group
+  local current_session_id
+
+  read -r expected_start_time expected_process_group _ expected_session_id <<<"$identity"
+  current_identity="$(casn_read_process_identity "$pid")" || return 1
+  read -r current_start_time current_process_group _ current_session_id <<<"$current_identity"
+  [[ "$current_start_time" == "$expected_start_time" \
+    && "$current_process_group" == "$expected_process_group" \
+    && "$current_session_id" == "$expected_session_id" ]]
+}
+
+signal_stably_owned_test_process() {
+  local signal_name="$1"
+  local pid="$2"
+  local identity="$3"
+  local expected_start_time
+  local expected_process_group
+  local expected_session_id
+  local current_identity
+  local current_start_time
+  local current_process_group
+  local current_session_id
+
+  read -r expected_start_time expected_process_group _ expected_session_id <<<"$identity"
+  current_identity="$(casn_read_process_identity "$pid")" || return 1
+  read -r current_start_time current_process_group _ current_session_id <<<"$current_identity"
+  [[ "$current_start_time" == "$expected_start_time" \
+    && "$current_process_group" == "$expected_process_group" \
+    && "$current_session_id" == "$expected_session_id" ]] || return 1
+  kill -"$signal_name" "$pid"
+}
+
+test_process_state() {
+  local pid="$1"
+  local identity="$2"
+  local stat_line
+  local fields
+
+  test_identity_matches "$pid" "$identity" || return 1
+  IFS= read -r stat_line 2>/dev/null <"/proc/$pid/stat" || return 1
+  fields="${stat_line##*) }"
+  [[ "$fields" != "$stat_line" ]] || return 1
+  printf '%s\n' "${fields%% *}"
+}
+
+signal_owned_test_process() {
+  local signal_name="$1"
+  local pid="$2"
+  local identity="$3"
+
+  test_identity_matches "$pid" "$identity" || return 1
+  kill -"$signal_name" "$pid"
+}
+
+signal_owned_test_group() {
+  local signal_name="$1"
+  local pid="$2"
+  local identity="$3"
+  local start_time
+  local process_group
+  local parent_pid
+  local session_id
+
+  read -r start_time process_group parent_pid session_id <<<"$identity"
+  [[ "$process_group" == "$pid" && "$session_id" == "$pid" ]] || return 1
+  casn_process_identity_matches "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id" || return 1
+  kill -"$signal_name" -- "-$process_group"
+}
+
+reaped_status=''
+bounded_reap_test_job() {
+  local pid="$1"
+  local identity="$2"
+  local max_attempts="$3"
+  local state
+  local attempt
+
+  reaped_status=''
+  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
+    if state="$(test_process_state "$pid" "$identity")"; then
+      if [[ "$state" == 'Z' ]]; then
+        set +e
+        wait "$pid" 2>/dev/null
+        reaped_status=$?
+        set -e
+        return 0
+      fi
+    elif [[ ! -e "/proc/$pid/stat" ]]; then
+      set +e
+      wait "$pid" 2>/dev/null
+      reaped_status=$?
+      set -e
+      return 0
+    else
+      return 2
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
+owned_run_status=''
+run_owned_bounded() {
+  local log="$1"
+  local max_attempts="$2"
+  shift 2
+  local pid
+  local identity
+
+  setsid --wait "$@" >"$log" 2>&1 &
+  pid=$!
+  identity="$(capture_test_process_identity "$pid")" \
+    || fail "unable to capture bounded-run identity for PID $pid"
+
+  if ! bounded_reap_test_job "$pid" "$identity" "$max_attempts"; then
+    signal_owned_test_process TERM "$pid" "$identity" || true
+    if ! bounded_reap_test_job "$pid" "$identity" 100; then
+      signal_owned_test_group KILL "$pid" "$identity" || true
+      bounded_reap_test_job "$pid" "$identity" 50 \
+        || fail "bounded run could not reap owned PID $pid"
+    fi
+    fail "bounded run timed out for owned PID $pid"
+  fi
+  owned_run_status="$reaped_status"
+}
+
+run_stopped_reap_case() {
+  local pid
+  local identity
+  local started_ms
+  local elapsed_ms
+
+  setsid --wait sleep 30 >/dev/null 2>&1 &
+  pid=$!
+  identity="$(capture_test_process_identity "$pid")" \
+    || fail 'unable to capture stopped-job identity'
+  signal_owned_test_process STOP "$pid" "$identity" \
+    || fail 'stopped-job identity changed before STOP'
+
+  started_ms="$(date +%s%3N)"
+  if bounded_reap_test_job "$pid" "$identity" 5; then
+    signal_owned_test_group KILL "$pid" "$identity" 2>/dev/null || true
+    fail 'stopped job was incorrectly treated as reapable'
+  fi
+  elapsed_ms=$(($(date +%s%3N) - started_ms))
+  ((elapsed_ms < 2000)) || fail "stopped-job reap bound took ${elapsed_ms}ms"
+
+  signal_owned_test_group KILL "$pid" "$identity" \
+    || fail 'stopped-job identity changed before KILL cleanup'
+  bounded_reap_test_job "$pid" "$identity" 50 \
+    || fail 'stopped job did not become reapable after owned KILL'
+  printf '[disposable-app-regression] stopped-reap passed elapsed_ms=%s\n' "$elapsed_ms"
+}
+
 run_cleanup_query_case() {
   local query="$1"
   local log="$test_root/${query}.log"
@@ -189,17 +396,14 @@ run_cleanup_query_case() {
     failure_env+=(CASN_FAIL_SS_VERIFICATION=1)
   fi
 
-  set +e
-  env \
+  run_owned_bounded "$log" 2400 env \
     PATH="$fake_bin:$PATH" \
     REAL_DOCKER_BIN="$real_docker" \
     REAL_SS_BIN="$real_ss" \
     CASN_FAILURE_ARM_FILE="$arm" \
     "${failure_env[@]}" \
-    timeout --signal=TERM --kill-after=10s 240s \
-      bash "$harness" bash -c 'touch "$CASN_FAILURE_ARM_FILE"' >"$log" 2>&1
-  status=$?
-  set -e
+    bash "$harness" bash -c 'touch "$CASN_FAILURE_ARM_FILE"'
+  status="$owned_run_status"
 
   [[ "$status" -eq 1 ]] || {
     tail -n 80 "$log" >&2
@@ -217,21 +421,23 @@ run_child_status_case() {
   local log="$test_root/child-status.log"
   local status
 
-  set +e
-  timeout --signal=TERM --kill-after=10s 240s \
+  run_owned_bounded "$log" 2400 env IDENTITY_LIBRARY="$identity_library" \
     bash "$harness" bash -c '
+      source "$IDENTITY_LIBRARY"
       app_pid="$(ss -H -ltnp "sport = :31337" | sed -n "s/.*pid=\\([0-9][0-9]*\\).*/\\1/p" | head -n 1)"
       test -n "$app_pid"
-      kill "$app_pid"
+      identity="$(casn_read_process_identity "$app_pid")"
+      read -r start_time process_group parent_pid session_id <<<"$identity"
+      casn_process_identity_matches "$app_pid" "$start_time" "$process_group" "$parent_pid" "$session_id"
+      kill -TERM "$app_pid"
       for _ in {1..50}; do
-        kill -0 "$app_pid" 2>/dev/null || break
+        casn_process_identity_matches "$app_pid" "$start_time" "$process_group" "$parent_pid" "$session_id" || break
         sleep 0.1
       done
-      ! kill -0 "$app_pid" 2>/dev/null
+      ! casn_process_identity_matches "$app_pid" "$start_time" "$process_group" "$parent_pid" "$session_id"
       exit 23
-    ' >"$log" 2>&1
-  status=$?
-  set -e
+    '
+  status="$owned_run_status"
 
   [[ "$status" -eq 23 ]] || {
     tail -n 80 "$log" >&2
@@ -246,43 +452,24 @@ run_child_status_case() {
   printf '[disposable-app-regression] child-status passed\n'
 }
 
-kill_owned_group_if_identity_matches() {
-  local pid="$1"
-  local expected_stat="$2"
-  local process_group
-
-  [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/stat" ]] || return 0
-  [[ "$(<"/proc/$pid/stat")" == "$expected_stat" ]] || return 0
-  process_group="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
-  [[ "$process_group" == "$pid" ]] || return 0
-  kill -KILL -- "-$pid" 2>/dev/null || true
-}
-
 abort_term_run() {
   local harness_pid="$1"
-  local harness_stat="$2"
+  local harness_identity="$2"
   local child_pid="$3"
-  local child_stat="$4"
-  local attempt
+  local child_identity="$4"
 
-  kill_owned_group_if_identity_matches "$child_pid" "$child_stat"
-  kill_owned_group_if_identity_matches "$harness_pid" "$harness_stat"
-  for ((attempt = 0; attempt < 20; attempt += 1)); do
-    jobs -pr | grep -Fxq "$harness_pid" || break
-    sleep 0.1
-  done
-  if ! jobs -pr | grep -Fxq "$harness_pid"; then
-    wait "$harness_pid" 2>/dev/null || true
-  fi
+  signal_owned_test_process KILL "$child_pid" "$child_identity" 2>/dev/null || true
+  signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
+  bounded_reap_test_job "$harness_pid" "$harness_identity" 20 || true
 }
 
 run_term_case() {
   local log="$test_root/term.log"
   local marker="$test_root/term.ready"
   local harness_pid
-  local harness_stat
+  local harness_identity
   local child_pid
-  local child_stat
+  local child_identity
   local status
   local started_ms
   local signal_ms=''
@@ -293,17 +480,22 @@ run_term_case() {
   local attempt
 
   CASN_TERM_READY_FILE="$marker" \
+    IDENTITY_LIBRARY="$identity_library" \
     setsid --wait bash "$harness" bash -c '
-      printf "%s\n" "$BASHPID" >"$CASN_TERM_READY_FILE"
-      cat "/proc/$BASHPID/stat" >>"$CASN_TERM_READY_FILE"
+      source "$IDENTITY_LIBRARY"
+      owned_pid="$BASHPID"
+      identity="$(casn_read_process_identity "$owned_pid")"
+      printf "%s\n%s\n" "$owned_pid" "$identity" >"$CASN_TERM_READY_FILE"
       sleep 8
     ' >"$log" 2>&1 &
   harness_pid=$!
+  harness_identity="$(capture_test_process_identity "$harness_pid")" \
+    || fail 'unable to capture TERM harness identity'
 
   for ((attempt = 0; attempt < 1200; attempt += 1)); do
     [[ -s "$marker" ]] && break
-    if ! kill -0 "$harness_pid" 2>/dev/null; then
-      wait "$harness_pid" || true
+    if ! test_identity_matches "$harness_pid" "$harness_identity"; then
+      bounded_reap_test_job "$harness_pid" "$harness_identity" 1 || true
       tail -n 80 "$log" >&2
       fail 'TERM harness exited before the child became ready'
       return
@@ -311,47 +503,48 @@ run_term_case() {
     sleep 0.2
   done
   [[ -s "$marker" ]] || {
-    kill -TERM "$harness_pid" 2>/dev/null || true
-    wait "$harness_pid" || true
+    signal_owned_test_process TERM "$harness_pid" "$harness_identity" 2>/dev/null || true
+    if ! bounded_reap_test_job "$harness_pid" "$harness_identity" 100; then
+      signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
+      bounded_reap_test_job "$harness_pid" "$harness_identity" 50 || true
+    fi
     fail 'TERM child did not become ready within 240 seconds'
   }
 
-  harness_stat="$(<"/proc/$harness_pid/stat")"
   child_pid="$(sed -n '1p' "$marker")"
-  child_stat="$(sed -n '2p' "$marker")"
-  [[ "$child_pid" =~ ^[0-9]+$ && -n "$child_stat" ]] || fail 'TERM child identity record is invalid'
+  child_identity="$(sed -n '2p' "$marker")"
+  [[ "$child_pid" =~ ^[0-9]+$ && -n "$child_identity" ]] || fail 'TERM child identity record is invalid'
 
   started_ms="$(date +%s%3N)"
-  kill -TERM "$harness_pid"
+  signal_owned_test_process TERM "$harness_pid" "$harness_identity" \
+    || fail 'TERM harness identity changed before trigger'
 
   for ((attempt = 0; attempt < 30; attempt += 1)); do
-    if grep -Fq '[disposable-app] signal active command terminated status=143' "$log"; then
+    if grep -Fq '[disposable-app] signal received status=143' "$log"; then
       signal_ms="$(date +%s%3N)"
       break
     fi
-    jobs -pr | grep -Fxq "$harness_pid" || break
+    test_identity_matches "$harness_pid" "$harness_identity" || break
     sleep 0.1
   done
   [[ "$signal_ms" =~ ^[0-9]+$ ]] || {
-    abort_term_run "$harness_pid" "$harness_stat" "$child_pid" "$child_stat"
+    abort_term_run "$harness_pid" "$harness_identity" "$child_pid" "$child_identity"
     tail -n 80 "$log" >&2
     fail 'TERM active-command termination was not acknowledged within 3 seconds'
   }
   signal_elapsed_ms=$((signal_ms - started_ms))
 
   for ((attempt = 0; attempt < 150; attempt += 1)); do
-    jobs -pr | grep -Fxq "$harness_pid" || break
-    sleep 0.1
+    if bounded_reap_test_job "$harness_pid" "$harness_identity" 1; then
+      break
+    fi
   done
-  if jobs -pr | grep -Fxq "$harness_pid"; then
-    abort_term_run "$harness_pid" "$harness_stat" "$child_pid" "$child_stat"
+  if [[ -z "$reaped_status" ]]; then
+    abort_term_run "$harness_pid" "$harness_identity" "$child_pid" "$child_identity"
     fail 'TERM harness did not finish cleanup within 15 seconds'
   fi
 
-  set +e
-  wait "$harness_pid"
-  status=$?
-  set -e
+  status="$reaped_status"
   cleanup_finished_ms="$(date +%s%3N)"
   cleanup_elapsed_ms=$((cleanup_finished_ms - signal_ms))
 
@@ -369,9 +562,146 @@ run_term_case() {
     "$signal_elapsed_ms" "$cleanup_elapsed_ms"
 }
 
+run_ignored_term_descendant_case() {
+  local log="$test_root/term-descendant.log"
+  local marker="$test_root/term-descendant.ready"
+  local descendant_pid
+  local descendant_identity
+  local status
+  local attempt
+
+  run_owned_bounded "$log" 2400 env \
+    CASN_DESCENDANT_READY_FILE="$marker" \
+    IDENTITY_LIBRARY="$identity_library" \
+    bash "$harness" bash -c '
+      bash -c '\''
+        trap "" TERM HUP INT
+        owned_pid="$BASHPID"
+        identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
+        printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CASN_DESCENDANT_READY_FILE"
+        while :; do sleep 1; done
+      '\'' &
+      for _ in {1..500}; do
+        [[ -s "$CASN_DESCENDANT_READY_FILE" ]] && exit 23
+        sleep 0.01
+      done
+      exit 97
+    '
+  status="$owned_run_status"
+
+  descendant_pid="$(sed -n '1p' "$marker")"
+  descendant_identity="$(sed -n '2p' "$marker")"
+  [[ "$descendant_pid" =~ ^[0-9]+$ && -n "$descendant_identity" ]] \
+    || fail 'ignored descendant identity record is invalid'
+
+  if test_stable_identity_matches "$descendant_pid" "$descendant_identity"; then
+    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
+    for ((attempt = 0; attempt < 50; attempt += 1)); do
+      test_stable_identity_matches "$descendant_pid" "$descendant_identity" || break
+      sleep 0.1
+    done
+    tail -n 80 "$log" >&2
+    fail 'TERM left an ignored descendant alive after the owned group leader exited'
+  fi
+
+  [[ "$status" -eq 23 ]] || fail "ignored-descendant expected status 23, received $status"
+  grep -Fq 'active command required bounded KILL escalation' "$log" \
+    || fail 'ignored descendant did not exercise bounded KILL escalation'
+  grep -Fq 'verified=1' "$log" || fail 'ignored-descendant cleanup was not verified'
+  assert_resources_absent "$log"
+  printf '[disposable-app-regression] ignored-term-descendant passed\n'
+}
+
+run_ignored_term_signal_case() {
+  local log="$test_root/term-descendant-signal.log"
+  local marker="$test_root/term-descendant-signal.ready"
+  local harness_pid
+  local harness_identity
+  local descendant_pid
+  local descendant_identity
+  local status
+  local started_ms
+  local signal_ms=''
+  local signal_elapsed_ms
+  local attempt
+
+  CASN_DESCENDANT_READY_FILE="$marker" \
+    IDENTITY_LIBRARY="$identity_library" \
+    setsid --wait bash "$harness" bash -c '
+      bash -c '\''
+        trap "" TERM HUP INT
+        owned_pid="$BASHPID"
+        identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
+        printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CASN_DESCENDANT_READY_FILE"
+        while :; do sleep 1; done
+      '\'' &
+      wait
+    ' >"$log" 2>&1 &
+  harness_pid=$!
+  harness_identity="$(capture_test_process_identity "$harness_pid")" \
+    || fail 'unable to capture ignored-TERM signal harness identity'
+
+  for ((attempt = 0; attempt < 1200; attempt += 1)); do
+    [[ -s "$marker" ]] && break
+    test_identity_matches "$harness_pid" "$harness_identity" \
+      || fail 'ignored-TERM signal harness exited before readiness'
+    sleep 0.2
+  done
+  [[ -s "$marker" ]] || fail 'ignored-TERM signal descendant did not become ready within 240 seconds'
+
+  descendant_pid="$(sed -n '1p' "$marker")"
+  descendant_identity="$(sed -n '2p' "$marker")"
+  [[ "$descendant_pid" =~ ^[0-9]+$ && -n "$descendant_identity" ]] \
+    || fail 'ignored-TERM signal descendant identity record is invalid'
+
+  started_ms="$(date +%s%3N)"
+  signal_owned_test_process TERM "$harness_pid" "$harness_identity" \
+    || fail 'ignored-TERM signal harness identity changed before TERM'
+  for ((attempt = 0; attempt < 30; attempt += 1)); do
+    if grep -Fq '[disposable-app] active command required bounded KILL escalation' "$log"; then
+      signal_ms="$(date +%s%3N)"
+      break
+    fi
+    test_identity_matches "$harness_pid" "$harness_identity" || break
+    sleep 0.1
+  done
+  [[ "$signal_ms" =~ ^[0-9]+$ ]] || {
+    tail -n 100 "$log" >&2
+    abort_term_run "$harness_pid" "$harness_identity" "$descendant_pid" "$descendant_identity"
+    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
+    fail 'ignored-TERM signal acknowledgement exceeded 3 seconds'
+  }
+  signal_elapsed_ms=$((signal_ms - started_ms))
+
+  for ((attempt = 0; attempt < 150; attempt += 1)); do
+    bounded_reap_test_job "$harness_pid" "$harness_identity" 1 && break
+  done
+  if [[ -z "$reaped_status" ]]; then
+    abort_term_run "$harness_pid" "$harness_identity" "$descendant_pid" "$descendant_identity"
+    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
+    fail 'ignored-TERM signal harness did not finish cleanup within 15 seconds'
+  fi
+  status="$reaped_status"
+
+  if test_stable_identity_matches "$descendant_pid" "$descendant_identity"; then
+    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
+    fail 'ignored-TERM signal left the descendant alive'
+  fi
+  [[ "$status" -eq 143 ]] || fail "ignored-TERM signal expected status 143, received $status"
+  ((signal_elapsed_ms < 3000)) || fail "ignored-TERM signal acknowledgement took ${signal_elapsed_ms}ms"
+  grep -Fq 'active command required bounded KILL escalation' "$log" \
+    || fail 'ignored-TERM signal did not exercise bounded KILL escalation'
+  grep -Fq 'verified=1' "$log" || fail 'ignored-TERM signal cleanup was not verified'
+  assert_resources_absent "$log"
+  printf '[disposable-app-regression] ignored-term-signal passed signal_ms=%s\n' "$signal_elapsed_ms"
+}
+
 case "${1:-all}" in
   identity-mismatch)
     run_identity_case
+    ;;
+  stopped-reap)
+    run_stopped_reap_case
     ;;
   docker-proof)
     run_cleanup_query_case docker-proof
@@ -385,15 +715,24 @@ case "${1:-all}" in
   term)
     run_term_case
     ;;
+  term-descendant)
+    run_ignored_term_descendant_case
+    ;;
+  term-descendant-signal)
+    run_ignored_term_signal_case
+    ;;
   all)
     run_identity_case
+    run_stopped_reap_case
     run_cleanup_query_case docker-proof
     run_cleanup_query_case ss-proof
     run_child_status_case
     run_term_case
+    run_ignored_term_descendant_case
+    run_ignored_term_signal_case
     ;;
   *)
-    printf 'Usage: %s [identity-mismatch|docker-proof|ss-proof|child-status|term|all]\n' "$0" >&2
+    printf 'Usage: %s [identity-mismatch|stopped-reap|docker-proof|ss-proof|child-status|term|term-descendant|term-descendant-signal|all]\n' "$0" >&2
     exit 64
     ;;
 esac
