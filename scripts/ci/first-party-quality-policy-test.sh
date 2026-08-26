@@ -17,7 +17,8 @@ expect_rejected() {
 reset_fixture() {
   rm -rf "$test_root/repo"
   mkdir -p "$test_root/repo/app" "$test_root/repo/test" \
-    "$test_root/repo/scripts" "$test_root/repo/.github/workflows/quality-checks"
+    "$test_root/repo/scripts" "$test_root/repo/.github/workflows/quality-checks" \
+    "$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist"
   git -C "$test_root/repo" init -q
   printf '%s\n' '{"scripts":{"lint":"eslint . --max-warnings 0"}}' >"$test_root/repo/package.json"
   printf '%s\n' \
@@ -27,6 +28,7 @@ reset_fixture() {
   printf '%s\n' 'export default function Page() { return null; }' >"$test_root/repo/app/page.tsx"
   printf '%s\n' "it('renders', () => { expect(true).toBe(true); });" >"$test_root/repo/test/page.test.tsx"
   printf '%s\n' 'export const value = 1;' >"$test_root/repo/scripts/tool.ts"
+  printf '%s\n' 'export default {};' >"$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
   printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - run: npm run lint' '      shell: bash' '    - run: npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
   printf '%s\n' 'jobs:' '  quality:' '    steps:' '      - run: npm run lint' '      - run: npm run quality:policy' >"$test_root/repo/.github/workflows/docker.yml"
   cp "$test_root/repo/.github/workflows/docker.yml" "$test_root/repo/.github/workflows/deploy.yml"
@@ -38,6 +40,11 @@ reset_fixture
 
 reset_fixture
 sed -i '1i /* eslint-disable */' "$test_root/repo/app/page.tsx"
+git -C "$test_root/repo" add .
+expect_rejected 'inline-eslint-directive'
+
+reset_fixture
+sed -i '1i /* eslint-disable */' "$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
 git -C "$test_root/repo" add .
 expect_rejected 'inline-eslint-directive'
 
@@ -75,6 +82,11 @@ reset_fixture
 sed -i 's/npm run lint/npm run lint -- --fix/' "$test_root/repo/.github/workflows/quality-checks/action.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-not-rewrite'
+
+reset_fixture
+sed -i 's/npm run lint/npm run lint:fix/' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
 sed -i '/npm run quality:policy/d' "$test_root/repo/.github/workflows/docker.yml"

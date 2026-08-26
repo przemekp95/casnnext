@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly root="$1"
-readonly source_paths=(app components lib scripts test cypress jest.setup.ts cypress.config.ts server.cjs)
+readonly source_paths=(app components lib scripts test cypress directus/extensions/directus-extension-casn-field-guard jest.setup.ts cypress.config.ts server.cjs)
 
 fail() { printf '[first-party-quality] %s\n' "$1" >&2; exit 1; }
 
@@ -111,7 +111,17 @@ check_workflow() {
     fail 'workflow-must-not-rewrite'
   fi
 
-  if ! rg -Fq 'npm run lint' "$root/$workflow" || ! rg -Fq 'npm run quality:policy' "$root/$workflow"; then
+  if ! node - "$root/$workflow" <<'NODE'
+const fs = require('fs');
+const workflow = fs.readFileSync(process.argv[2], 'utf8');
+const hasExactLintCommand = /^\s*-\s*run:\s*["']?npm run lint["']?\s*(?:#.*)?$/m.test(workflow);
+process.exit(hasExactLintCommand ? 0 : 1);
+NODE
+  then
+    fail 'workflow-must-run-quality'
+  fi
+
+  if ! rg -Fq 'npm run quality:policy' "$root/$workflow"; then
     fail 'workflow-must-run-quality'
   fi
 }
