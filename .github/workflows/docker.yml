@@ -261,11 +261,12 @@ jobs:
 
       - name: Extract app metadata (main/tag)
         id: meta-app-main
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}
           tags: |
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=branch
             type=ref,event=tag
             type=semver,pattern={{version}}
@@ -283,11 +284,12 @@ jobs:
 
       - name: Extract nginx metadata (main/tag)
         id: meta-nginx-main
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}
           tags: |
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=branch
             type=ref,event=tag
             type=semver,pattern={{version}}
@@ -322,7 +324,7 @@ jobs:
           tags: pr-${{ github.event.number }}-nginx
 
       - name: Build and push app Docker image (main/tag)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -342,7 +344,7 @@ jobs:
           labels: ${{ steps.meta-app-dev.outputs.labels }}
 
       - name: Build and push nginx Docker image (main/tag)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         uses: docker/build-push-action@v5
         with:
           context: .
