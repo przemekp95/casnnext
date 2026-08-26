@@ -5,6 +5,7 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 readonly repository_root
 readonly harness="$repository_root/scripts/ci/with-disposable-app.sh"
 readonly identity_library="$repository_root/scripts/ci/disposable-process-identity.sh"
+readonly process_supervisor="$repository_root/scripts/ci/disposable-process-supervisor.sh"
 # shellcheck source=scripts/ci/disposable-process-identity.sh
 source "$identity_library"
 real_docker="$(command -v docker)"
@@ -331,28 +332,204 @@ bounded_reap_test_job() {
 }
 
 owned_run_status=''
+owned_group_has_members() {
+  local supervisor_pid="$1"
+  local supervisor_identity="$2"
+  local start_time
+  local process_group
+  local parent_pid
+  local session_id
+
+  read -r start_time process_group parent_pid session_id <<<"$supervisor_identity"
+  casn_process_identity_matches \
+    "$supervisor_pid" "$start_time" "$process_group" "$parent_pid" "$session_id" \
+    || return 2
+  casn_process_group_has_members "$process_group" "$session_id" "$supervisor_pid"
+}
+
+wait_owned_group_empty() {
+  local supervisor_pid="$1"
+  local supervisor_identity="$2"
+  local max_attempts="$3"
+  local attempt
+  local group_status
+
+  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
+    if owned_group_has_members "$supervisor_pid" "$supervisor_identity"; then
+      :
+    else
+      group_status=$?
+      ((group_status == 1)) && return 0
+      return 2
+    fi
+    sleep 0.1
+  done
+  ! owned_group_has_members "$supervisor_pid" "$supervisor_identity"
+}
+
+wait_process_group_empty() {
+  local process_group="$1"
+  local session_id="$2"
+  local excluded_pid="$3"
+  local max_attempts="$4"
+  local attempt
+
+  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
+    casn_process_group_has_members "$process_group" "$session_id" "$excluded_pid" || return 0
+    sleep 0.1
+  done
+  ! casn_process_group_has_members "$process_group" "$session_id" "$excluded_pid"
+}
+
+stop_owned_supervisor() {
+  local supervisor_pid="$1"
+  local supervisor_identity="$2"
+  local control_fd="$3"
+
+  test_identity_matches "$supervisor_pid" "$supervisor_identity" || return 1
+  printf 'stop\n' >&"$control_fd"
+}
+
+terminate_owned_group() {
+  local supervisor_pid="$1"
+  local supervisor_identity="$2"
+  local control_fd="$3"
+  local process_group
+  local session_id
+
+  read -r _ process_group _ session_id <<<"$supervisor_identity"
+
+  if owned_group_has_members "$supervisor_pid" "$supervisor_identity"; then
+    signal_owned_test_group TERM "$supervisor_pid" "$supervisor_identity" || return 1
+    if ! wait_owned_group_empty "$supervisor_pid" "$supervisor_identity" 10; then
+      signal_owned_test_group KILL "$supervisor_pid" "$supervisor_identity" || return 1
+      wait_process_group_empty "$process_group" "$session_id" "$supervisor_pid" 50 || return 1
+      return 0
+    fi
+  fi
+
+  stop_owned_supervisor "$supervisor_pid" "$supervisor_identity" "$control_fd"
+}
+
 run_owned_bounded() {
   local log="$1"
   local max_attempts="$2"
   shift 2
-  local pid
-  local identity
+  local supervisor_root
+  local control_fifo
+  local status_file
+  local ready_file
+  local control_fd
+  local supervisor_pid
+  local supervisor_identity
+  local command_status
+  local attempt
+  local timed_out=1
 
-  setsid --wait "$@" >"$log" 2>&1 &
-  pid=$!
-  identity="$(capture_test_process_identity "$pid")" \
-    || fail "unable to capture bounded-run identity for PID $pid"
+  supervisor_root="$(mktemp -d '/tmp/casn-quality.XXXXXX')"
+  control_fifo="$supervisor_root/active-1.control"
+  status_file="$supervisor_root/active-1.status"
+  ready_file="$supervisor_root/active-1.ready"
+  mkfifo -- "$control_fifo"
+  exec {control_fd}<>"$control_fifo"
 
-  if ! bounded_reap_test_job "$pid" "$identity" "$max_attempts"; then
-    signal_owned_test_process TERM "$pid" "$identity" || true
-    if ! bounded_reap_test_job "$pid" "$identity" 100; then
-      signal_owned_test_group KILL "$pid" "$identity" || true
-      bounded_reap_test_job "$pid" "$identity" 50 \
-        || fail "bounded run could not reap owned PID $pid"
+  setsid "$process_supervisor" "$control_fd" "$status_file" "$ready_file" "$@" >"$log" 2>&1 &
+  supervisor_pid=$!
+  supervisor_identity="$(capture_test_process_identity "$supervisor_pid")" \
+    || fail "unable to capture bounded-run supervisor identity for PID $supervisor_pid"
+
+  for ((attempt = 0; attempt < 500; attempt += 1)); do
+    [[ -f "$ready_file" ]] && break
+    test_identity_matches "$supervisor_pid" "$supervisor_identity" || break
+    sleep 0.01
+  done
+  [[ -f "$ready_file" ]] || {
+    terminate_owned_group "$supervisor_pid" "$supervisor_identity" "$control_fd" || true
+    bounded_reap_test_job "$supervisor_pid" "$supervisor_identity" 50 || true
+    exec {control_fd}>&-
+    rm -rf -- "$supervisor_root"
+    fail "bounded-run supervisor failed readiness for PID $supervisor_pid"
+  }
+
+  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
+    if [[ -f "$status_file" ]]; then
+      timed_out=0
+      break
     fi
-    fail "bounded run timed out for owned PID $pid"
+    test_identity_matches "$supervisor_pid" "$supervisor_identity" || break
+    sleep 0.1
+  done
+
+  if ! terminate_owned_group "$supervisor_pid" "$supervisor_identity" "$control_fd"; then
+    exec {control_fd}>&-
+    rm -rf -- "$supervisor_root"
+    fail "bounded run could not terminate owned supervisor group $supervisor_pid"
   fi
-  owned_run_status="$reaped_status"
+  bounded_reap_test_job "$supervisor_pid" "$supervisor_identity" 50 \
+    || {
+      exec {control_fd}>&-
+      rm -rf -- "$supervisor_root"
+      fail "bounded run could not reap owned supervisor PID $supervisor_pid"
+    }
+  exec {control_fd}>&-
+
+  if ((timed_out != 0)); then
+    rm -rf -- "$supervisor_root"
+    fail "bounded run timed out for owned supervisor PID $supervisor_pid"
+  fi
+
+  command_status="$(<"$status_file")"
+  [[ "$command_status" =~ ^[0-9]+$ && "$command_status" -le 255 ]] || {
+    rm -rf -- "$supervisor_root"
+    fail "bounded-run supervisor recorded invalid command status: $command_status"
+  }
+  owned_run_status="$command_status"
+  rm -rf -- "$supervisor_root"
+}
+
+run_owned_group_anchor_case() {
+  local log="$test_root/owned-group-anchor.log"
+  local marker="$test_root/owned-group-anchor.ready"
+  local descendant_pid
+  local descendant_identity
+  local status
+  local attempt
+
+  run_owned_bounded "$log" 20 env \
+    CASN_ANCHOR_READY_FILE="$marker" \
+    IDENTITY_LIBRARY="$identity_library" \
+    bash -c '
+      bash -c '\''
+        trap "" TERM HUP INT
+        owned_pid="$BASHPID"
+        identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
+        printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CASN_ANCHOR_READY_FILE"
+        while :; do sleep 1; done
+      '\'' &
+      for _ in {1..500}; do
+        [[ -s "$CASN_ANCHOR_READY_FILE" ]] && exit 23
+        sleep 0.01
+      done
+      exit 97
+    '
+  status="$owned_run_status"
+
+  descendant_pid="$(sed -n '1p' "$marker")"
+  descendant_identity="$(sed -n '2p' "$marker")"
+  [[ "$descendant_pid" =~ ^[0-9]+$ && -n "$descendant_identity" ]] \
+    || fail 'owned-group anchor descendant identity record is invalid'
+
+  if test_stable_identity_matches "$descendant_pid" "$descendant_identity"; then
+    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
+    for ((attempt = 0; attempt < 50; attempt += 1)); do
+      test_stable_identity_matches "$descendant_pid" "$descendant_identity" || break
+      sleep 0.1
+    done
+    fail 'bounded runner returned while its durably owned process group still had a descendant'
+  fi
+
+  [[ "$status" -eq 23 ]] || fail "owned-group anchor expected status 23, received $status"
+  printf '[disposable-app-regression] owned-group-anchor passed\n'
 }
 
 run_stopped_reap_case() {
@@ -457,10 +634,153 @@ abort_term_run() {
   local harness_identity="$2"
   local child_pid="$3"
   local child_identity="$4"
+  local child_process_group
+  local child_session_id
+  local supervisor_pid
+  local supervisor_identity
+  local supervisor_process_group
+  local supervisor_session_id
+  local abort_failed=0
+  local harness_reaped=0
+  local reap_result
 
-  signal_owned_test_process KILL "$child_pid" "$child_identity" 2>/dev/null || true
-  signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
-  bounded_reap_test_job "$harness_pid" "$harness_identity" 20 || true
+  if test_identity_matches "$child_pid" "$child_identity"; then
+    read -r _ child_process_group _ child_session_id <<<"$child_identity"
+    supervisor_pid="$child_session_id"
+    if supervisor_identity="$(casn_read_process_identity "$supervisor_pid")"; then
+      read -r _ supervisor_process_group _ supervisor_session_id <<<"$supervisor_identity"
+      if [[ "$child_process_group" != "$supervisor_pid" \
+        || "$supervisor_process_group" != "$supervisor_pid" \
+        || "$supervisor_session_id" != "$supervisor_pid" ]]; then
+        supervisor_identity=''
+      fi
+    fi
+  fi
+
+  if [[ -n "$supervisor_identity" ]]; then
+    signal_owned_test_group KILL "$supervisor_pid" "$supervisor_identity" 2>/dev/null \
+      || abort_failed=1
+  else
+    signal_owned_test_process KILL "$child_pid" "$child_identity" 2>/dev/null \
+      || abort_failed=1
+  fi
+
+  if bounded_reap_test_job "$harness_pid" "$harness_identity" 10; then
+    harness_reaped=1
+  else
+    reap_result=$?
+    if ((reap_result == 1)); then
+      signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null \
+        || abort_failed=1
+      bounded_reap_test_job "$harness_pid" "$harness_identity" 50 \
+        && harness_reaped=1 \
+        || abort_failed=1
+    else
+      abort_failed=1
+    fi
+  fi
+  ((harness_reaped == 1)) || abort_failed=1
+
+  if [[ -n "$supervisor_identity" ]]; then
+    wait_process_group_empty \
+      "$supervisor_process_group" "$supervisor_session_id" "$supervisor_pid" 50 \
+      || abort_failed=1
+    for _ in {1..50}; do
+      test_stable_identity_matches "$supervisor_pid" "$supervisor_identity" || break
+      sleep 0.1
+    done
+    test_stable_identity_matches "$supervisor_pid" "$supervisor_identity" \
+      && abort_failed=1
+  fi
+
+  return "$abort_failed"
+}
+
+run_abort_supervisor_case() {
+  local log="$test_root/abort-supervisor.log"
+  local marker="$test_root/abort-supervisor.ready"
+  local supervisor_root
+  local control_fifo
+  local status_file
+  local ready_file
+  local harness_pid
+  local harness_identity
+  local supervisor_pid
+  local supervisor_identity
+  local child_pid
+  local child_identity
+  local attempt
+
+  supervisor_root="$(mktemp -d '/tmp/casn-quality.XXXXXX')"
+  control_fifo="$supervisor_root/active-1.control"
+  status_file="$supervisor_root/active-1.status"
+  ready_file="$supervisor_root/active-1.ready"
+  mkfifo -- "$control_fifo"
+
+  CASN_ABORT_READY_FILE="$marker" \
+    CASN_ABORT_CONTROL_FIFO="$control_fifo" \
+    CASN_ABORT_STATUS_FILE="$status_file" \
+    CASN_ABORT_SUPERVISOR_READY_FILE="$ready_file" \
+    PROCESS_SUPERVISOR="$process_supervisor" \
+    IDENTITY_LIBRARY="$identity_library" \
+    setsid --wait bash -c '
+      exec 9<>"$CASN_ABORT_CONTROL_FIFO"
+      setsid "$PROCESS_SUPERVISOR" \
+        9 "$CASN_ABORT_STATUS_FILE" "$CASN_ABORT_SUPERVISOR_READY_FILE" \
+        bash -c '\''
+          trap "" TERM HUP INT
+          owned_pid="$BASHPID"
+          identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
+          printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CASN_ABORT_READY_FILE"
+          while :; do sleep 1; done
+      '\'' &
+      wait
+    ' >"$log" 2>&1 &
+  harness_pid=$!
+  harness_identity="$(capture_test_process_identity "$harness_pid")" \
+    || fail 'unable to capture abort-supervisor harness identity'
+
+  for ((attempt = 0; attempt < 100; attempt += 1)); do
+    [[ -s "$marker" ]] && break
+    test_identity_matches "$harness_pid" "$harness_identity" \
+      || fail 'abort-supervisor harness exited before readiness'
+    sleep 0.05
+  done
+  [[ -s "$marker" ]] || fail 'abort-supervisor child did not become ready within 5 seconds'
+
+  child_pid="$(sed -n '1p' "$marker")"
+  child_identity="$(sed -n '2p' "$marker")"
+  [[ "$child_pid" =~ ^[0-9]+$ && -n "$child_identity" ]] \
+    || fail 'abort-supervisor child identity record is invalid'
+  test_identity_matches "$child_pid" "$child_identity" \
+    || fail 'abort-supervisor child identity changed before supervisor capture'
+  read -r _ _ _ supervisor_pid <<<"$child_identity"
+  supervisor_identity="$(casn_read_process_identity "$supervisor_pid")" \
+    || fail 'unable to capture abort-supervisor identity'
+  test_stable_identity_matches "$supervisor_pid" "$supervisor_identity" \
+    || fail 'abort-supervisor identity changed before abort'
+
+  if ! abort_term_run "$harness_pid" "$harness_identity" "$child_pid" "$child_identity"; then
+    signal_owned_test_process KILL "$child_pid" "$child_identity" 2>/dev/null || true
+    signal_stably_owned_test_process KILL "$supervisor_pid" "$supervisor_identity" 2>/dev/null || true
+    signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
+    bounded_reap_test_job "$harness_pid" "$harness_identity" 50 || true
+    rm -rf -- "$supervisor_root"
+    fail 'abort-supervisor cleanup did not prove exact process absence'
+  fi
+
+  if test_stable_identity_matches "$supervisor_pid" "$supervisor_identity"; then
+    signal_stably_owned_test_process KILL "$supervisor_pid" "$supervisor_identity" 2>/dev/null || true
+    for ((attempt = 0; attempt < 50; attempt += 1)); do
+      test_stable_identity_matches "$supervisor_pid" "$supervisor_identity" || break
+      sleep 0.1
+    done
+    rm -rf -- "$supervisor_root"
+    fail 'abort cleanup left the separately sessioned supervisor alive'
+  fi
+
+  rm -rf -- "$supervisor_root"
+  printf '[disposable-app-regression] abort-supervisor passed\n'
 }
 
 run_term_case() {
@@ -703,6 +1023,12 @@ case "${1:-all}" in
   stopped-reap)
     run_stopped_reap_case
     ;;
+  owned-group-anchor)
+    run_owned_group_anchor_case
+    ;;
+  abort-supervisor)
+    run_abort_supervisor_case
+    ;;
   docker-proof)
     run_cleanup_query_case docker-proof
     ;;
@@ -724,6 +1050,8 @@ case "${1:-all}" in
   all)
     run_identity_case
     run_stopped_reap_case
+    run_owned_group_anchor_case
+    run_abort_supervisor_case
     run_cleanup_query_case docker-proof
     run_cleanup_query_case ss-proof
     run_child_status_case
@@ -732,7 +1060,7 @@ case "${1:-all}" in
     run_ignored_term_signal_case
     ;;
   *)
-    printf 'Usage: %s [identity-mismatch|stopped-reap|docker-proof|ss-proof|child-status|term|term-descendant|term-descendant-signal|all]\n' "$0" >&2
+    printf 'Usage: %s [identity-mismatch|stopped-reap|owned-group-anchor|abort-supervisor|docker-proof|ss-proof|child-status|term|term-descendant|term-descendant-signal|all]\n' "$0" >&2
     exit 64
     ;;
 esac
