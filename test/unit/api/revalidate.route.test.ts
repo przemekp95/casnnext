@@ -42,6 +42,17 @@ describe("POST /api/revalidate", () => {
     );
   }
 
+  async function postRaw(body: BodyInit, headers: HeadersInit = {}) {
+    const { POST } = await import("@/app/api/revalidate/route");
+    return POST(
+      new Request("http://localhost/api/revalidate", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body,
+      }),
+    );
+  }
+
   it("returns 503 when no server-side revalidation secret is configured", async () => {
     delete process.env.REVALIDATE_SECRET;
     delete process.env.DIRECTUS_WEBHOOK_SECRET;
@@ -63,6 +74,70 @@ describe("POST /api/revalidate", () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ ok: false, error: "Unauthorized" });
+    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid secret without consuming the request body", async () => {
+    const { POST } = await import("@/app/api/revalidate/route");
+    const request = new Request("http://localhost/api/revalidate", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-directus-secret": "wrong-secret",
+      },
+      body: JSON.stringify({ model: "Analysis" }),
+    });
+    const jsonSpy = jest.spyOn(request, "json");
+    const readerSpy = jest.spyOn(request.body!, "getReader");
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(401);
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(readerSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns 413 for a declared body larger than 64 KiB", async () => {
+    const response = await postRaw("{}", {
+      "content-length": "65537",
+      "x-directus-secret": "test-secret",
+    });
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: "Request body is too large",
+    });
+    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for malformed authenticated JSON", async () => {
+    const response = await postRaw("{invalid", {
+      "x-directus-secret": "test-secret",
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: "Invalid revalidation payload",
+    });
+    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when an authenticated payload has too many tags", async () => {
+    const response = await post(
+      { tags: Array.from({ length: 21 }, (_, index) => `tag-${index}`) },
+      { "x-directus-secret": "test-secret" },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: "Invalid revalidation payload",
+    });
     expect(revalidateTagMock).not.toHaveBeenCalled();
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
@@ -119,5 +194,24 @@ describe("POST /api/revalidate", () => {
     });
     expect(revalidateTagMock).toHaveBeenCalledWith("analyses", "max");
     expect(revalidatePathMock).toHaveBeenCalledWith("/analizy");
+  });
+
+  it("accepts the bounded Directus event body including key metadata", async () => {
+    const response = await post(
+      {
+        model: "Analysis",
+        event: "Analysis.items.update",
+        key: "42",
+        keys: ["42"],
+      },
+      { "x-directus-secret": "test-secret" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      model: "Analysis",
+      event: "Analysis.items.update",
+    });
   });
 });

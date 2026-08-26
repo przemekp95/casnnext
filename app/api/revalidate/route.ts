@@ -1,6 +1,13 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import {
+  PayloadTooLargeError,
+  readJsonBodyWithinLimit,
+} from "@/lib/server/request-body";
+
+const REVALIDATE_MAX_BODY_BYTES = 64 * 1024;
 
 type RevalidatePayload = {
   tag?: string;
@@ -8,6 +15,15 @@ type RevalidatePayload = {
   model?: string;
   event?: string;
 };
+
+const revalidatePayloadSchema = z
+  .object({
+    tag: z.string().trim().min(1).max(64).optional(),
+    tags: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
+    model: z.string().trim().max(128).optional(),
+    event: z.string().trim().max(128).optional(),
+  })
+  .passthrough();
 
 function getExpectedSecret(): string {
   return process.env.REVALIDATE_SECRET || process.env.DIRECTUS_WEBHOOK_SECRET || "";
@@ -72,13 +88,6 @@ function tryRevalidatePath(path: string): void {
 }
 
 export async function POST(req: Request) {
-  let payload: RevalidatePayload = {};
-  try {
-    payload = await req.json();
-  } catch {
-    payload = {};
-  }
-
   const expected = getExpectedSecret();
   const provided = getProvidedSecret(req);
 
@@ -91,6 +100,31 @@ export async function POST(req: Request) {
 
   if (!secretsMatch(expected, provided)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  let payload: RevalidatePayload;
+  try {
+    const result = revalidatePayloadSchema.safeParse(
+      await readJsonBodyWithinLimit(req, REVALIDATE_MAX_BODY_BYTES),
+    );
+    if (!result.success) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid revalidation payload" },
+        { status: 400 },
+      );
+    }
+    payload = result.data;
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return NextResponse.json(
+        { ok: false, error: "Request body is too large" },
+        { status: 413 },
+      );
+    }
+    return NextResponse.json(
+      { ok: false, error: "Invalid revalidation payload" },
+      { status: 400 },
+    );
   }
 
   const tags = inferTags(payload);
