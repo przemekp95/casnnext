@@ -7,6 +7,10 @@ const workflow = readFileSync(
   join(process.cwd(), ".github/workflows/docker.yml"),
   "utf8",
 );
+const deploymentWorkflow = readFileSync(
+  join(process.cwd(), ".github/workflows/deploy.yml"),
+  "utf8",
+);
 
 describe("CI/CD workflow", () => {
   it("publishes main images for an explicit main workflow dispatch", () => {
@@ -19,5 +23,12 @@ describe("CI/CD workflow", () => {
         /type=raw,value=main,enable=\$\{\{ github\.ref == 'refs\/heads\/main' \}\}/g,
       ),
     ).toHaveLength(2);
+  });
+
+  it("installs age before snapshot tests in build and deployment workflows", () => {
+    const dependencyStep = "sudo apt-get install --yes age";
+
+    expect(workflow).toContain(dependencyStep);
+    expect(deploymentWorkflow).toContain(dependencyStep);
   });
 });
