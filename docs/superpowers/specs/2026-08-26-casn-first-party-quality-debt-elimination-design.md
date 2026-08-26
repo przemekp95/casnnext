@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-26
 
-**Status:** Approved in principle; awaiting review of this written contract
+**Status:** Approved
 
 ## Goal
 
