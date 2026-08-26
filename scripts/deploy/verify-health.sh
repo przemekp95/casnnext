@@ -35,14 +35,17 @@ trap 'rm -f "$response_file"' EXIT
 
 for attempt in $(seq 1 "$attempts"); do
   : > "$response_file"
-  if curl \
+  http_status=''
+  if http_status="$(curl \
     --fail \
     --silent \
     --show-error \
     --max-time 10 \
     --header 'Accept: application/json' \
     --output "$response_file" \
-    "$health_check_url" \
+    --write-out '%{http_code}' \
+    "$health_check_url")" \
+    && [[ "$http_status" == '200' ]] \
     && jq -e --arg revision "$expected_revision" '
       type == "object"
       and .status == "ready"

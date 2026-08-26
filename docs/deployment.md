@@ -46,10 +46,14 @@ SSH deployment, a set `HEALTH_CHECK_URL` causes a separate retrying public
 readiness check from the deployment host. The gate accepts only HTTP success
 with JSON reporting `status=ready`, `database=connected`, and a `revision`
 exactly equal to the dispatched `app_revision`; HTTP 200 alone is insufficient.
-Running the public probe from the deployment host avoids Cloudflare challenges
-applied to GitHub-hosted runner addresses while still traversing the public
-URL. This gate is distinct from successful SSH execution and is not a complete
-post-deploy acceptance suite.
+Production additionally requires the secret to equal the canonical public
+`https://casn.pl/api/health` endpoint. The failing run was diagnosed without
+printing the secret: GitHub-hosted runner requests to that exact endpoint were
+answered with HTTP 403 and a Cloudflare Managed Challenge, including requests
+with JSON `Accept` and a browser-like user agent. Running the public probe from
+the deployment host avoids that runner-address challenge while still traversing
+the public URL. This gate is distinct from successful SSH execution and is not
+a complete post-deploy acceptance suite.
 
 ## Runtime contract
 
