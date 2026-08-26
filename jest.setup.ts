@@ -51,14 +51,10 @@ const mockedFetch = jest.fn<typeof fetch>();
 defineGlobal('fetch', mockedFetch as typeof fetch);
 
 afterAll(async () => {
-  try {
-    // Importing the canonical datasource does not initialize it. Integration
-    // suites that initialized it are responsible for leaving no open handles.
-    const { AppDataSource } = await import('@/lib/db.shared');
-    if (AppDataSource?.isInitialized) {
-      await AppDataSource.destroy();
-    }
-  } catch {
-    // Test files that never touched the datasource do not need teardown.
+  // Importing the canonical datasource does not initialize it. Integration
+  // suites that initialized it are responsible for leaving no open handles.
+  const { AppDataSource } = await import('@/lib/db.shared');
+  if (AppDataSource?.isInitialized) {
+    await AppDataSource.destroy();
   }
 });
