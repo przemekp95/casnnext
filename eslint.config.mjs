@@ -8,9 +8,6 @@ export default defineConfig(
     ignores: [
       ".next/**",
       "node_modules/**",
-      "lib/db.server.js",
-      "lib/entities/*.js",
-      "migrations/*.js",
       "coverage/**",
       "dist/**",
       "app/generated/**", // Generated client and runtime (vendor)
@@ -43,7 +40,7 @@ export default defineConfig(
 
   // 5) Reguły dla skryptów i config files
   {
-    files: ["scripts/**/*.js", "scripts/**/*.ts", "**/*.config.js", "**/*.config.ts", "**/*.cjs"],
+    files: ["scripts/**/*.js", "scripts/**/*.ts", "**/*.config.js", "**/*.config.ts"],
     rules: {
       "@typescript-eslint/no-require-imports": "off", // CommonJS scripts need require()
       "@typescript-eslint/no-var-requires": "off", // Allow var requires in scripts
@@ -87,14 +84,6 @@ export default defineConfig(
       // Global rules - these will be overridden by file-specific rules above
       "@typescript-eslint/no-explicit-any": "error", // Strict any checking everywhere else
       "@typescript-eslint/no-require-imports": "error", // Require ES modules everywhere else
-    },
-  },
-
-  // Tracked CommonJS runtime bridges are source, not generated artifacts.
-  {
-    files: ["lib/**/*.js", "**/*.cjs"],
-    rules: {
-      "@typescript-eslint/no-require-imports": "off",
     },
   },
 );

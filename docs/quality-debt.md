@@ -6,6 +6,25 @@ an explicit exit condition. The current increment removed broad `lib/` and
 `migrations/` lint exclusions, all four unconditional Cypress skips, the custom
 server suppression, and all lint warnings.
 
+## Resolved runtime-output and CommonJS boundary
+
+- **State:** resolved on 2026-08-26
+- **Ownership:** TypeScript is the only runtime source of truth. The removed
+  tracked JavaScript bridges are `lib/db.shared.js`,
+  `lib/server/migration-policy.js`, `lib/server/startup-database.js`,
+  `lib/db.node.js`, and `lib/init-db.js`.
+- **Artifact boundary:** `tsconfig.runtime.json` emits only to the ignored
+  `/dist/runtime/` directory. ESLint ignores `dist/**` as generated output but
+  no longer ignores runtime-like paths beneath `lib/` or `migrations/`.
+- **Lint boundary:** `server.cjs` no longer needs a runtime CommonJS override;
+  the broad `lib/**/*.js` plus `**/*.cjs` override and the scripts/config-wide
+  `**/*.cjs` exception are removed. The runtime-source fixture rejects their
+  return.
+
+This resolves only the generated-output and runtime CommonJS exceptions.
+QD-002, QD-003, and QD-004 remain open with their existing inventories and exit
+conditions below.
+
 ## QD-001: ESLint 9 upstream compatibility window
 
 - **State:** accepted only through 2026-09-30

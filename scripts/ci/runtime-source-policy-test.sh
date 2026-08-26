@@ -42,6 +42,18 @@ JSON
 /dist/runtime/
 EOF
 
+  cat >"$fixture/eslint.config.mjs" <<'EOF'
+export default [
+  {
+    ignores: ["dist/**"],
+  },
+  {
+    files: ["scripts/**/*.js", "scripts/**/*.ts", "**/*.config.js", "**/*.config.ts"],
+    rules: {},
+  },
+];
+EOF
+
   cat >"$fixture/server.ts" <<'EOF'
 export {};
 EOF
@@ -71,7 +83,7 @@ EOF
   touch "$fixture/dist/runtime/lib/db.shared.js"
   touch "$fixture/dist/runtime/lib/server/startup-database.js"
 
-  git -C "$fixture" add package.json tsconfig.runtime.json .gitignore server.ts server.cjs Dockerfile \
+  git -C "$fixture" add package.json tsconfig.runtime.json .gitignore eslint.config.mjs server.ts server.cjs Dockerfile \
     lib/db.shared.ts lib/server/startup-database.ts lib/server/migration-policy.ts
   git -C "$fixture" commit -qm 'valid runtime fixture'
 }
@@ -116,6 +128,37 @@ create_fixture
 touch "$fixture/$future_runtime_source"
 git -C "$fixture" add "$future_runtime_source"
 expect_rejected "first-party lib source must not be JavaScript: $future_runtime_source" sources
+
+create_fixture
+node -e '
+  const fs = require("fs");
+  const file = process.argv[1];
+  const source = fs.readFileSync(file, "utf8");
+  fs.writeFileSync(file, source.replace("ignores: [\"dist/**\"]", "ignores: [\"dist/**\", \"lib/db.server.js\"]"));
+' "$fixture/eslint.config.mjs"
+expect_rejected 'ESLint config must not ignore generated runtime source-output paths.' sources
+
+create_fixture
+printf 'lib/db.server.js\n' >>"$fixture/.gitignore"
+expect_rejected '.gitignore must not ignore generated runtime source-output paths.' sources
+
+create_fixture
+node -e '
+  const fs = require("fs");
+  const file = process.argv[1];
+  const source = fs.readFileSync(file, "utf8");
+  fs.writeFileSync(file, source.replace("files: [\"scripts/**/*.js\", \"scripts/**/*.ts\", \"**/*.config.js\", \"**/*.config.ts\"]", "files: [\"lib/**/*.js\", \"**/*.cjs\"]"));
+' "$fixture/eslint.config.mjs"
+expect_rejected 'ESLint config must not disable CommonJS import rules for runtime sources.' sources
+
+create_fixture
+node -e '
+  const fs = require("fs");
+  const file = process.argv[1];
+  const source = fs.readFileSync(file, "utf8");
+  fs.writeFileSync(file, source.replace("\"**/*.config.ts\"]", "\"**/*.config.ts\", \"**/*.cjs\"]"));
+' "$fixture/eslint.config.mjs"
+expect_rejected 'ESLint config must not classify every .cjs file as a script or config.' sources
 
 create_fixture
 printf "const runtime = require('./dist/runtime/server.js');\n" >>"$fixture/server.cjs"

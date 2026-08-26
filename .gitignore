@@ -97,12 +97,6 @@ build-casn.tgz
 /output/
 /strapi/public/uploads/
 
-# generated JavaScript files from TypeScript compilation
-lib/db.server.js
-lib/entities/*.js
-lib/migrations/*.js
-migrations/*.js
-
 # database dumps
 *.sql
 

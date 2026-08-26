@@ -12,6 +12,57 @@ require_file() {
   [[ -f "$ROOT/$path" ]] || fail "required runtime file is missing: $path"
 }
 
+check_lint_runtime_boundary() {
+  require_file .gitignore
+  require_file eslint.config.mjs
+
+  local obsolete_source_output
+  for obsolete_source_output in \
+    lib/db.server.js \
+    lib/entities/*.js \
+    lib/migrations/*.js \
+    migrations/*.js; do
+    if rg -Fxq "$obsolete_source_output" "$ROOT/.gitignore"; then
+      fail '.gitignore must not ignore generated runtime source-output paths.'
+    fi
+  done
+
+  node - <<'NODE' "$ROOT/eslint.config.mjs" || fail 'eslint.config.mjs must preserve the runtime lint boundary.'
+const fs = require('fs');
+const config = fs.readFileSync(process.argv[2], 'utf8');
+const normalized = config
+  .replace(/\s+/g, '');
+const obsoleteSourceOutputs = [
+  'lib/db.server.js',
+  'lib/entities/*.js',
+  'lib/migrations/*.js',
+  'migrations/*.js',
+];
+const fileGroups = [...normalized.matchAll(/files:\[([^\]]*)\]/g)].map((match) => match[1]);
+const ignoresGeneratedSource = obsoleteSourceOutputs.some((path) =>
+  [...normalized.matchAll(/ignores:\[([^\]]*)\]/g)].some((match) => match[1].includes(`"${path}"`)),
+);
+const disablesRuntimeCommonJs = fileGroups.some((files) =>
+  files.includes('"lib/**/*.js"') && files.includes('"**/*.cjs"'),
+);
+const classifiesAllCjsAsScripts = fileGroups.some((files) =>
+  files.includes('"**/*.cjs"') &&
+  (files.includes('"scripts/**/*.js"') || files.includes('"**/*.config.js"')),
+);
+
+if (ignoresGeneratedSource) {
+  console.error('[runtime-policy] ESLint config must not ignore generated runtime source-output paths.');
+  process.exitCode = 1;
+} else if (disablesRuntimeCommonJs) {
+  console.error('[runtime-policy] ESLint config must not disable CommonJS import rules for runtime sources.');
+  process.exitCode = 1;
+} else if (classifiesAllCjsAsScripts) {
+  console.error('[runtime-policy] ESLint config must not classify every .cjs file as a script or config.');
+  process.exitCode = 1;
+}
+NODE
+}
+
 package_script() {
   local name="$1"
   node -e '
@@ -34,6 +85,8 @@ tsconfig_option() {
 }
 
 check_sources() {
+  check_lint_runtime_boundary
+
   local source
   for source in \
     server.ts \
