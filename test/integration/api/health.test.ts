@@ -1,138 +1,171 @@
 /** @jest-environment node */
-/* eslint-disable @typescript-eslint/no-require-imports */
 
 import { NextResponse } from 'next/server';
 
-const initDatabaseMock = jest.fn();
-const appDataSourceMock = {
-  isInitialized: false,
-};
-
-jest.mock('@/lib/server/db', () => ({
-  initDatabase: (...args: unknown[]) => initDatabaseMock(...args),
-}));
-
-jest.mock('@/lib/db.server', () => ({
-  AppDataSource: appDataSourceMock,
-}));
+interface DataSourceBoundary {
+  isInitialized: boolean;
+  initialize: () => Promise<void>;
+  query: (sql: string) => Promise<unknown>;
+}
 
 interface RouteModule {
   GET: () => Promise<NextResponse>;
 }
 
-let route: RouteModule | null = null;
+async function loadRoute({
+  configured,
+  dataSource,
+}: {
+  configured: boolean;
+  dataSource: DataSourceBoundary | null;
+}): Promise<RouteModule> {
+  jest.resetModules();
+  jest.doMock('@/lib/db.server', () => ({
+    AppDataSource: dataSource,
+    isDatabaseConfigured: () => configured,
+  }));
 
-try {
-  route = require('@/app/api/health/route') as RouteModule;
-} catch {
-  route = null;
+  return import('@/app/api/health/route');
 }
 
-(route ? describe : describe.skip)('API /api/health', () => {
+function createDataSource({
+  initialized = false,
+  initialize,
+  query,
+}: Partial<DataSourceBoundary> = {}): DataSourceBoundary {
+  return {
+    isInitialized: initialized,
+    initialize: initialize ?? (async () => undefined),
+    query: query ?? (async () => [{ ok: 1 }]),
+  };
+}
+
+describe('API /api/health readiness', () => {
   const originalEnv = process.env;
-  let logSpy: jest.SpyInstance;
-  let warnSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    jest.clearAllMocks();
     process.env = { ...originalEnv };
-    appDataSourceMock.isInitialized = false;
-    logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    delete process.env.APP_REVISION;
   });
 
   afterEach(() => {
     process.env = originalEnv;
-    logSpy.mockRestore();
-    warnSpy.mockRestore();
+    jest.resetModules();
+    jest.clearAllMocks();
   });
 
-  it('GET zwraca status healthy z prawidłową strukturą', async () => {
-    (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
-    process.env.npm_package_version = '2.1.0';
-    initDatabaseMock.mockImplementation(async () => {
-      appDataSourceMock.isInitialized = true;
+  it('reports an unconfigured database without exposing configuration details', async () => {
+    const route = await loadRoute({ configured: false, dataSource: null });
+
+    const response = await route.GET();
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      status: 'not_ready',
+      database: 'not_configured',
+    });
+  });
+
+  it('reports ready after connecting and probing an available database', async () => {
+    const dataSource = createDataSource({
+      initialize: async () => {
+        dataSource.isInitialized = true;
+      },
+      query: async (sql) => {
+        if (sql !== 'SELECT 1') {
+          throw new Error('readiness must use a minimal database probe');
+        }
+      },
+    });
+    const route = await loadRoute({ configured: true, dataSource });
+
+    const response = await route.GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: 'ready',
+      database: 'connected',
+    });
+  });
+
+  it('uses an already initialized database without reconnecting', async () => {
+    const route = await loadRoute({
+      configured: true,
+      dataSource: createDataSource({
+        initialized: true,
+        initialize: async () => {
+          throw new Error('the initialized database must not reconnect');
+        },
+        query: async (sql) => {
+          if (sql !== 'SELECT 1') {
+            throw new Error('readiness must use a minimal database probe');
+          }
+        },
+      }),
     });
 
-    const res = await route!.GET();
-    expect(res.status).toBe(200);
+    const response = await route.GET();
 
-    const data = await res.json();
-    expect(data).toEqual(expect.objectContaining({
-      status: 'healthy',
-      timestamp: expect.any(String),
-      responseTime: expect.any(String),
-      contentProvider: 'database',
-      database: expect.objectContaining({
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: 'ready',
+      database: 'connected',
+    });
+  });
+
+  it('reports unavailable when connecting to the database fails', async () => {
+    const route = await loadRoute({
+      configured: true,
+      dataSource: createDataSource({
+        initialize: async () => {
+          throw new Error('database password leaked here');
+        },
+      }),
+    });
+
+    const response = await route.GET();
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      status: 'not_ready',
+      database: 'unavailable',
+    });
+  });
+
+  it('reports unavailable when the database probe fails', async () => {
+    const route = await loadRoute({
+      configured: true,
+      dataSource: createDataSource({
         initialized: true,
-        connected: true
+        query: async () => {
+          throw new Error('connection target must remain private');
+        },
       }),
-      environment: expect.objectContaining({
-        node_env: 'production',
-        has_db_config: expect.any(Boolean)
-      })
-    }));
+    });
 
-    expect(initDatabaseMock).toHaveBeenCalledTimes(1);
-    expect(new Date(data.timestamp).toISOString()).toBe(data.timestamp);
-    expect(data.responseTime).toMatch(/\d+ms$/);
+    const response = await route.GET();
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      status: 'not_ready',
+      database: 'unavailable',
+    });
   });
 
-  it('GET nie zwraca pola version', async () => {
-    delete process.env.npm_package_version;
+  it('includes an explicit non-empty revision only', async () => {
+    process.env.APP_REVISION = 'build-2026-08-25';
+    const route = await loadRoute({
+      configured: true,
+      dataSource: createDataSource({ initialized: true }),
+    });
 
-    const res = await route!.GET();
-    const data = await res.json();
+    const response = await route.GET();
 
-    expect(data.version).toBeUndefined();
-  });
-
-  it('GET może działać nawet gdy process.env nie istnieje', async () => {
-    const globalWithOptionalProcess = globalThis as typeof globalThis & {
-      process?: NodeJS.Process;
-    };
-    const originalProcess = globalWithOptionalProcess.process;
-
-    delete globalWithOptionalProcess.process;
-
-    try {
-      try {
-        const res = await route!.GET();
-        expect(res.status).toBe(200);
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
-    } finally {
-      globalWithOptionalProcess.process = originalProcess;
-    }
-  });
-
-  it('GET obsługuje błąd inicjalizacji bazy gracefuly', async () => {
-    initDatabaseMock.mockRejectedValue(new Error('db down'));
-
-    const res = await route!.GET();
-    expect(res.status).toBe(200);
-
-    const data = await res.json();
-    expect(data).toEqual(expect.objectContaining({
-      status: 'healthy',
-      database: expect.objectContaining({
-        initialized: false,
-        connected: false
-      }),
-      environment: expect.objectContaining({
-        node_env: 'test',
-        has_db_config: expect.any(Boolean)
-      })
-    }));
-  });
-
-  it('GET zwraca healthy gdy baza jest już zainicjalizowana', async () => {
-    appDataSourceMock.isInitialized = true;
-
-    const res = await route!.GET();
-    expect(res.status).toBe(200);
-    expect((await res.json()).status).toBe('healthy');
-    expect(initDatabaseMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: 'ready',
+      database: 'connected',
+      revision: 'build-2026-08-25',
+    });
   });
 });

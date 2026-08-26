@@ -1,8 +1,8 @@
-name: 'Quality Checks'
-description: 'Run linting, type checking, and code quality checks'
+name: "Quality Checks"
+description: "Run linting, type checking, and code quality checks"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Type check
       run: npm run type-check
@@ -23,10 +23,16 @@ runs:
       run: npm run check:cms-mdx-media
       shell: bash
 
+    - name: Enforce production Compose policy
+      run: npm run compose:policy
+      shell: bash
+
+    - name: Enforce immutable deployment artifact policy
+      run: npm run deploy:policy
+      shell: bash
+
     - name: Enforce dependency audit policy
       run: npm run audit:policy
       shell: bash
       env:
         AUDIT_FAIL_ON_APP: high
-        # Temporary relaxation for Strapi until upstream high vulns are fixed.
-        AUDIT_FAIL_ON_STRAPI: critical

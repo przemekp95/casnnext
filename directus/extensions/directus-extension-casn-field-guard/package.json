@@ -1,0 +1,12 @@
+{
+  "name": "directus-extension-casn-field-guard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "directus:extension": {
+    "type": "hook",
+    "path": "dist/index.js",
+    "source": "",
+    "host": "12.3.1"
+  }
+}

@@ -12,8 +12,6 @@ export default defineConfig(
       "migrations/**",
       "coverage/**",
       "dist/**",
-      "strapi/build/**",
-      "strapi/dist/**",
       "app/generated/**", // Generated client and runtime (vendor)
       "**/*.d.ts", // TypeScript definition files
     ],
@@ -88,14 +86,6 @@ export default defineConfig(
       // Global rules - these will be overridden by file-specific rules above
       "@typescript-eslint/no-explicit-any": "error", // Strict any checking everywhere else
       "@typescript-eslint/no-require-imports": "error", // Require ES modules everywhere else
-    },
-  },
-
-  // 10) Reguły dla Strapi API - CommonJS factories in generated files
-  {
-    files: ["strapi/src/api/**/*.js"],
-    rules: {
-      "@typescript-eslint/no-require-imports": "off",
     },
   },
 );

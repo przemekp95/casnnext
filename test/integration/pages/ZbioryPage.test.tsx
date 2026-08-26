@@ -87,6 +87,7 @@ async function renderPage() {
     const { container } = await renderPage();
 
     expect(container.querySelector('.projects-wrapper')).toBeInTheDocument();
+    expect(container.querySelector('main.analyses-page')).not.toBeInTheDocument();
     expect(container.querySelector('.col-lg-4')).toBeInTheDocument();
     expect(container.querySelector('.blog-list-item')).toBeInTheDocument();
   });

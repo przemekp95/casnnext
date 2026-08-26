@@ -1,0 +1,10 @@
+FROM nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
+
+COPY --chown=101:101 nginx.conf /etc/nginx/nginx.conf
+
+EXPOSE 8080
+
+USER 101:101
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -qO- http://127.0.0.1:8080/nginx-health >/dev/null || exit 1

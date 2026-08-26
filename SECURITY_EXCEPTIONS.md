@@ -1,50 +1,41 @@
 # Security Exceptions Register
 
-## Scope
+## Current status
 
-This document tracks accepted security exceptions for dependency vulnerabilities
-that are currently not exploitable in production runtime or cannot be safely
-fixed without risky upgrades.
+There are **no active approved exceptions** for the current root application
+lockfile. The source-checked command
 
-## Active Exceptions
+```bash
+npm audit --package-lock-only
+```
+
+currently reports zero vulnerabilities across the complete dependency tree, so
+`npm run audit:policy` passes its `info` threshold. The remediation pins `next`
+and `eslint-config-next` to 16.3.3, `next-auth` to 4.24.15, TypeORM to 0.3.31,
+Cypress to 15.21.1, Jest to 30.4.2, and `jest-environment-jsdom` to 30.4.1.
+Unused Lighthouse and `eslint-plugin-boundaries` dependencies were removed.
+Compatible transitive packages were refreshed within their declared ranges;
+the result does not rely on a risk exception or a forced audit fix.
+
+## Historical, read-only records
+
+The following record is retained for audit history. It does not create or
+approve any current exception and must not be used to bypass the policy.
 
 ### EX-2026-02-17-001: Optional TypeORM sqlite3 chain in app lockfile
 
-- Date accepted: 2026-02-17
-- Owner: Engineering
-- Affected scope: root app (`package-lock.json`)
-- Finding: `npm audit --omit=dev` reports `high` vulnerabilities through
-  `typeorm -> sqlite3 -> node-gyp -> tar`.
-- Why accepted:
-  - The app uses MySQL only.
-  - CI and policy gate production runtime risk with
-    `npm audit --omit=dev --omit=optional --package-lock-only`.
-  - With optional deps omitted, app report is `0` vulnerabilities above `high`.
-- Mitigations in place:
-  - CI hard-fails on `high+` separately for app and Strapi.
-  - TypeORM kept updated within safe range.
-- Exit criteria:
-  - Remove when TypeORM no longer pulls vulnerable optional sqlite3 chain, or
-    when we migrate away from TypeORM.
-- Review cadence: every 30 days.
+- Recorded: 2026-02-17
+- Former scope: root app (`package-lock.json`)
+- Former rationale: the app used MySQL and the policy omitted optional
+  dependencies.
+- Historical outcome: this was an earlier assessment, not a current exception.
+  The current complete dependency-tree audit passes without omit flags; this
+  record remains historical only.
 
-### EX-2026-02-17-002: Strapi transitive moderate/low vulnerabilities
+### Retired historical CMS record
 
-- Date accepted: 2026-02-17
-- Owner: Engineering
-- Affected scope: `strapi/package-lock.json`
-- Finding: `npm --prefix strapi audit --omit=dev --omit=optional` reports
-  moderate/low transitive issues (mainly admin/build toolchain).
-- Why accepted:
-  - No `high`/`critical` vulnerabilities in current Strapi runtime set.
-  - Automated `npm audit fix` does not resolve without incompatible changes.
-  - Immediate forced downgrade/major switch proposed by npm is not acceptable.
-- Mitigations in place:
-  - CI hard-fails on `high+` for Strapi.
-  - Weekly dependency update automation for `/strapi` via Dependabot.
-  - Existing runtime hardening in Docker and read-only public access model.
-- Exit criteria:
-  - Upgrade Strapi patch/minor once transitive fixes are available.
-  - Close exception after audit has `0` vulnerabilities above chosen policy
-    threshold.
-- Review cadence: every 14 days.
+The former Strapi transitive-vulnerability record is retired. Strapi source,
+lockfile, image build, and audit command are no longer active repository
+surfaces. The only retained Strapi name in runtime configuration is the
+read-only historical `strapi_uploads` volume used for `/cms/uploads/`
+compatibility.

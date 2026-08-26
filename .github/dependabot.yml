@@ -1,33 +1,6 @@
 version: 2
 updates:
   - package-ecosystem: "npm"
-    directory: "/strapi"
-    target-branch: "dev"
-    rebase-strategy: "disabled"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "05:00"
-      timezone: "Europe/Warsaw"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "security"
-      - "strapi"
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
-    ignore:
-      - dependency-name: "react"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "react-dom"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "react-router-dom"
-        update-types:
-          - "version-update:semver-major"
-  - package-ecosystem: "npm"
     directory: "/"
     target-branch: "dev"
     rebase-strategy: "disabled"
