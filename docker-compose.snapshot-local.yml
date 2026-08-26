@@ -51,7 +51,7 @@ services:
     volumes:
       - directus_uploads:/directus/uploads
       - ./directus/extensions/directus-extension-casn-field-guard:/directus/extensions/directus-extension-casn-field-guard:ro
-    command: ["npx", "directus", "start"]
+    command: ["node", "docker-entrypoint.cjs"]
     healthcheck:
       test:
         - CMD-SHELL

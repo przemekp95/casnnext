@@ -52,7 +52,7 @@ describe("snapshot local Compose boundary", () => {
     expect(config.services.app.environment?.DB_NAME).toBe("casn_local");
     expect(config.services.app.environment?.RUN_DB_MIGRATIONS).toBeUndefined();
     expect(config.services.app.environment?.DB_MIGRATION_CONFIRM).toBeUndefined();
-    expect(config.services.directus.command).toEqual(["npx", "directus", "start"]);
+    expect(config.services.directus.command).toEqual(["node", "docker-entrypoint.cjs"]);
 
     expect(config.services.mysql.ports).toEqual([
       expect.objectContaining({ host_ip: "127.0.0.1", published: "13307", target: 3306 }),
