@@ -24,11 +24,10 @@ freshness and provenance are not tied to the current production database. The
 existing `scripts/reset-dev-db.sh` removes volumes and contains historical
 credentials. Neither script is an acceptable foundation for this workflow.
 
-An initial read-only SSH inventory through the configured `mikrus` alias was
-reset before authentication. No production containers, volumes, secrets, or
-database contents were read through SSH, and no production state was changed.
-Production access therefore remains an execution gate, not an established
-capability.
+The generic `mikrus` alias was found to refer to an unrelated MyHRVision VPS.
+CASN production access is deliberately named `casn-mikrus` and resolves to the
+Fundacja host `antoni235`. Read-only inventory through that explicit alias
+established the exact production targets without changing production state.
 
 ## Scope
 

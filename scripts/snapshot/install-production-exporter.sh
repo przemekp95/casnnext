@@ -71,16 +71,18 @@ tar -C "$package_directory" -cf "$bundle" common.sh manifest.sh export-productio
 chmod 600 "$bundle"
 bundle_hash="$(sha256sum "$bundle" | awk '{print $1}')"
 remote_archive="/tmp/casn-snapshot-install.${reviewed_commit:0:12}.$$.tar"
-readonly bundle bundle_hash remote_archive
+replacement_argument="${replace_reviewed_sha:--}"
+readonly bundle bundle_hash remote_archive replacement_argument
 
 scp "$bundle" "$ssh_target:$remote_archive"
-ssh "$ssh_target" bash -s -- "$remote_root" "$remote_archive" "$bundle_hash" "$replace_reviewed_sha" <<'REMOTE_INSTALL'
+ssh "$ssh_target" bash -s -- "$remote_root" "$remote_archive" "$bundle_hash" "$replacement_argument" <<'REMOTE_INSTALL'
 set -euo pipefail
 
 remote_root="$1"
 archive="$2"
 expected_archive_hash="$3"
 replacement_hash="$4"
+[[ "$replacement_hash" != - ]] || replacement_hash=''
 [[ "$(id -u)" == 0 ]] || exit 70
 [[ "$remote_root" == /* && "$remote_root" != *$'\n'* && "$remote_root" != *'/../'* && "$remote_root" != */.. ]] || exit 71
 [[ "$archive" =~ ^/tmp/casn-snapshot-install\.[0-9a-f]{12}\.[0-9]+\.tar$ ]] || exit 72
@@ -88,6 +90,9 @@ replacement_hash="$4"
 [[ -z "$replacement_hash" || "$replacement_hash" =~ ^[0-9a-f]{64}$ ]] || exit 74
 [[ -f "$archive" && ! -L "$archive" ]] || exit 75
 [[ "$(sha256sum "$archive" | awk '{print $1}')" == "$expected_archive_hash" ]] || exit 76
+for command_name in age curl docker jq openssl sha256sum tar; do
+  command -v "$command_name" >/dev/null 2>&1 || exit 85
+done
 
 staging="$(mktemp -d /tmp/casn-snapshot-install-stage.XXXXXXXX)"
 pending=''

@@ -85,6 +85,7 @@ describe("production exporter installer", () => {
       expect(result.stdout).toContain("SNAPSHOT_AGE_RECIPIENT");
       const log = readFileSync(test.log, "utf8");
       expect(log).toContain("chown root:root");
+      expect(log).toMatch(/bash -s -- .* -(?:\n|$)/);
       expect(log).not.toMatch(/export-production\.sh --env-file|docker stop|mysql /);
     } finally {
       test.cleanup();

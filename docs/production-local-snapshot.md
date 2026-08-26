@@ -16,7 +16,7 @@ Ten runbook odtwarza lokalnie pełną bazę MySQL oraz wolumeny plików Directus
 Ustaw nazwany alias SSH; surowy adres IP nie jest akceptowany przez instalator:
 
 ```bash
-CASN_SNAPSHOT_SSH_TARGET=mikrus
+CASN_SNAPSHOT_SSH_TARGET=casn-mikrus
 CASN_SNAPSHOT_EVIDENCE_DIRECTORY="$(mktemp -d /tmp/casn-snapshot-evidence.XXXXXXXX)"
 chmod 700 "$CASN_SNAPSHOT_EVIDENCE_DIRECTORY"
 ```
@@ -107,6 +107,15 @@ bash scripts/snapshot/install-production-exporter.sh \
 ```
 
 Instalator nie uruchamia eksportera. Administrator uzupełnia bezpośrednio na serwerze `/etc/casn-snapshot/export.env`, ustawia `root:root` i `0600`, a następnie wykonuje tylko:
+
+Eksporter wymaga `age`, `curl`, `docker`, `jq`, `openssl`, `sha256sum` i `tar` na serwerze. Na Ubuntu 24.04 brakujące `age` instalujemy jako pojedynczy pakiet systemowy, bez aktualizacji pozostałych pakietów:
+
+```bash
+sudo apt-get install --no-install-recommends age
+age --version
+```
+
+Następnie wykonaj tylko preflight:
 
 ```bash
 sudo /usr/local/libexec/casn-snapshot/export-production.sh \
