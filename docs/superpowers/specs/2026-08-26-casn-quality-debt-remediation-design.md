@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-26
 
-**Status:** Proposed
+**Status:** Approved with the ESLint compatibility decision recorded below
 
 ## Goal
 
@@ -20,8 +20,8 @@ branch:
 - remove the broad ESLint exclusion of `lib/` and `migrations/`;
 - make lint fail on warnings and remove the current Directus warning;
 - replace the `server.js` inline suppression with an explicit module boundary;
-- move from unsupported ESLint 9 to a supported ESLint 10 release compatible
-  with the checked-in Next.js lint configuration;
+- keep ESLint 9.39.5 only under a CI-enforced compatibility exception through
+  2026-09-30, then require a supported replacement;
 - turn the four unconditional Cypress `it.skip` scenarios in
   `cypress/e2e/hydration.cy.ts` into deterministic executable coverage;
 - ensure CI quality checks are verification-only and never rewrite the checkout;
@@ -58,14 +58,22 @@ Lint will run with `--max-warnings 0`. The composite quality action will call
 the repository scripts and must not invoke Prettier or ESLint with `--write` or
 `--fix`. A clean CI result must mean that the checkout already conforms.
 
-## ESLint upgrade
+## ESLint compatibility decision
 
-Upgrade the exact root ESLint version and lockfile to the current supported
-ESLint 10 release. Keep `eslint-config-next` aligned with the application Next.js
-version unless compatibility evidence requires a coordinated Next.js patch
-upgrade. The upgrade is accepted only if clean installation, lint, typecheck,
-tests, audit, and production build all pass; dependency warnings or new rule
-findings are fixed rather than suppressed.
+An attempted exact ESLint 10.9.0 upgrade proved that the current official
+`eslint-config-next@16.3.3` dependency graph is not cleanly compatible: its
+React, import, and accessibility plugins declare ESLint support only through
+version 9 and npm emits peer-resolution warnings. Forcing peers or dropping the
+Next/React/accessibility rules would create more debt than retaining the known
+toolchain briefly.
+
+ESLint remains pinned to 9.39.5 through 2026-09-30. The quality policy emits a
+notice on every run and fails automatically after that date. Migration to a
+supported release is accepted only when `npm ci` has no peer-resolution warning
+and the full Next/React/accessibility rules remain active. The existing npm EOL
+warning stays visible and must not be suppressed. This is an approved,
+time-bounded upstream compatibility exception, not a claim that ESLint 9 is
+supported.
 
 ## Deterministic Cypress scenarios
 
@@ -136,7 +144,8 @@ verified absent after every live run.
 
 Acceptance requires fresh evidence from the final clean tree:
 
-- `npm ci` without an unsupported-ESLint warning;
+- `npm ci`, with the visible ESLint 9 EOL warning accepted only through
+  2026-09-30 and no peer-resolution warning;
 - lint over all tracked application, `lib`, migration, test, script, and checked-in
   Directus runtime sources with zero warnings;
 - TypeScript typecheck;

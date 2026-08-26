@@ -18,7 +18,19 @@ report_failure() {
 if ! node <<'NODE'
 const pkg = require('./package.json');
 const errors = [];
-if (pkg.devDependencies?.eslint !== '10.9.0') errors.push('ESLint must be pinned exactly to 10.9.0.');
+const eslintVersion = pkg.devDependencies?.eslint;
+const legacyDeadline = '2026-09-30';
+const today = process.env.QUALITY_POLICY_DATE ?? new Date().toISOString().slice(0, 10);
+if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) errors.push('QUALITY_POLICY_DATE must use YYYY-MM-DD.');
+if (eslintVersion === '9.39.5') {
+  if (today > legacyDeadline) {
+    errors.push(`ESLint 9 compatibility exception expired on ${legacyDeadline}.`);
+  } else {
+    console.error(`[quality-policy] NOTICE: ESLint 9 compatibility exception expires after ${legacyDeadline}.`);
+  }
+} else if (!/^10\./.test(eslintVersion ?? '')) {
+  errors.push('ESLint must be pinned to the approved 9.39.5 exception or a supported 10.x release.');
+}
 if (!pkg.scripts?.lint?.includes('--max-warnings 0')) errors.push('lint must reject warnings.');
 if (/--ignore-pattern\s+["']?(lib|migrations)\//.test(pkg.scripts?.lint ?? '')) {
   errors.push('lint must not exclude lib or migrations.');

@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the current Next.js, TypeORM, Directus, and immutable deployment boundaries. Add a small executable quality-policy gate, lint tracked source while narrowly excluding compiler output, execute the four skipped Cypress behaviors against disposable data, and assert that artifact rollback never attempts database or Directus rollback.
 
-**Tech Stack:** Next.js 16.3.3, TypeScript, ESLint 10.9.0, Jest 30, Cypress 15, Bash, Docker, MySQL 8.4, Directus 12.3.1
+**Tech Stack:** Next.js 16.3.3, TypeScript, ESLint 9.39.5 under a CI deadline through 2026-09-30, Jest 30, Cypress 15, Bash, Docker, MySQL 8.4, Directus 12.3.1
 
 **Spec:** `docs/superpowers/specs/2026-08-26-casn-quality-debt-remediation-design.md`
 
@@ -41,7 +41,7 @@ Create an executable Bash script that parses `package.json` with Node and fails 
 ```bash
 node <<'NODE'
 const pkg = require('./package.json');
-if (pkg.devDependencies.eslint !== '10.9.0') throw new Error('ESLint must be exactly 10.9.0');
+if (pkg.devDependencies.eslint !== '9.39.5') throw new Error('Unexpected ESLint compatibility version');
 if (!pkg.scripts.lint.includes('--max-warnings 0')) throw new Error('lint must reject warnings');
 if (/ignore-pattern ['"]?(lib|migrations)\//.test(pkg.scripts.lint)) {
   throw new Error('lint must not exclude lib or migrations');
@@ -215,17 +215,18 @@ git add -A
 git commit -m "fix(quality): lint all tracked runtime sources"
 ```
 
-### Task 3: Upgrade to supported ESLint 10
+### Task 3: Time-box the upstream ESLint compatibility exception
 
 **Files:**
-- Modify: `package.json`
-- Modify: `package-lock.json`
+- Modify: `scripts/ci/quality-debt-policy.sh`
+- Modify: `docs/superpowers/specs/2026-08-26-casn-quality-debt-remediation-design.md`
+- Modify: `docs/superpowers/plans/2026-08-26-casn-quality-debt-remediation.md`
 
 **Interfaces:**
-- Consumes: zero-warning flat configuration from Task 2 and `eslint-config-next@16.3.3` peer contract `eslint >=9.0.0`.
-- Produces: reproducible ESLint 10.9.0 installation without the ESLint 9 end-of-support warning.
+- Consumes: the failed clean-install experiment with ESLint 10.9.0 and the zero-warning flat configuration from Task 2.
+- Produces: visible ESLint 9.39.5 exception that CI automatically rejects after 2026-09-30.
 
-- [ ] **Step 1: Install the exact supported release**
+- [ ] **Step 1: Prove that the direct upgrade is not acceptable**
 
 Run:
 
@@ -233,28 +234,36 @@ Run:
 npm install --save-dev --save-exact eslint@10.9.0
 ```
 
-Expected: `package.json` and lockfile resolve ESLint 10.9.0; no unrelated direct dependency changes.
+Observed: npm emits `ERESOLVE overriding peer dependency` for plugins bundled
+by `eslint-config-next@16.3.3`. Do not commit the dependency or lockfile change;
+restore both to the last committed 9.39.5 state.
 
-- [ ] **Step 2: Verify compatibility before accepting the lockfile**
+- [ ] **Step 2: Encode the approved deadline**
 
-Run:
+Allow exactly ESLint 9.39.5 through 2026-09-30, print a visible notice on every
+policy run, and fail when the current UTC date is later than the deadline. Also
+allow a future pinned 10.x release so the exception can be removed without
+weakening the rest of the policy.
+
+- [ ] **Step 3: Test both sides of the date boundary**
+
+Expose the current date to the inline Node policy through a test-only
+`QUALITY_POLICY_DATE` override. Run:
 
 ```bash
-npm ci
-npm ls eslint eslint-config-next --depth=0
-npm run lint
-npm run type-check
-npm run test:ci
-npm run audit:policy
+QUALITY_POLICY_DATE=2026-09-30 npm run quality:policy
+QUALITY_POLICY_DATE=2026-10-01 npm run quality:policy
 ```
 
-Expected: installation has no unsupported-ESLint warning, ESLint resolves to 10.9.0, and every command passes without a new suppression.
+Expected: the first command reaches only the still-pending Cypress policy check;
+the second also reports the expired ESLint exception. The production default
+continues to use the actual UTC date.
 
-- [ ] **Step 3: Commit the dependency upgrade**
+- [ ] **Step 4: Commit the time-bounded decision**
 
 ```bash
-git add package.json package-lock.json
-git commit -m "chore(deps): upgrade to supported ESLint 10"
+git add scripts/ci/quality-debt-policy.sh docs/superpowers/specs/2026-08-26-casn-quality-debt-remediation-design.md docs/superpowers/plans/2026-08-26-casn-quality-debt-remediation.md
+git commit -m "chore(quality): time-box ESLint 9 compatibility"
 ```
 
 ### Task 4: Execute the four skipped Cypress contracts
