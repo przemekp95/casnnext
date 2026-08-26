@@ -1,17 +1,9 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-
 import { render, screen, within } from '@testing-library/react';
+import KontaktPage from '@/app/kontakt/page';
 
-let PageComponent: any;
-let hasComponent = false;
-try {
-  PageComponent = require('@/app/kontakt/page').default;
-  hasComponent = !!PageComponent;
-} catch {}
-
-(hasComponent ? describe : describe.skip)('Kontakt Page', () => {
+describe('Kontakt Page', () => {
   it('renderuje stronę kontaktową z hero sekcją', () => {
-    render(<PageComponent />);
+    render(<KontaktPage />);
 
     expect(screen.getByRole('heading', { name: 'Kontakt' })).toBeInTheDocument();
 
@@ -21,7 +13,7 @@ try {
   });
 
   it('renderuje breadcrumb navigation', () => {
-    render(<PageComponent />);
+    render(<KontaktPage />);
 
     const breadcrumb = screen.getByRole('navigation', { name: /breadcrumb/i });
     expect(within(breadcrumb).getByRole('link', { name: 'Strona główna' })).toHaveAttribute('href', '/');
@@ -29,7 +21,7 @@ try {
   });
 
   it('renderuje mapę Google z prawidłowym iframe', () => {
-    render(<PageComponent />);
+    render(<KontaktPage />);
 
     const iframe = screen.getByTitle('Mapa dojazdu');
     expect(iframe).toBeInTheDocument();
@@ -40,7 +32,7 @@ try {
   });
 
   it('renderuje informacje kontaktowe - email', () => {
-    render(<PageComponent />);
+    render(<KontaktPage />);
 
     const emailLink = screen.getByRole('link', { name: /fundacja@sluzbaniepodleglej\.pl/ });
     expect(emailLink).toBeInTheDocument();
@@ -48,7 +40,7 @@ try {
   });
 
   it('renderuje informacje kontaktowe - strona www', () => {
-    render(<PageComponent />);
+    render(<KontaktPage />);
 
     const websiteLink = screen.getByRole('link', { name: 'sluzbaniepodleglej.pl' });
     expect(websiteLink).toBeInTheDocument();
@@ -58,28 +50,28 @@ try {
   });
 
   it('renderuje adres fizyczny', () => {
-    render(<PageComponent />);
+    render(<KontaktPage />);
 
     expect(screen.getByText('Centrum Konferencyjno-Szkoleniowe')).toBeInTheDocument();
     expect(screen.getByText('ul. Konduktorska 3/2, 00-775 Warszawa')).toBeInTheDocument();
   });
 
   it('renderuje ikony kontaktowe', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<KontaktPage />);
 
     const icons = container.querySelectorAll('.mdi-email-outline, .mdi-web');
     expect(icons.length).toBe(2);
   });
 
   it('renderuje responsywny layout z col-md-* klasami', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<KontaktPage />);
 
     expect(container.querySelector('.col-md-4')).toBeInTheDocument();
     expect(container.querySelector('.col-md-5')).toBeInTheDocument();
   });
 
   it('renderuje odpowiednie obrazy hero', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<KontaktPage />);
 
     const heroPicture = container.querySelector('.hero-picture');
     const desktopHero = heroPicture?.querySelector('img');
@@ -92,7 +84,7 @@ try {
   });
 
   it('ma odpowiednie klasy CSS dla sekcji', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<KontaktPage />);
 
     expect(container.querySelector('.section')).toBeInTheDocument();
     expect(container.querySelector('[class*="bg-"]')).toBeInTheDocument();
@@ -100,7 +92,7 @@ try {
   });
 
   it('renderuje strukturę semantic HTML', () => {
-    render(<PageComponent />);
+    render(<KontaktPage />);
 
     expect(screen.getByRole('main')).toBeInTheDocument();
 
@@ -111,7 +103,7 @@ try {
   });
 
   it('renderuje wszystkie sekcje w prawidłowej kolejności', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<KontaktPage />);
 
     const sections = container.querySelectorAll('section');
     expect(sections.length).toBe(4); // hero, map, contact info, address
@@ -124,7 +116,7 @@ try {
   });
 
   it('ma accessibility - linki mają odpowiednie atrybuty', () => {
-    render(<PageComponent />);
+    render(<KontaktPage />);
 
     const externalLinks = screen.getAllByRole('link').filter(link =>
       link.getAttribute('target') === '_blank'
@@ -137,7 +129,7 @@ try {
   });
 
   it('renderuje contact icons w odpowiednich kontenerach', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<KontaktPage />);
 
     const contactContainers = container.querySelectorAll('.contact-us-cantent');
     expect(contactContainers.length).toBe(2);

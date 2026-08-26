@@ -1,17 +1,11 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-
 import { render, screen } from '@testing-library/react';
+import HomePage from '@/app/page';
 
-let PageComponent: any;
-let hasComponent = false;
-try {
-  PageComponent = require('@/app/page').default;
-  hasComponent = !!PageComponent;
-} catch {}
+describe('Homepage', () => {
+  it('renderuje główną sekcję z hero', async () => {
+    render(await HomePage());
 
-(hasComponent ? describe : describe.skip)('Homepage', () => {
-  it('renderuje główną sekcję z hero', () => {
-    render(<PageComponent />);
+    expect(screen.getByRole('heading', { level: 1 })).toBeVisible();
 
     // Check for main section structure
     const heroSection = screen.getByRole('main').querySelector('section');
@@ -20,7 +14,7 @@ try {
   });
 
   it('renderuje sekcję "about" z prawidłowym tekstem', () => {
-    render(<PageComponent />);
+    render(<HomePage />);
 
     expect(screen.getByText(/Choć niepodległość państwowa/)).toBeInTheDocument();
     expect(screen.getByText(/Dążymy do dostarczenia najwyższej jakości/)).toBeInTheDocument();
@@ -28,7 +22,7 @@ try {
   });
 
   it('renderuje link do analizy z prawidłowym href', () => {
-    render(<PageComponent />);
+    render(<HomePage />);
 
     const link = screen.getByRole('link', { name: /Przeczytaj analizy/i });
     expect(link).toBeInTheDocument();
@@ -36,7 +30,7 @@ try {
   });
 
   it('renderuje wszystkie obrazy z odpowiednimi atrybutami', () => {
-    render(<PageComponent />);
+    render(<HomePage />);
 
     // Check for Next.js Image components (they render as img tags)
     const images = screen.getAllByRole('img');
@@ -48,7 +42,7 @@ try {
   });
 
   it('ma odpowiednie struktury CSS i klasy', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<HomePage />);
 
     // Check for Bootstrap classes
     expect(container.querySelector('.container')).toBeInTheDocument();
@@ -58,7 +52,7 @@ try {
   });
 
   it('renderuje sekcje w prawidłowej kolejności', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<HomePage />);
 
     const sections = container.querySelectorAll('section');
     expect(sections.length).toBe(3); // hero, about, work sections
@@ -74,7 +68,7 @@ try {
   });
 
   it('renderuje responsywne layout z col-lg-* klasami', () => {
-    const { container } = render(<PageComponent />);
+    const { container } = render(<HomePage />);
 
     const columns = container.querySelectorAll('[class*="col-lg-"]');
     expect(columns.length).toBeGreaterThan(0);
@@ -84,7 +78,7 @@ try {
   });
 
   it('zawiera odpowiednie meta informacje i strukturę', () => {
-    render(<PageComponent />);
+    render(<HomePage />);
 
     // Check for semantic HTML structure
     expect(screen.getByRole('main')).toBeInTheDocument();
@@ -97,7 +91,7 @@ try {
   });
 
   it('renderuje tekst o niepodległości w odpowiednim kontekście', () => {
-    render(<PageComponent />);
+    render(<HomePage />);
 
     const textElement = screen.getByText(/Choć niepodległość państwowa/);
     expect(textElement).toBeInTheDocument();
@@ -108,7 +102,7 @@ try {
   });
 
   it('renderuje call-to-action w sekcji about', () => {
-    render(<PageComponent />);
+    render(<HomePage />);
 
     const ctaButton = screen.getByRole('link', { name: /Przeczytaj analizy/i });
     const ctaSection = ctaButton.closest('section');

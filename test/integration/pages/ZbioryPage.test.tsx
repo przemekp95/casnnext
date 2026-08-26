@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-
 import { render, screen, within } from '@testing-library/react';
+import AnnualReportsPage from '@/app/zbiory/page';
 
 jest.mock('@/lib/server/issues', () => ({
   getIssueCollections: jest.fn(async () => ([
@@ -12,19 +11,12 @@ jest.mock('@/lib/server/issues', () => ({
   ])),
 }));
 
-let PageComponent: any;
-let hasComponent = false;
-try {
-  PageComponent = require('@/app/zbiory/page').default;
-  hasComponent = !!PageComponent;
-} catch {}
-
 async function renderPage() {
-  const jsx = await PageComponent();
+  const jsx = await AnnualReportsPage();
   return render(jsx);
 }
 
-(hasComponent ? describe : describe.skip)('Zbiory Page', () => {
+describe('Zbiory Page', () => {
   it('renderuje stronę zbiorów z hero sekcją', async () => {
     await renderPage();
 

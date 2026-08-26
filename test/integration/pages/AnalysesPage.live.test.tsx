@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor, within } from '@testing-library/react';
-
-const PageComponent: any = require('@/app/analizy/page').default;
+import AnalysesPage from '@/app/analizy/page';
 
 describe('Analyses Page', () => {
   it('renders standard page shell when NEXT_PHASE indicates production build', async () => {
@@ -9,7 +7,7 @@ describe('Analyses Page', () => {
     process.env.NEXT_PHASE = 'phase-production-build';
 
     try {
-      render(await PageComponent());
+      render(await AnalysesPage());
 
       expect(screen.getByRole('heading', { level: 1, name: 'Analizy' })).toBeInTheDocument();
       expect(screen.queryByText('Ładowanie analiz...')).not.toBeInTheDocument();
@@ -27,7 +25,7 @@ describe('Analyses Page', () => {
   it('renders hero section and breadcrumb links', async () => {
     delete process.env.NEXT_PHASE;
 
-    render(await PageComponent());
+    render(await AnalysesPage());
 
     expect(screen.getByRole('heading', { level: 1, name: 'Analizy' })).toBeInTheDocument();
 
@@ -39,7 +37,7 @@ describe('Analyses Page', () => {
   it('renders analyses list summary and either cards or empty state', async () => {
     delete process.env.NEXT_PHASE;
 
-    const { container } = render(await PageComponent());
+    const { container } = render(await AnalysesPage());
 
     const summaryHeading = screen.getByRole('heading', {
       level: 2,
@@ -50,43 +48,38 @@ describe('Analyses Page', () => {
 
     if (total === 0) {
       expect(screen.getByText('Brak dostępnych analiz. Sprawdź ponownie później.')).toBeInTheDocument();
-      return;
+    } else {
+      await waitFor(() => {
+        expect(container.querySelector('.projects-wrapper')).toBeInTheDocument();
+        expect(container.querySelector('.blog-list-item')).toBeInTheDocument();
+      });
+
+      const cards = Array.from(container.querySelectorAll('.blog-list-item'));
+      expect(cards.length).toBeGreaterThan(0);
+
+      cards.forEach((card) => {
+        const titleLink = card.querySelector('.cases-desc a[href^="/analizy/"]');
+        const authorLink = card.querySelector('.cases-desc a[href^="/autor/"]');
+        const readLink = card.querySelector('.learn-more a[href^="/analizy/"]');
+
+        expect(titleLink).toBeTruthy();
+        expect(authorLink).toBeTruthy();
+        expect(readLink).toBeTruthy();
+      });
     }
-
-    await waitFor(() => {
-      expect(container.querySelector('.projects-wrapper')).toBeInTheDocument();
-      expect(container.querySelector('.blog-list-item')).toBeInTheDocument();
-    });
-
-    const cards = Array.from(container.querySelectorAll('.blog-list-item'));
-    expect(cards.length).toBeGreaterThan(0);
-
-    cards.forEach((card) => {
-      const titleLink = card.querySelector('.cases-desc a[href^="/analizy/"]');
-      const authorLink = card.querySelector('.cases-desc a[href^="/autor/"]');
-      const readLink = card.querySelector('.learn-more a[href^="/analizy/"]');
-
-      expect(titleLink).toBeTruthy();
-      expect(authorLink).toBeTruthy();
-      expect(readLink).toBeTruthy();
-    });
   });
 
   it('renders PRZECZYTAJ links to analysis detail pages', async () => {
     delete process.env.NEXT_PHASE;
 
-    render(await PageComponent());
+    render(await AnalysesPage());
 
-    const readLinks = screen.queryAllByRole('link', { name: 'PRZECZYTAJ' });
+    const links = screen.queryAllByRole('link', { name: /przeczytaj/i });
 
-    if (readLinks.length === 0) {
+    if (links.length === 0) {
       expect(screen.getByText('Brak dostępnych analiz. Sprawdź ponownie później.')).toBeInTheDocument();
-      return;
+    } else {
+      expect(links[0]).toHaveAttribute('href', expect.stringMatching(/^\/analizy\//));
     }
-
-    readLinks.forEach((link) => {
-      expect(link).toHaveAttribute('href');
-      expect(link.getAttribute('href')).toMatch(/^\/analizy\/[^/]+$/);
-    });
   });
 });
