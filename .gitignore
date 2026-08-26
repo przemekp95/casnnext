@@ -80,6 +80,7 @@ posts_backup_*/
 analizy-wegry-desktop.html
 
 /deploy
+/.worktrees/
 casn.sql.env.local
 .env.production
 tmp/
