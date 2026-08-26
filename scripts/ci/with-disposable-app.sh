@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly script_directory
+# shellcheck source=scripts/ci/disposable-process-identity.sh
+source "$script_directory/disposable-process-identity.sh"
+
 readonly app_host='127.0.0.1'
 readonly app_port='31337'
 readonly app_base_url="http://${app_host}:${app_port}"
@@ -17,6 +22,15 @@ app_pid=''
 mysql_port=''
 active_pid=''
 active_pgid=''
+active_start_time=''
+active_parent_pid=''
+active_session_id=''
+app_start_time=''
+app_pgid=''
+app_parent_pid=''
+app_session_id=''
+app_identity=''
+ownership_verification_failed=0
 
 fail() {
   printf '[disposable-app] ERROR: %s\n' "$1" >&2
@@ -37,50 +51,117 @@ mysql_is_running() {
   [[ "$(docker container inspect --format '{{.State.Running}}' "$container_name" 2>/dev/null)" == 'true' ]]
 }
 
-terminate_active_command() {
-  local current_pgid=''
+capture_owned_process_identity() {
+  local pid="$1"
+  local require_group_leader="$2"
+  local identity
+  local start_time
+  local process_group
+  local parent_pid
+  local session_id
   local attempt
+
+  for ((attempt = 0; attempt < 500; attempt += 1)); do
+    if identity="$(casn_read_process_identity "$pid")"; then
+      read -r start_time process_group parent_pid session_id <<<"$identity"
+      if [[ "$parent_pid" == "$$" ]]; then
+        if [[ "$require_group_leader" == '0' \
+          || ("$process_group" == "$pid" && "$session_id" == "$pid") ]]; then
+          printf '%s\n' "$identity"
+          return 0
+        fi
+      fi
+    elif [[ ! -e "/proc/$pid/stat" ]]; then
+      return 1
+    fi
+    sleep 0.01
+  done
+  return 1
+}
+
+active_identity_matches() {
+  casn_process_identity_matches \
+    "$active_pid" "$active_start_time" "$active_pgid" "$active_parent_pid" "$active_session_id"
+}
+
+app_identity_matches() {
+  casn_process_identity_matches \
+    "$app_pid" "$app_start_time" "$app_pgid" "$app_parent_pid" "$app_session_id"
+}
+
+clear_active_identity() {
+  active_pid=''
+  active_pgid=''
+  active_start_time=''
+  active_parent_pid=''
+  active_session_id=''
+}
+
+terminate_active_command() {
+  local attempt
+  local termination_failed=0
 
   [[ "$active_pid" =~ ^[0-9]+$ ]] || return 0
 
-  current_pgid="$(ps -o pgid= -p "$active_pid" 2>/dev/null | tr -d '[:space:]')"
-  if [[ "$active_pgid" =~ ^[0-9]+$ && "$current_pgid" == "$active_pgid" ]]; then
-    kill -TERM -- "-$active_pgid" 2>/dev/null || true
-    for ((attempt = 0; attempt < 50; attempt += 1)); do
-      kill -0 -- "-$active_pgid" 2>/dev/null || break
-      sleep 0.1
-    done
-    if kill -0 -- "-$active_pgid" 2>/dev/null; then
-      kill -KILL -- "-$active_pgid" 2>/dev/null || true
+  if ! active_identity_matches; then
+    if [[ -e "/proc/$active_pid/stat" ]]; then
+      printf '[disposable-app] Refusing to signal active PID %s: durable identity mismatch.\n' "$active_pid" >&2
+      ownership_verification_failed=1
+      termination_failed=1
+    else
+      wait "$active_pid" 2>/dev/null || true
     fi
-  elif kill -0 "$active_pid" 2>/dev/null; then
-    kill -TERM "$active_pid" 2>/dev/null || true
-    for ((attempt = 0; attempt < 50; attempt += 1)); do
-      kill -0 "$active_pid" 2>/dev/null || break
+    clear_active_identity
+    return "$termination_failed"
+  fi
+
+  kill -TERM -- "-$active_pgid" 2>/dev/null || true
+  for ((attempt = 0; attempt < 50; attempt += 1)); do
+    if active_identity_matches; then
       sleep 0.1
-    done
-    if kill -0 "$active_pid" 2>/dev/null; then
-      kill -KILL "$active_pid" 2>/dev/null || true
+    else
+      if [[ -e "/proc/$active_pid/stat" ]]; then
+        printf '[disposable-app] Refusing further signals to active PID %s: durable identity changed.\n' "$active_pid" >&2
+        ownership_verification_failed=1
+        termination_failed=1
+      fi
+      break
     fi
+  done
+  if active_identity_matches; then
+    kill -KILL -- "-$active_pgid" 2>/dev/null || true
   fi
 
   wait "$active_pid" 2>/dev/null || true
-  active_pid=''
-  active_pgid=''
+  clear_active_identity
+  return "$termination_failed"
 }
 
 handle_signal() {
   local signal_status="$1"
-  terminate_active_command
+  if terminate_active_command; then
+    printf '[disposable-app] signal active command terminated status=%s\n' "$signal_status" >&2
+  else
+    printf '[disposable-app] signal active command ownership verification failed status=%s\n' "$signal_status" >&2
+  fi
   exit "$signal_status"
 }
 
 run_interruptible() {
   local command_status
+  local identity
 
   setsid --wait "$@" &
   active_pid=$!
   active_pgid=$active_pid
+
+  if identity="$(capture_owned_process_identity "$active_pid" 1)"; then
+    read -r active_start_time active_pgid active_parent_pid active_session_id <<<"$identity"
+  elif [[ -e "/proc/$active_pid/stat" ]]; then
+    printf '[disposable-app] Unable to capture durable identity for active PID %s.\n' "$active_pid" >&2
+    ownership_verification_failed=1
+    return 1
+  fi
 
   if wait "$active_pid"; then
     command_status=0
@@ -88,37 +169,51 @@ run_interruptible() {
     command_status=$?
   fi
 
-  active_pid=''
-  active_pgid=''
+  clear_active_identity
   return "$command_status"
 }
 
 cleanup() {
   local original_status="$1"
-  local cleanup_failed=0
+  local cleanup_failed="$ownership_verification_failed"
   local attempt
   local container_inventory=''
   local port_status=0
+  local app_was_owned=0
 
   trap - EXIT INT TERM
   set +e
 
-  terminate_active_command
+  terminate_active_command || cleanup_failed=1
+  ((ownership_verification_failed == 0)) || cleanup_failed=1
 
   if [[ "$app_pid" =~ ^[0-9]+$ ]]; then
-    if kill -0 "$app_pid" 2>/dev/null; then
+    if app_identity_matches; then
+      app_was_owned=1
       kill "$app_pid" 2>/dev/null
       for attempt in {1..50}; do
-        kill -0 "$app_pid" 2>/dev/null || break
-        sleep 0.1
+        if app_identity_matches; then
+          sleep 0.1
+        else
+          if [[ -e "/proc/$app_pid/stat" ]]; then
+            printf '[disposable-app] Refusing further signals to app PID %s: durable identity changed.\n' "$app_pid" >&2
+            cleanup_failed=1
+          fi
+          break
+        fi
       done
-      if kill -0 "$app_pid" 2>/dev/null; then
+      if app_identity_matches; then
         kill -KILL "$app_pid" 2>/dev/null
       fi
+    elif [[ -e "/proc/$app_pid/stat" ]]; then
+      printf '[disposable-app] Refusing to signal app PID %s: durable identity mismatch.\n' "$app_pid" >&2
+      cleanup_failed=1
     fi
-    wait "$app_pid" 2>/dev/null
-    if kill -0 "$app_pid" 2>/dev/null; then
-      printf '[disposable-app] Application PID still exists after cleanup: %s\n' "$app_pid" >&2
+    if ((app_was_owned != 0)) || [[ ! -e "/proc/$app_pid/stat" ]]; then
+      wait "$app_pid" 2>/dev/null
+    fi
+    if app_identity_matches; then
+      printf '[disposable-app] Owned application process still exists after cleanup: %s\n' "$app_pid" >&2
       cleanup_failed=1
     fi
   fi
@@ -221,8 +316,11 @@ wait_for_app() {
     if ! mysql_is_running; then
       fail "MySQL container exited while waiting for the application: $container_name"
     fi
-    if ! kill -0 "$app_pid" 2>/dev/null; then
+    if ! app_identity_matches; then
       sed -n '1,240p' "$temp_dir/app.log" >&2 || true
+      if [[ -e "/proc/$app_pid/stat" ]]; then
+        fail "Application PID identity changed before health readiness: $app_pid"
+      fi
       fail "Application process exited before health readiness: $app_pid"
     fi
     if curl --fail --silent --show-error --max-time 2 "$app_base_url/api/health" >/dev/null 2>&1; then
@@ -297,6 +395,15 @@ DATABASE_URL="$database_url" \
 node server.cjs >"$temp_dir/app.log" 2>&1 &
 app_pid=$!
 
+if app_identity="$(capture_owned_process_identity "$app_pid" 0)"; then
+  read -r app_start_time app_pgid app_parent_pid app_session_id <<<"$app_identity"
+else
+  if [[ -e "/proc/$app_pid/stat" ]]; then
+    ownership_verification_failed=1
+  fi
+  fail "Unable to capture durable identity for application PID: $app_pid"
+fi
+
 wait_for_app
 
 set +e
@@ -313,7 +420,7 @@ if ! mysql_is_running; then
   printf '[disposable-app] MySQL container exited while the child command ran: %s\n' "$container_name" >&2
   infrastructure_failed=1
 fi
-if ! kill -0 "$app_pid" 2>/dev/null; then
+if ! app_identity_matches; then
   printf '[disposable-app] Application process exited while the child command ran: %s\n' "$app_pid" >&2
   infrastructure_failed=1
 fi
