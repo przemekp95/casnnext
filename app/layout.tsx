@@ -77,7 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pl" className={`${roboto.variable} ${rubik.variable}`}>
       <head>
         <link rel="stylesheet" href="/css/legacy/bootstrap.min.css" />
-        <link rel="stylesheet" href="/css/legacy/style.css" />
+        <link rel="stylesheet" href="/css/legacy/style.css?v=20260826-hero-contrast" />
         <link rel="stylesheet" href="/css/legacy/menu.css" />
         <link rel="stylesheet" href="/css/legacy/owl.carousel.css" />
         <link rel="stylesheet" href="/css/legacy/owl.theme.css" />

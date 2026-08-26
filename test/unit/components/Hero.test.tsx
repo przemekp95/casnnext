@@ -16,12 +16,15 @@ describe('Hero', () => {
       />
     );
 
-    expect(container.querySelector('.hero-contrast-overlay')).toBeInTheDocument();
+    expect(container.querySelector('.hero-contrast-overlay')).toHaveStyle({
+      background: 'linear-gradient(180deg, rgba(10, 10, 12, 0.52) 0%, rgba(10, 10, 12, 0.72) 100%)',
+      opacity: '1',
+    });
     expect(screen.getByRole('heading', { name: 'Nasi autorzy' }).closest('.hero-content-panel'))
-      .toBeInTheDocument();
-    expect(screen.getByText('Nasi autorzy', { selector: '.hero-breadcrumb-current' })
-      .closest('[aria-current="page"]'))
-      .toHaveClass('hero-breadcrumb-active');
+      .toHaveStyle({ background: 'rgba(18, 18, 20, 0.76)' });
+    const currentBreadcrumb = screen.getByText('Nasi autorzy', { selector: '.hero-breadcrumb-current' });
+    expect(currentBreadcrumb).toHaveClass('text-custom');
+    expect(currentBreadcrumb.closest('[aria-current="page"]')).toHaveClass('hero-breadcrumb-active');
   });
 
   it('preserves the original solid-black 50% overlay for the background-only homepage hero', () => {
@@ -39,10 +42,12 @@ describe('Hero', () => {
 
   it('keeps the contrast colors and responsive opacity in the legacy stylesheet', () => {
     const css = readFileSync(join(process.cwd(), 'public/css/legacy/style.css'), 'utf8');
+    const layout = readFileSync(join(process.cwd(), 'app/layout.tsx'), 'utf8');
 
     expect(css).toMatch(/\.topnav-bg\s*{[^}]*background:\s*#242426;/s);
     expect(css).toMatch(/\.contact-us-home \.hero-contrast-overlay\s*{[^}]*rgba\(10, 10, 12, 0\.72\)[^}]*opacity:\s*1;/s);
     expect(css).toMatch(/\.hero-content-panel\s*{[^}]*rgba\(18, 18, 20, 0\.76\)/s);
     expect(css).toMatch(/@media\s*\(max-width:\s*768px\)[\s\S]*?\.hero-content-panel\s*{[^}]*rgba\(18, 18, 20, 0\.82\)/s);
+    expect(layout).toContain('/css/legacy/style.css?v=20260826-hero-contrast');
   });
 });
