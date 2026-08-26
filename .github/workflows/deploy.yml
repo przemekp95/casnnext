@@ -23,6 +23,14 @@ on:
         description: "Full 40-hex app Git revision; must match this workflow ref and image label"
         required: true
         type: string
+      operation:
+        description: "Authenticate the remote Docker daemon only, or perform the full deployment"
+        required: true
+        default: "deploy"
+        type: choice
+        options:
+          - deploy
+          - authenticate-only
 
 permissions:
   contents: read
@@ -238,6 +246,7 @@ jobs:
       EXPECTED_APP_REVISION: ${{ github.sha }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       GHCR_USERNAME: ${{ github.repository_owner }}
+      DEPLOY_OPERATION: ${{ inputs.operation }}
 
     steps:
       - name: Checkout repository
@@ -297,7 +306,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME
+          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION
           script: |
             set -eu
             cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
@@ -306,8 +315,13 @@ jobs:
             git checkout --detach "$APP_REVISION"
             test "$(git rev-parse HEAD)" = "$APP_REVISION"
 
-            scripts/deploy/write-artifact-env.sh .env
             scripts/deploy/login-registry.sh
+            if [ "$DEPLOY_OPERATION" = "authenticate-only" ]; then
+              echo "Remote GHCR authentication completed; deployment intentionally skipped."
+              exit 0
+            fi
+
+            scripts/deploy/write-artifact-env.sh .env
             docker pull "$APP_IMAGE"
             docker pull "$NGINX_IMAGE"
 
@@ -338,7 +352,7 @@ jobs:
           echo '6. Deploy: docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans'
 
       - name: Health check
-        if: ${{ env.HEALTH_CHECK_URL != '' }}
+        if: ${{ inputs.operation == 'deploy' && env.HEALTH_CHECK_URL != '' }}
         run: |
           echo "Performing health check..."
           for i in {1..30}; do
