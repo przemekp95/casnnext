@@ -37,7 +37,8 @@
     "db:seed": "echo 'Seeding handled by migrations - data included in InitialSetup migration'",
     "migration:run": "tsx scripts/run-migrations.ts",
     "migration:create": "tsx node_modules/.bin/typeorm migration:create",
-    "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.datasource.ts"
+    "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.datasource.ts",
+    "first-party-quality:policy:test": "bash scripts/ci/first-party-quality-policy-test.sh"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.0",
