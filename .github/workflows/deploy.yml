@@ -357,19 +357,21 @@ jobs:
           echo '6. Deploy: docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans'
 
       - name: Health check
-        if: ${{ inputs.operation == 'deploy' && env.HEALTH_CHECK_URL != '' }}
-        run: |
-          echo "Performing health check..."
-          for i in {1..30}; do
-            if curl --fail --silent --show-error "$HEALTH_CHECK_URL" > /dev/null; then
-              echo "Health check passed"
-              exit 0
-            fi
-            echo "Health check attempt $i failed, retrying in 10 seconds..."
-            sleep 10
-          done
-          echo "Health check failed after 30 attempts"
-          exit 1
+        if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' && env.HEALTH_CHECK_URL != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          HEALTH_CHECK_URL: ${{ env.HEALTH_CHECK_URL }}
+          APP_REVISION: ${{ env.APP_REVISION }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          envs: HEALTH_CHECK_URL,APP_REVISION
+          script: |
+            set -eu
+            cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
+            scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"
 
       - name: Notify deployment status
         if: always()

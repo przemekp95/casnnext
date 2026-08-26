@@ -4,6 +4,7 @@ set -euo pipefail
 readonly DEPLOY_WORKFLOW='.github/workflows/deploy.yml'
 readonly ARTIFACT_ENV_WRITER='scripts/deploy/write-artifact-env.sh'
 readonly REGISTRY_LOGIN='scripts/deploy/login-registry.sh'
+readonly HEALTH_VERIFIER='scripts/deploy/verify-health.sh'
 readonly ACTIONLINT_IMAGE='rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9'
 readonly APP_IMAGE_FIXTURE='ghcr.io/example/casn@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 readonly NGINX_IMAGE_FIXTURE='ghcr.io/example/casn-nginx@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -53,6 +54,7 @@ for required_source in \
   'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION' \
   'scripts/deploy/write-artifact-env.sh .env' \
   'scripts/deploy/login-registry.sh' \
+  'scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"' \
   "docker pull \"\$APP_IMAGE\"" \
   "docker pull \"\$NGINX_IMAGE\"" \
   'docker compose --env-file .env -f docker-compose.portainer.yml config --quiet' \
@@ -70,6 +72,11 @@ fi
 
 if [[ ! -x "$REGISTRY_LOGIN" ]]; then
   echo "$REGISTRY_LOGIN must exist and be executable" >&2
+  exit 1
+fi
+
+if [[ ! -x "$HEALTH_VERIFIER" ]]; then
+  echo "$HEALTH_VERIFIER must exist and be executable" >&2
   exit 1
 fi
 
