@@ -132,6 +132,10 @@ printf "const runtimePath = './dist/runtime/server.js';\n" >"$fixture/server.cjs
 expect_rejected 'server.cjs must load ./dist/runtime/server.js.' launcher
 
 create_fixture
+printf "launcher.import('./dist/runtime/server.js');\n" >"$fixture/server.cjs"
+expect_rejected 'server.cjs must load ./dist/runtime/server.js.' launcher
+
+create_fixture
 printf 'COPY lib /app/lib\n' >>"$fixture/Dockerfile"
 expect_rejected 'Dockerfile must not copy /app/lib or /app/migrations.' image
 

@@ -125,6 +125,7 @@ check_launcher() {
 
     let hasRequire = false;
     let hasRuntimeImport = false;
+    let previousToken = null;
     for (let index = 0; index < source.length;) {
       if (source.startsWith("//", index)) {
         const newline = source.indexOf(String.fromCharCode(10), index + 2);
@@ -138,19 +139,21 @@ check_launcher() {
       }
       if ([String.fromCharCode(34), String.fromCharCode(39), "`"].includes(source[index])) {
         const string = readString(index);
+        previousToken = "literal";
         index = string ? string.end : source.length;
         continue;
       }
 
       const word = source.slice(index).match(/^[A-Za-z_$][A-Za-z0-9_$]*/)?.[0];
       if (!word || isIdentifier(source[index - 1])) {
+        if (!/\s/.test(source[index] ?? "")) previousToken = source[index];
         index += 1;
         continue;
       }
 
       let next = skipWhitespace(index + word.length);
       if (word === "require" && source[next] === "(") hasRequire = true;
-      if (word === "import" && source[next] === "(") {
+      if (word === "import" && previousToken !== "." && source[next] === "(") {
         next = skipWhitespace(next + 1);
         if (source[next] === String.fromCharCode(34) || source[next] === String.fromCharCode(39)) {
           const runtimePath = readString(next);
@@ -160,6 +163,7 @@ check_launcher() {
           }
         }
       }
+      previousToken = word;
       index += word.length;
     }
 
