@@ -81,7 +81,7 @@ create_candidate_volume() {
 
 restore_media() {
   local archive="$1" volume="$2"
-  docker run --rm \
+  docker run --rm -i \
     --mount "type=volume,src=$volume,dst=/to" \
     "$mysql_image" \
     tar -C /to -xf - < "$archive"
@@ -195,6 +195,11 @@ main() {
     and (.services.mysql.ports | length == 1 and .[0].host_ip == "127.0.0.1")
     and (.services.nginx.ports | length == 1 and .[0].host_ip == "127.0.0.1")
     and .networks.casn_snapshot_internal.internal == true
+    and .networks.casn_snapshot_loopback.internal != true
+    and (.services.mysql.networks | has("casn_snapshot_internal") and has("casn_snapshot_loopback"))
+    and (.services.nginx.networks | has("casn_snapshot_internal") and has("casn_snapshot_loopback"))
+    and (.services.app.networks | keys == ["casn_snapshot_internal"])
+    and (.services.directus.networks | keys == ["casn_snapshot_internal"])
   ' <<< "$rendered_config" >/dev/null || die 'rendered local Compose boundary is unsafe'
   [[ "$rendered_config" != *casn.pl* ]] || die 'rendered local Compose contains a production URL'
 

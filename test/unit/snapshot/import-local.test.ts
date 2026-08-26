@@ -30,7 +30,7 @@ case "$all" in
   *" volume inspect "*) [[ "$FAKE_EXISTING_VOLUME" == 1 ]] ;;
   *" volume create "*) printf '%s\n' "\${*: -1}" ;;
   *" compose "*" config "*"--format json"*)
-    printf '%s' '{"services":{"mysql":{"environment":{"MYSQL_DATABASE":"casn_local"},"ports":[{"host_ip":"127.0.0.1","published":"13307","target":3306}],"networks":{"casn_snapshot_internal":null}},"directus":{"networks":{"casn_snapshot_internal":null}},"app":{"environment":{"DB_NAME":"casn_local"},"networks":{"casn_snapshot_internal":null}},"nginx":{"ports":[{"host_ip":"127.0.0.1","published":"13010","target":8080}],"networks":{"casn_snapshot_internal":null}}},"networks":{"casn_snapshot_internal":{"internal":true}}}'
+    printf '%s' '{"services":{"mysql":{"environment":{"MYSQL_DATABASE":"casn_local"},"ports":[{"host_ip":"127.0.0.1","published":"13307","target":3306}],"networks":{"casn_snapshot_internal":null,"casn_snapshot_loopback":null}},"directus":{"networks":{"casn_snapshot_internal":null}},"app":{"environment":{"DB_NAME":"casn_local"},"networks":{"casn_snapshot_internal":null}},"nginx":{"ports":[{"host_ip":"127.0.0.1","published":"13010","target":8080}],"networks":{"casn_snapshot_internal":null,"casn_snapshot_loopback":null}}},"networks":{"casn_snapshot_internal":{"internal":true},"casn_snapshot_loopback":{"internal":false}}}'
     ;;
   *" compose "*" up "*) ;;
   *" compose "*" ps -q mysql"*) printf 'candidate-mysql-id\n' ;;
@@ -201,6 +201,7 @@ describe("local snapshot importer", () => {
       const handoff = readFileSync(join(run.handoff, handoffFiles[0]), "utf8");
       expect(handoff).toContain("casn_snapshot_20260826t121500z-a1b2c3d4");
       expect(handoff).not.toContain("local-root-secret");
+      expect(run.commandLog).toContain("run --rm -i --mount");
       expect(run.commandLog).not.toMatch(/ssh|scp|DROP|volume rm|down -v/);
     } finally {
       run.cleanup();

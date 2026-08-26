@@ -26,6 +26,7 @@ services:
       retries: 30
     networks:
       - casn_snapshot_internal
+      - casn_snapshot_loopback
 
   directus:
     image: directus/directus:12.3.1@sha256:8978edf633ae28aa31464bb71c55300c94d8bc771ff3727b5fac485173283869
@@ -120,6 +121,7 @@ services:
       start_period: 5s
     networks:
       - casn_snapshot_internal
+      - casn_snapshot_loopback
 
 volumes:
   mysql_data:
@@ -129,3 +131,4 @@ volumes:
 networks:
   casn_snapshot_internal:
     internal: true
+  casn_snapshot_loopback:

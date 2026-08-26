@@ -105,6 +105,12 @@ migrations/*.js
 # database dumps
 *.sql
 
+# encrypted production-to-local snapshots and private age identities
+/.casn-snapshots/
+*.casn-snapshot.age
+*.snapshot.manifest.json
+*.agekey
+
 .early.coverage
 
 # Strapi local build/runtime artifacts

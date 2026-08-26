@@ -64,10 +64,14 @@ describe("snapshot local Compose boundary", () => {
     expect(config.services.directus.ports).toBeUndefined();
 
     expect(config.networks.casn_snapshot_internal.internal).toBe(true);
+    expect(config.networks.casn_snapshot_loopback.internal).not.toBe(true);
     for (const service of Object.values(config.services)) {
       expect(service.container_name).toBeUndefined();
-      expect(Object.keys(service.networks ?? {})).toEqual(["casn_snapshot_internal"]);
     }
+    expect(Object.keys(config.services.app.networks ?? {})).toEqual(["casn_snapshot_internal"]);
+    expect(Object.keys(config.services.directus.networks ?? {})).toEqual(["casn_snapshot_internal"]);
+    expect(Object.keys(config.services.mysql.networks ?? {}).sort()).toEqual(["casn_snapshot_internal", "casn_snapshot_loopback"]);
+    expect(Object.keys(config.services.nginx.networks ?? {}).sort()).toEqual(["casn_snapshot_internal", "casn_snapshot_loopback"]);
 
     const directusVolumes = config.services.directus.volumes ?? [];
     const directusUploads = directusVolumes.find(
