@@ -1,6 +1,7 @@
 name: CI/CD Pipeline
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, dev ]
     tags: [ 'v*' ]
@@ -56,6 +57,11 @@ jobs:
           else
             npm install
           fi
+
+      - name: Install snapshot test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes age
 
       - name: Clear TypeScript cache
         run: rm -rf node_modules/.cache tsconfig.tsbuildinfo tsconfig.ci.tsbuildinfo

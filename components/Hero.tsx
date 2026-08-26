@@ -92,10 +92,10 @@ export default function Hero({
 
       {/* Overlay */}
       <div
-        className="bg-overlay"
+        className={`bg-overlay${variant === 'background-only' ? '' : ' hero-contrast-overlay'}`}
         style={{
-          backgroundColor: '#000',
-          opacity: 0.5,
+          backgroundColor: variant === 'background-only' ? '#000' : undefined,
+          opacity: variant === 'background-only' ? 0.5 : undefined,
           position: 'absolute',
           top: 0,
           left: 0,
@@ -112,11 +112,9 @@ export default function Hero({
             <div className="container">
               <div className="row justify-content-center">
                 <div
-                  className="col-lg-10 col-xl-9"
+                  className="col-lg-10 col-xl-9 hero-content-panel"
                   style={{
-                    background: "rgba(30, 30, 30, 0.65)",
                     padding: variant === 'home' ? '40px' : '30px',
-                    borderRadius: '8px'
                   }}
                 >
                   <div className="home-page-title text-center">
@@ -139,15 +137,15 @@ export default function Hero({
                           {finalBreadcrumbs.map((c, i) => (
                             <li
                               key={i}
-                              className={"breadcrumb-item " + (c.active ? "active" : "text-white")}
+                              className={"breadcrumb-item " + (c.active ? "active hero-breadcrumb-active" : "text-white")}
                               aria-current={c.active ? "page" : undefined}
                             >
                               {c.href ? (
-                                <Link href={c.href} className={c.active ? "text-custom" : "text-white"}>
+                                <Link href={c.href} className={c.active ? "hero-breadcrumb-current" : "text-white"}>
                                   {c.label}
                                 </Link>
                               ) : (
-                                <span className={c.active ? "text-custom" : ""}>{c.label}</span>
+                                <span className={c.active ? "hero-breadcrumb-current" : ""}>{c.label}</span>
                               )}
                             </li>
                           ))}

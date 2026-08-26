@@ -80,6 +80,7 @@ posts_backup_*/
 analizy-wegry-desktop.html
 
 /deploy
+/.worktrees/
 casn.sql.env.local
 .env.production
 tmp/
@@ -103,6 +104,12 @@ migrations/*.js
 
 # database dumps
 *.sql
+
+# encrypted production-to-local snapshots and private age identities
+/.casn-snapshots/
+*.casn-snapshot.age
+????????T??????Z-????????.manifest.json
+*.agekey
 
 .early.coverage
 
