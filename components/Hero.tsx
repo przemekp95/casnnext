@@ -94,8 +94,10 @@ export default function Hero({
       <div
         className={`bg-overlay${variant === 'background-only' ? '' : ' hero-contrast-overlay'}`}
         style={{
-          backgroundColor: variant === 'background-only' ? '#000' : undefined,
-          opacity: variant === 'background-only' ? 0.5 : undefined,
+          background: variant === 'background-only'
+            ? '#000'
+            : 'linear-gradient(180deg, rgba(10, 10, 12, 0.52) 0%, rgba(10, 10, 12, 0.72) 100%)',
+          opacity: variant === 'background-only' ? 0.5 : 1,
           position: 'absolute',
           top: 0,
           left: 0,
@@ -114,7 +116,12 @@ export default function Hero({
                 <div
                   className="col-lg-10 col-xl-9 hero-content-panel"
                   style={{
+                    background: 'rgba(18, 18, 20, 0.76)',
                     padding: variant === 'home' ? '40px' : '30px',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    borderRadius: '8px',
+                    boxShadow: '0 18px 45px rgba(0, 0, 0, 0.22)',
+                    backdropFilter: 'blur(2px)',
                   }}
                 >
                   <div className="home-page-title text-center">
@@ -141,11 +148,11 @@ export default function Hero({
                               aria-current={c.active ? "page" : undefined}
                             >
                               {c.href ? (
-                                <Link href={c.href} className={c.active ? "hero-breadcrumb-current" : "text-white"}>
+                                <Link href={c.href} className={c.active ? "text-custom hero-breadcrumb-current" : "text-white"}>
                                   {c.label}
                                 </Link>
                               ) : (
-                                <span className={c.active ? "hero-breadcrumb-current" : ""}>{c.label}</span>
+                                <span className={c.active ? "text-custom hero-breadcrumb-current" : ""}>{c.label}</span>
                               )}
                             </li>
                           ))}
