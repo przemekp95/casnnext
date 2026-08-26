@@ -153,7 +153,7 @@ are therefore production-sensitive data.
 - Encrypted artifacts and manifests live in an approved external directory;
   decrypted data exists only inside local Docker volumes and short-lived
   owner-only temporary storage when technically unavoidable.
-- Local MySQL and Directus ports bind only to `127.0.0.1`.
+- MySQL and Directus have no host ports. Only the Nginx HTTP port binds to `127.0.0.1`.
 - Local Directus and application secrets differ from production secrets.
 - Local services do not receive production webhook, email, storage, or other
   outbound integration credentials.

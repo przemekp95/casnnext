@@ -66,8 +66,8 @@ resolve_single() {
 wait_for_directus_health() {
   local container_id="$1" status
   for _ in {1..30}; do
-    status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id")"
-    [[ "$status" == healthy || "$status" == running ]] && return 0
+    status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$container_id")"
+    [[ "$status" == healthy ]] && return 0
     sleep 1
   done
   die 'Directus did not recover after snapshot'
@@ -257,6 +257,10 @@ main() {
   authors_count="$(jq 'length' "$staging_directory/authors.json")"
   analyses_count="$(jq 'length' "$staging_directory/analyses.json")"
   sitemap_count="$(wc -l < "$staging_directory/sitemap.paths" | tr -d ' ')"
+  directus_representative_path="$(jq -sr '[.[] | .. | strings | select(startswith("/cms/assets/"))][0] // ""' \
+    "$staging_directory/authors.json" "$staging_directory/analyses.json")"
+  legacy_representative_path="$(jq -sr '[.[] | .. | strings | select(startswith("/cms/uploads/"))][0] // ""' \
+    "$staging_directory/authors.json" "$staging_directory/analyses.json")"
 
   jq -n \
     --arg snapshot_id "$snapshot_id" \
@@ -266,6 +270,8 @@ main() {
     --arg authors_hash "$(sha256sum "$staging_directory/authors.json" | awk '{print $1}')" \
     --arg analyses_hash "$(sha256sum "$staging_directory/analyses.json" | awk '{print $1}')" \
     --arg sitemap_hash "$(sha256sum "$staging_directory/sitemap.paths" | awk '{print $1}')" \
+    --arg directus_representative_path "$directus_representative_path" \
+    --arg legacy_representative_path "$legacy_representative_path" \
     --argjson tables "$database_tables" \
     --argjson views "$database_views" \
     --argjson triggers "$database_triggers" \
@@ -281,7 +287,10 @@ main() {
       capturedAt: $captured_at,
       source: {databaseNameHash: $database_name_hash, serverUuidHash: $server_uuid_hash},
       database: {tables: $tables, views: $views, triggers: $triggers, routines: $routines, events: $events},
-      media: {directus: {files: $directus_files}, legacy: {files: $legacy_files}},
+      media: {
+        directus: {files: $directus_files, representativePath: (if $directus_representative_path == "" then null else $directus_representative_path end)},
+        legacy: {files: $legacy_files, representativePath: (if $legacy_representative_path == "" then null else $legacy_representative_path end)}
+      },
       public: {
         authors: {count: $authors_count, sha256: $authors_hash},
         analyses: {count: $analyses_count, sha256: $analyses_hash},

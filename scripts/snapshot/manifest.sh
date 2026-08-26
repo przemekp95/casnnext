@@ -47,10 +47,12 @@ validate_inventory() {
     and (.database.routines | count)
     and (.database.events | count)
     and (.media | (keys | sort) == ["directus","legacy"])
-    and (.media.directus | (keys | sort) == ["files"])
+    and (.media.directus | (keys | sort) == ["files","representativePath"])
     and (.media.directus.files | count)
-    and (.media.legacy | (keys | sort) == ["files"])
+    and (.media.directus.representativePath == null or (.media.directus.representativePath | type == "string" and startswith("/cms/assets/")))
+    and (.media.legacy | (keys | sort) == ["files","representativePath"])
     and (.media.legacy.files | count)
+    and (.media.legacy.representativePath == null or (.media.legacy.representativePath | type == "string" and startswith("/cms/uploads/")))
     and (.public | (keys | sort) == ["analyses","authors","sitemap"])
     and ([.public.authors, .public.analyses, .public.sitemap] | all(
       (keys | sort) == ["count","sha256"]
@@ -72,8 +74,9 @@ validate_manifest() {
     and (.source | (keys | sort) == ["databaseNameHash","serverUuidHash"])
     and (.source.databaseNameHash | lowercase_hash)
     and (.source.serverUuidHash | lowercase_hash)
-    and (.database | (keys | sort) == ["events","routines","sha256","tables","triggers","views"])
+    and (.database | (keys | sort) == ["canonicalSha256","events","routines","sha256","tables","triggers","views"])
     and (.database.sha256 | lowercase_hash)
+    and (.database.canonicalSha256 | lowercase_hash)
     and (.database.tables | count)
     and (.database.views | count)
     and (.database.triggers | count)
@@ -81,10 +84,12 @@ validate_manifest() {
     and (.database.events | count)
     and (.media | (keys | sort) == ["directus","legacy"])
     and ([.media.directus, .media.legacy] | all(
-      (keys | sort) == ["files","sha256"]
+      (keys | sort) == ["files","representativePath","sha256"]
       and (.files | count)
       and (.sha256 | lowercase_hash)
     ))
+    and (.media.directus.representativePath == null or (.media.directus.representativePath | type == "string" and startswith("/cms/assets/")))
+    and (.media.legacy.representativePath == null or (.media.legacy.representativePath | type == "string" and startswith("/cms/uploads/")))
     and (.public | (keys | sort) == ["analyses","authors","sitemap"])
     and ([.public.authors, .public.analyses, .public.sitemap] | all(
       (keys | sort) == ["count","sha256"]
@@ -102,7 +107,7 @@ require_payload_files() {
 }
 
 build_manifest() {
-  local input="" output="" inventory database_hash directus_hash legacy_hash
+  local input="" output="" inventory database_hash database_canonical_hash directus_hash legacy_hash
   while (( $# > 0 )); do
     case "$1" in
       --input) [[ $# -ge 2 ]] || usage; input="$2"; shift 2 ;;
@@ -121,6 +126,7 @@ build_manifest() {
   [[ -d "$(dirname "$output")" ]] || die 'manifest output parent does not exist'
 
   database_hash="$(sha256sum -- "$input/$database_payload" | awk '{print $1}')"
+  database_canonical_hash="$(sed 's/CHARACTER SET utf8mb4 //g' "$input/$database_payload" | sha256sum | awk '{print $1}')"
   directus_hash="$(sha256sum -- "$input/$directus_payload" | awk '{print $1}')"
   legacy_hash="$(sha256sum -- "$input/$legacy_payload" | awk '{print $1}')"
 
@@ -128,11 +134,12 @@ build_manifest() {
   set -C
   jq -S \
     --arg database_hash "$database_hash" \
+    --arg database_canonical_hash "$database_canonical_hash" \
     --arg directus_hash "$directus_hash" \
     --arg legacy_hash "$legacy_hash" \
     '. + {
       version: 1,
-      database: (.database + {sha256: $database_hash}),
+      database: (.database + {sha256: $database_hash, canonicalSha256: $database_canonical_hash}),
       media: {
         directus: (.media.directus + {sha256: $directus_hash}),
         legacy: (.media.legacy + {sha256: $legacy_hash})

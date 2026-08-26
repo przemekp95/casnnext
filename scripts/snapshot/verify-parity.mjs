@@ -143,32 +143,21 @@ function normalizeSitemap(raw) {
   return { count: paths.length, sha256: sha256(`${paths.join("\n")}\n`) };
 }
 
-function findPath(value, prefix) {
-  if (typeof value === "string" && value.startsWith(prefix)) return value;
-  if (Array.isArray(value)) {
-    for (const nested of value) {
-      const match = findPath(nested, prefix);
-      if (match) return match;
-    }
-  } else if (value !== null && typeof value === "object") {
-    for (const nested of Object.values(value)) {
-      const match = findPath(nested, prefix);
-      if (match) return match;
-    }
-  }
-  return null;
-}
-
 function validateManifest(manifest) {
   if (!exactKeys(manifest, ["version", "snapshotId", "capturedAt", "source", "database", "media", "public"])) fail();
   if (manifest.version !== 1 || !SNAPSHOT_PATTERN.test(manifest.snapshotId)) fail();
   if (!exactKeys(manifest.source, ["databaseNameHash", "serverUuidHash"])) fail();
   if (!HASH_PATTERN.test(manifest.source.databaseNameHash) || !HASH_PATTERN.test(manifest.source.serverUuidHash)) fail();
   const count = (value) => Number.isSafeInteger(value) && value >= 0;
-  if (!exactKeys(manifest.database, ["tables", "views", "triggers", "routines", "events", "sha256"])) fail();
-  if (!["tables", "views", "triggers", "routines", "events"].every((key) => count(manifest.database[key])) || !HASH_PATTERN.test(manifest.database.sha256)) fail();
+  if (!exactKeys(manifest.database, ["tables", "views", "triggers", "routines", "events", "sha256", "canonicalSha256"])) fail();
+  if (!["tables", "views", "triggers", "routines", "events"].every((key) => count(manifest.database[key]))
+      || !HASH_PATTERN.test(manifest.database.sha256) || !HASH_PATTERN.test(manifest.database.canonicalSha256)) fail();
   for (const key of ["directus", "legacy"]) {
-    if (!exactKeys(manifest.media?.[key], ["files", "sha256"]) || !count(manifest.media[key].files) || !HASH_PATTERN.test(manifest.media[key].sha256)) fail();
+    const expectedPrefix = key === "directus" ? "/cms/assets/" : "/cms/uploads/";
+    const representativePath = manifest.media?.[key]?.representativePath;
+    if (!exactKeys(manifest.media?.[key], ["files", "representativePath", "sha256"])
+        || !count(manifest.media[key].files) || !HASH_PATTERN.test(manifest.media[key].sha256)
+        || (representativePath !== null && (typeof representativePath !== "string" || !representativePath.startsWith(expectedPrefix)))) fail();
   }
   for (const key of ["authors", "analyses", "sitemap"]) {
     if (!exactKeys(manifest.public?.[key], ["count", "sha256"]) || !count(manifest.public[key].count) || !HASH_PATTERN.test(manifest.public[key].sha256)) fail();
@@ -176,14 +165,17 @@ function validateManifest(manifest) {
 }
 
 function validateHandoff(handoff, manifest, manifestBytes) {
-  if (!exactKeys(handoff, ["snapshotId", "project", "database", "dbPort", "httpPort", "manifestSha256", "databaseContentSha256", "previousProject"])) fail();
+  if (!exactKeys(handoff, ["snapshotId", "project", "database", "httpPort", "manifestSha256", "databaseContentSha256", "appImage", "nginxImage", "appRevision", "previousProject"])) fail();
   if (handoff.snapshotId !== manifest.snapshotId || !PROJECT_PATTERN.test(handoff.project)) fail();
-  if (handoff.database !== "casn_local" || !/^\d{1,5}$/.test(handoff.httpPort) || !/^\d{1,5}$/.test(handoff.dbPort)) fail();
+  if (handoff.database !== "casn_local" || !/^\d{1,5}$/.test(handoff.httpPort)) fail();
   if (handoff.manifestSha256 !== sha256(manifestBytes)) fail();
   if (!HASH_PATTERN.test(handoff.databaseContentSha256)) fail();
+  if (!(typeof handoff.appImage === "string" && (handoff.appImage.startsWith("sha256:") || handoff.appImage.includes("@sha256:")))) fail();
+  if (!(typeof handoff.nginxImage === "string" && (handoff.nginxImage.startsWith("sha256:") || handoff.nginxImage.includes("@sha256:")))) fail();
+  if (typeof handoff.appRevision !== "string" || !/^[0-9a-f]{40}$/.test(handoff.appRevision)) fail();
 }
 
-function safeRuntimeBoundary(containerInspect, networkInspect) {
+function safeRuntimeBoundary(containerInspect, internalInspect, loopbackInspect, expected) {
   if (!Array.isArray(containerInspect) || containerInspect.length !== 4) return { loopback: false, environment: false };
   const bindings = containerInspect.flatMap((container) => Object.values(container?.NetworkSettings?.Ports ?? {}))
     .filter(Array.isArray).flat();
@@ -192,8 +184,16 @@ function safeRuntimeBoundary(containerInspect, networkInspect) {
   const forbiddenKey = /^(RUN_DB_MIGRATIONS|DB_MIGRATION_CONFIRM|DIRECTUS_TOKEN|SMTP_PASSWORD|S3_SECRET|AWS_SECRET_ACCESS_KEY)=/;
   const environment = environments.every((entry) => typeof entry === "string"
     && !forbiddenKey.test(entry) && !entry.toLowerCase().includes("casn.pl"));
-  const internal = Array.isArray(networkInspect) && networkInspect.length === 1 && networkInspect[0]?.Internal === true;
-  return { loopback, environment, internal };
+  const internal = Array.isArray(internalInspect) && internalInspect.length === 1 && internalInspect[0]?.Internal === true;
+  const ingress = Array.isArray(loopbackInspect) && loopbackInspect.length === 1 && loopbackInspect[0]?.Internal !== true;
+  const expectedImages = [MYSQL_IMAGE, "directus/directus:12.3.1@sha256:8978edf633ae28aa31464bb71c55300c94d8bc771ff3727b5fac485173283869", expected.appImage, expected.nginxImage];
+  const images = containerInspect.every((container, index) => container?.Config?.Image === expectedImages[index]);
+  const revisions = [2, 3].every((index) => containerInspect[index]?.Config?.Labels?.["org.opencontainers.image.revision"] === expected.appRevision);
+  const networks = containerInspect.every((container, index) => {
+    const wanted = index === 3 ? [expected.internalNetwork, expected.loopbackNetwork] : [expected.internalNetwork];
+    return JSON.stringify(Object.keys(container?.NetworkSettings?.Networks ?? {}).sort()) === JSON.stringify(wanted.sort());
+  });
+  return { loopback, environment, internal, ingress, images, revisions, networks };
 }
 
 function writeReport(path, report) {
@@ -223,7 +223,8 @@ function main() {
   ]));
   const directusVolume = resolveSingle("volume", handoff.project, "com.docker.compose.volume", "directus_uploads");
   const legacyVolume = resolveSingle("volume", handoff.project, "com.docker.compose.volume", "strapi_uploads");
-  const network = resolveSingle("network", handoff.project, "com.docker.compose.network", "casn_snapshot_internal");
+  const internalNetwork = resolveSingle("network", handoff.project, "com.docker.compose.network", "casn_snapshot_internal");
+  const loopbackNetwork = resolveSingle("network", handoff.project, "com.docker.compose.network", "casn_snapshot_loopback");
 
   const database = {
     selected: mysqlQuery(containers.mysql, "SELECT DATABASE();"),
@@ -245,26 +246,29 @@ function main() {
   const sitemap = normalizeSitemap(fetch(baseUrl, "/sitemap.xml"));
   const authorSlug = authors.value.find((entry) => typeof entry?.slug === "string")?.slug;
   const analysisSlug = analyses.value.find((entry) => typeof entry?.slug === "string")?.slug;
-  const directusAsset = findPath([authors.value, analyses.value], "/cms/assets/");
-  const legacyAsset = findPath([authors.value, analyses.value], "/cms/uploads/");
   if (!authorSlug || !analysisSlug) fail();
-  if (manifest.media.directus.files > 0 && !directusAsset) fail();
-  if (manifest.media.legacy.files > 0 && !legacyAsset) fail();
   const representativePaths = [
     "/", "/autorzy", "/analizy", "/zbiory", `/autor/${encodeURIComponent(authorSlug)}`,
     `/analizy/${encodeURIComponent(analysisSlug)}`, "/api/health", "/cms/server/ping",
   ];
-  if (directusAsset) representativePaths.push(directusAsset);
-  if (legacyAsset) representativePaths.push(legacyAsset);
+  if (manifest.media.directus.representativePath) representativePaths.push(manifest.media.directus.representativePath);
+  if (manifest.media.legacy.representativePath) representativePaths.push(manifest.media.legacy.representativePath);
   for (const path of representativePaths) fetch(baseUrl, path);
 
   const inspectedContainers = JSON.parse(command("docker", ["inspect", ...Object.values(containers)]));
-  const inspectedNetwork = JSON.parse(command("docker", ["network", "inspect", network]));
-  const runtime = safeRuntimeBoundary(inspectedContainers, inspectedNetwork);
+  const inspectedInternalNetwork = JSON.parse(command("docker", ["network", "inspect", internalNetwork]));
+  const inspectedLoopbackNetwork = JSON.parse(command("docker", ["network", "inspect", loopbackNetwork]));
+  const runtime = safeRuntimeBoundary(inspectedContainers, inspectedInternalNetwork, inspectedLoopbackNetwork, {
+    appImage: handoff.appImage,
+    nginxImage: handoff.nginxImage,
+    appRevision: handoff.appRevision,
+    internalNetwork,
+    loopbackNetwork,
+  });
   const gates = {
     databaseIdentity: database.selected === "casn_local" && database.uuidHash !== manifest.source.serverUuidHash,
     databaseObjects: ["tables", "views", "triggers", "routines", "events"].every((key) => database[key] === manifest.database[key]),
-    databasePayload: database.sha256 === handoff.databaseContentSha256,
+    databasePayload: manifest.database.canonicalSha256 === handoff.databaseContentSha256,
     media: ["directus", "legacy"].every((key) => media[key].files === manifest.media[key].files && media[key].sha256 === manifest.media[key].sha256),
     public: [authors, analyses, sitemap].every((item, index) => {
       const expected = manifest.public[["authors", "analyses", "sitemap"][index]];
@@ -273,6 +277,10 @@ function main() {
     representativeHttp: true,
     loopbackBindings: runtime.loopback,
     internalNetwork: runtime.internal,
+    controlledIngressNetwork: runtime.ingress,
+    isolatedAttachments: runtime.networks,
+    immutableImages: runtime.images,
+    applicationRevision: runtime.revisions,
     safeEnvironment: runtime.environment,
   };
   const passed = Object.values(gates).every(Boolean);

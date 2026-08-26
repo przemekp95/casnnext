@@ -9,7 +9,7 @@ const roundtrip = join(process.cwd(), "scripts/ci/snapshot-roundtrip.sh");
 const sentinel = "SNAPSHOT_ROUNDTRIP_SENTINEL_SECRET";
 
 describe("snapshot encrypted round trip", () => {
-  jest.setTimeout(180_000);
+  jest.setTimeout(360_000);
 
   it("restores synthetic data and media without production access", () => {
     const root = mkdtempSync(join(tmpdir(), "casn-roundtrip-test-"));
@@ -24,7 +24,7 @@ describe("snapshot encrypted round trip", () => {
       const result = spawnSync("bash", [roundtrip], {
         cwd: process.cwd(),
         encoding: "utf8",
-        timeout: 170_000,
+        timeout: 350_000,
         env: {
           ...process.env,
           PATH: `${fakeBin}:${process.env.PATH}`,

@@ -108,7 +108,7 @@ migrations/*.js
 # encrypted production-to-local snapshots and private age identities
 /.casn-snapshots/
 *.casn-snapshot.age
-*.snapshot.manifest.json
+????????T??????Z-????????.manifest.json
 *.agekey
 
 .early.coverage

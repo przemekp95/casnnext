@@ -17,7 +17,7 @@
 - Production MySQL export uses a dedicated account with no `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `ALTER`, `DROP`, `GRANT`, or administrative privileges.
 - Directus writes may pause only during an explicitly approved snapshot window; public Next.js and MySQL reads remain available.
 - Restore always targets a new Compose project, database named `casn_local`, and new volumes; current local data is never overwritten or automatically removed.
-- Local MySQL, Directus, application, and Nginx ports bind only to `127.0.0.1`; the local Docker network is internal and has no external egress.
+- MySQL, Directus and the application have no host ports and use only the internal network. Nginx alone publishes HTTP on `127.0.0.1` through a separately verified ingress network.
 - Full Directus rows, including users and stored tokens, remain production-sensitive; artifacts are encrypted and owner-readable only.
 - No repository migration, seed, automatic startup migration, HTTP write endpoint, queue, webhook delivery, continuous replication, local-to-production command, or automatic cleanup is introduced.
 - Preserve the dirty worktree. Stage and commit only the paths named by each task; do not stash or include the existing header changes.
@@ -341,14 +341,14 @@ git commit -m "feat(snapshot): add read-only production exporter"
 
 **Interfaces:**
 - Consumes: a unique Compose project `casn_snapshot_<snapshot-id-without-punctuation>`, local-only env values, `APP_IMAGE`, `NGINX_IMAGE`, and `APP_REVISION`.
-- Produces: services `mysql`, `directus`, `app`, and `nginx`; logical volumes `mysql_data`, `directus_uploads`, and `strapi_uploads`; loopback ports `CASN_LOCAL_DB_PORT` and `CASN_LOCAL_HTTP_PORT`.
+- Produces: services `mysql`, `directus`, `app`, and `nginx`; logical volumes `mysql_data`, `directus_uploads`, and `strapi_uploads`; one loopback HTTP port `CASN_LOCAL_HTTP_PORT`. MySQL has no host port.
 
 - [ ] **Step 1: Write a failing rendered-Compose policy test**
 
 Render with literal non-secret test values and assert:
 
 ```ts
-expect(config.services.mysql.ports[0].host_ip).toBe("127.0.0.1");
+expect(config.services.mysql.ports).toBeUndefined();
 expect(config.services.nginx.ports[0].host_ip).toBe("127.0.0.1");
 expect(config.services.app.environment.RUN_DB_MIGRATIONS).toBeUndefined();
 expect(config.services.directus.command).toEqual(["npx", "directus", "start"]);
@@ -370,9 +370,10 @@ Expected: FAIL because the Compose file does not exist.
 
 Copy only the necessary service contracts from `docker-compose.final.yml`.
 Remove every `container_name`. Pin MySQL and Directus to the global-constraint
-digests. Bind MySQL and Nginx with long-syntax ports to `127.0.0.1`; do not
-publish the app or Directus directly. Use database name `casn_local`. Attach all
-services only to `casn_snapshot_internal` with `internal: true`. Mount
+digests. Do not publish MySQL, the app, or Directus. Bind only Nginx with a
+long-syntax port to `127.0.0.1`. Use database name `casn_local`. Attach MySQL,
+Directus and the app only to `casn_snapshot_internal` with `internal: true`;
+attach Nginx additionally to the verified ingress network. Mount
 `strapi_uploads` read-only in Nginx and `directus_uploads` writable only in
 Directus. Start Directus with `npx directus start`, not the repository bootstrap.
 
@@ -405,7 +406,7 @@ git commit -m "feat(snapshot): add isolated local restore stack"
 
 **Interfaces:**
 - Consumes: encrypted artifact, matching manifest, age identity file, owner-only local env file, snapshot id, and `docker-compose.snapshot-local.yml`.
-- Produces: a running candidate project and a mode-0600 handoff file containing only snapshot id, local project name, loopback ports, manifest hash, and previous project name.
+- Produces: a running candidate project and a mode-0600 handoff file containing only snapshot id, local project name, loopback HTTP port, manifest/database hashes, immutable image references, application revision, and previous project name.
 
 - [ ] **Step 1: Write failing importer safety tests**
 
@@ -578,7 +579,7 @@ Do not add an npm script for production export. Add these ignore rules:
 ```gitignore
 /.casn-snapshots/
 *.casn-snapshot.age
-*.snapshot.manifest.json
+????????T??????Z-????????.manifest.json
 *.agekey
 ```
 

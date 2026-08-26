@@ -4,7 +4,8 @@ Ten runbook odtwarza lokalnie pełną bazę MySQL oraz wolumeny plików Directus
 
 ## Stałe bezpieczeństwa
 
-- Wszystkie lokalne porty są przypięte do `127.0.0.1`; aplikacja i Directus pozostają wyłącznie w wewnętrznej sieci Dockera.
+- Jedyny publikowany port lokalny to HTTP nginx przypięty do `127.0.0.1`. MySQL, aplikacja i Directus pozostają wyłącznie w wewnętrznej sieci Dockera; baza jest dostępna administracyjnie przez `docker compose exec`, nie przez port hosta.
+- Nginx jest jedyną usługą podłączoną także do sieci wejściowej. Importer i verifier sprawdzają faktyczne etykiety, obrazy, montowania, powiązania portów i dokładne zestawy sieci przed uruchomieniem kandydata oraz podczas parytetu.
 - Lokalna baza zawsze nazywa się `casn_local`, a jej `server_uuid` musi różnić się od produkcyjnego.
 - Import tworzy nowe, nazwane snapshotem wolumeny i nie usuwa poprzedniego środowiska.
 - Eksporter produkcyjny korzysta z osobnego konta tylko do odczytu, zatrzymuje wyłącznie Directusa i zawsze próbuje go ponownie uruchomić w `trap`.
@@ -146,8 +147,8 @@ mapfile -t ids < <(docker ps -a \
 [[ "${#ids[@]}" == 1 ]]
 docker start "${ids[0]}" >/dev/null
 for attempt in {1..30}; do
-  state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${ids[0]}")"
-  [[ "$state" == healthy || "$state" == running ]] && exit 0
+  state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "${ids[0]}")"
+  [[ "$state" == healthy ]] && exit 0
   sleep 1
 done
 exit 1

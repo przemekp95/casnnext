@@ -27,16 +27,55 @@ printf ' %q' "$@" >> "$FAKE_COMMAND_LOG"
 printf '\n' >> "$FAKE_COMMAND_LOG"
 all=" $* "
 case "$all" in
-  *" volume inspect "*) [[ "$FAKE_EXISTING_VOLUME" == 1 ]] ;;
-  *" volume create "*) printf '%s\n' "\${*: -1}" ;;
-  *" compose "*" config "*"--format json"*)
-    printf '%s' '{"services":{"mysql":{"environment":{"MYSQL_DATABASE":"casn_local"},"ports":[{"host_ip":"127.0.0.1","published":"13307","target":3306}],"networks":{"casn_snapshot_internal":null,"casn_snapshot_loopback":null}},"directus":{"networks":{"casn_snapshot_internal":null}},"app":{"environment":{"DB_NAME":"casn_local"},"networks":{"casn_snapshot_internal":null}},"nginx":{"ports":[{"host_ip":"127.0.0.1","published":"13010","target":8080}],"networks":{"casn_snapshot_internal":null,"casn_snapshot_loopback":null}}},"networks":{"casn_snapshot_internal":{"internal":true},"casn_snapshot_loopback":{"internal":false}}}'
+  *" volume inspect "*)
+    if [[ -e "$FAKE_COMMAND_LOG.created" ]]; then
+      logical=mysql_data
+      [[ "\${*: -1}" == *directus_uploads ]] && logical=directus_uploads
+      [[ "\${*: -1}" == *strapi_uploads ]] && logical=strapi_uploads
+      printf '[{"Labels":{"com.docker.compose.project":"casn_snapshot_20260826t121500z-a1b2c3d4","com.docker.compose.volume":"%s"}}]' "$logical"
+    else
+      [[ "$FAKE_EXISTING_VOLUME" == 1 ]]
+    fi
     ;;
+  *" volume create "*) touch "$FAKE_COMMAND_LOG.created"; printf '%s\n' "\${*: -1}" ;;
+  *" compose "*" config "*"--format json"*)
+    printf '%s' '{"services":{"mysql":{"environment":{"MYSQL_DATABASE":"casn_local"},"networks":{"casn_snapshot_internal":null}},"directus":{"networks":{"casn_snapshot_internal":null}},"app":{"environment":{"DB_NAME":"casn_local"},"networks":{"casn_snapshot_internal":null}},"nginx":{"ports":[{"host_ip":"127.0.0.1","published":"13010","target":8080}],"networks":{"casn_snapshot_internal":null,"casn_snapshot_loopback":null}}},"networks":{"casn_snapshot_internal":{"internal":true},"casn_snapshot_loopback":{"internal":false}}}'
+    ;;
+  *" compose "*" up -d mysql"*) touch "$FAKE_COMMAND_LOG.created" ;;
   *" compose "*" up "*) ;;
+  *" compose "*" create directus app nginx"*) ;;
+  *" compose "*" start directus app nginx"*) ;;
   *" compose "*" ps -q mysql"*) printf 'candidate-mysql-id\n' ;;
+  *" compose "*" ps -aq directus"*) printf 'candidate-directus-id\n' ;;
+  *" compose "*" ps -aq app"*) printf 'candidate-app-id\n' ;;
+  *" compose "*" ps -aq nginx"*) printf 'candidate-nginx-id\n' ;;
   *" inspect "*"State.Health.Status"*) printf 'healthy\n' ;;
+  *" image inspect "*)
+    printf '[{"Config":{"Labels":{"org.opencontainers.image.revision":"%s"}}},{"Config":{"Labels":{"org.opencontainers.image.revision":"%s"}}}]' "$APP_REVISION" "$APP_REVISION"
+    ;;
+  *" inspect candidate-mysql-id"*)
+    host_ip=127.0.0.1
+    [[ "$FAKE_BOUNDARY_MISMATCH" != 1 ]] || host_ip=0.0.0.0
+    printf '[{"Config":{"Image":"mysql@sha256:a3dff78d876222746a0bacc36dd7e4bf9e673c85fb7ee0d12ed25bd32c43c19b","Labels":{"com.docker.compose.project":"casn_snapshot_20260826t121500z-a1b2c3d4","com.docker.compose.service":"mysql"}},"NetworkSettings":{"Networks":{"casn_snapshot_20260826t121500z-a1b2c3d4_casn_snapshot_internal":{}},"Ports":%s},"Mounts":[{"Type":"volume","Name":"casn_snapshot_20260826t121500z-a1b2c3d4_mysql_data","Destination":"/var/lib/mysql"}]}]' "$( [[ "$FAKE_BOUNDARY_MISMATCH" == 1 ]] && printf '{"3306/tcp":[{"HostIp":"0.0.0.0"}]}' || printf '{}' )"
+    ;;
+  *" network inspect casn_snapshot_20260826t121500z-a1b2c3d4_casn_snapshot_internal"*)
+    printf '[{"Internal":true,"Labels":{"com.docker.compose.project":"casn_snapshot_20260826t121500z-a1b2c3d4","com.docker.compose.network":"casn_snapshot_internal"}}]'
+    ;;
+  *" network inspect casn_snapshot_20260826t121500z-a1b2c3d4_casn_snapshot_loopback"*)
+    printf '[{"Internal":false,"Labels":{"com.docker.compose.project":"casn_snapshot_20260826t121500z-a1b2c3d4","com.docker.compose.network":"casn_snapshot_loopback"}}]'
+    ;;
+  *" inspect candidate-directus-id"*)
+    printf '[{"Config":{"Image":"directus/directus:12.3.1@sha256:8978edf633ae28aa31464bb71c55300c94d8bc771ff3727b5fac485173283869","Labels":{"com.docker.compose.project":"casn_snapshot_20260826t121500z-a1b2c3d4","com.docker.compose.service":"directus"}},"NetworkSettings":{"Networks":{"casn_snapshot_20260826t121500z-a1b2c3d4_casn_snapshot_internal":{}},"Ports":{"8055/tcp":null}},"Mounts":[{"Type":"volume","Name":"casn_snapshot_20260826t121500z-a1b2c3d4_directus_uploads","Destination":"/directus/uploads","RW":true}]}]'
+    ;;
+  *" inspect candidate-app-id"*)
+    printf '[{"Config":{"Image":"%s","Labels":{"com.docker.compose.project":"casn_snapshot_20260826t121500z-a1b2c3d4","com.docker.compose.service":"app"}},"NetworkSettings":{"Networks":{"casn_snapshot_20260826t121500z-a1b2c3d4_casn_snapshot_internal":{}},"Ports":{"3000/tcp":null}},"Mounts":[]}]' "$APP_IMAGE"
+    ;;
+  *" inspect candidate-nginx-id"*)
+    printf '[{"Config":{"Image":"%s","Labels":{"com.docker.compose.project":"casn_snapshot_20260826t121500z-a1b2c3d4","com.docker.compose.service":"nginx"}},"HostConfig":{"PortBindings":{"8080/tcp":[{"HostIp":"127.0.0.1"}]}},"NetworkSettings":{"Networks":{"casn_snapshot_20260826t121500z-a1b2c3d4_casn_snapshot_internal":{},"casn_snapshot_20260826t121500z-a1b2c3d4_casn_snapshot_loopback":{}},"Ports":{"8080/tcp":[{"HostIp":"127.0.0.1"}]}},"Mounts":[{"Type":"volume","Name":"casn_snapshot_20260826t121500z-a1b2c3d4_strapi_uploads","Destination":"/legacy-strapi-uploads","RW":false}]}]' "$NGINX_IMAGE"
+    ;;
   *" compose "*"SELECT @@server_uuid"*) printf '%s\n' "$FAKE_LOCAL_UUID" ;;
   *" compose "*"SELECT DATABASE()"*) printf 'casn_local\n' ;;
+  *" compose "*"mysqldump "*) printf 'database' ;;
   *" compose "*"--database=casn_local"*) cat >/dev/null ;;
   *" run "*"tar -C /to -xf -"*) cat >/dev/null ;;
   *) printf 'unexpected docker call: %s\n' "$all" >&2; exit 64 ;;
@@ -69,6 +108,7 @@ type RunOptions = {
   symlinkArtifact?: boolean;
   tamperArtifact?: boolean;
   identityMode?: number;
+  boundaryMismatch?: boolean;
 };
 
 function prepareRun(options: RunOptions = {}) {
@@ -88,7 +128,10 @@ function prepareRun(options: RunOptions = {}) {
     capturedAt: "2026-08-26T12:15:00Z",
     source: { databaseNameHash: "a".repeat(64), serverUuidHash: "4835dae58c92570471bebc1f79021220d4f993b750206b646270f03b060eda08" },
     database: { tables: 18, views: 0, triggers: 2, routines: 1, events: 0 },
-    media: { directus: { files: 2 }, legacy: { files: 3 } },
+    media: {
+      directus: { files: 2, representativePath: "/cms/assets/author-1.jpg" },
+      legacy: { files: 3, representativePath: "/cms/uploads/analysis-1.jpg" },
+    },
     public: {
       authors: { count: 32, sha256: "c".repeat(64) },
       analyses: { count: 39, sha256: "d".repeat(64) },
@@ -132,7 +175,6 @@ function prepareRun(options: RunOptions = {}) {
     "APP_IMAGE=ghcr.io/przemekp95/casn-app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "NGINX_IMAGE=ghcr.io/przemekp95/casn-nginx@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "APP_REVISION=cccccccccccccccccccccccccccccccccccccccc",
-    "CASN_LOCAL_DB_PORT=13307",
     "CASN_LOCAL_HTTP_PORT=13010",
     "APP_PUBLIC_URL=http://127.0.0.1:13010",
     "DIRECTUS_PUBLIC_URL=http://127.0.0.1:13010/cms",
@@ -173,7 +215,8 @@ function prepareRun(options: RunOptions = {}) {
         PATH: `${fakeBin}:${process.env.PATH}`,
         FAKE_COMMAND_LOG: commandLog,
         FAKE_EXISTING_VOLUME: options.existingVolume ? "1" : "0",
-        FAKE_LOCAL_UUID: options.localUuid ?? "local-uuid",
+      FAKE_LOCAL_UUID: options.localUuid ?? "local-uuid",
+      FAKE_BOUNDARY_MISMATCH: options.boundaryMismatch ? "1" : "0",
       },
     },
   );
@@ -201,6 +244,7 @@ describe("local snapshot importer", () => {
       const handoff = readFileSync(join(run.handoff, handoffFiles[0]), "utf8");
       expect(handoff).toContain("casn_snapshot_20260826t121500z-a1b2c3d4");
       expect(handoff).toContain('"databaseContentSha256"');
+      expect(JSON.parse(handoff).appRevision).toBe("cccccccccccccccccccccccccccccccccccccccc");
       expect(handoff).not.toContain("local-root-secret");
       expect(run.commandLog).toContain("run --rm -i --mount");
       expect(run.commandLog).not.toMatch(/ssh|scp|DROP|volume rm|down -v/);
@@ -221,6 +265,16 @@ describe("local snapshot importer", () => {
 
   it("rejects a candidate with the production server identity before restore", () => {
     const run = prepareRun({ localUuid: "prod-uuid" });
+    try {
+      expect(run.result.status).not.toBe(0);
+      expect(run.commandLog).not.toContain("mysql --database=casn_local");
+    } finally {
+      run.cleanup();
+    }
+  });
+
+  it("rejects actual Docker resources that do not match the isolated candidate boundary", () => {
+    const run = prepareRun({ boundaryMismatch: true });
     try {
       expect(run.result.status).not.toBe(0);
       expect(run.commandLog).not.toContain("mysql --database=casn_local");

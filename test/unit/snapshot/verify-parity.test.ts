@@ -56,7 +56,8 @@ case "$args" in
   *" ps "*"com.docker.compose.service=nginx"*) printf 'nginx-id\\n' ;;
   *" volume ls "*"com.docker.compose.volume=directus_uploads"*) printf 'candidate-directus\\n' ;;
   *" volume ls "*"com.docker.compose.volume=strapi_uploads"*) printf 'candidate-legacy\\n' ;;
-  *" network ls "*) printf 'candidate-network\\n' ;;
+  *" network ls "*"casn_snapshot_internal"*) printf 'candidate-network\\n' ;;
+  *" network ls "*"casn_snapshot_loopback"*) printf 'candidate-loopback\\n' ;;
   *" exec "*"SELECT DATABASE()"*) printf 'casn_local\\n' ;;
   *" exec "*"SELECT @@server_uuid"*) printf '%s\\n' "\${FAKE_UUID:-local-uuid}" ;;
   *" exec "*"TABLE_TYPE = 'BASE TABLE'"*) printf '%s\\n' "\${FAKE_TABLES:-18}" ;;
@@ -72,11 +73,12 @@ case "$args" in
   *" inspect mysql-id directus-id app-id nginx-id "*)
     forbidden=''
     [[ "\${FAKE_FORBIDDEN_ENV:-0}" == 1 ]] && forbidden=',"RUN_DB_MIGRATIONS=1","DIRECTUS_TOKEN=${sentinel}","UPSTREAM=https://casn.pl"'
-    printf '[{"Config":{"Env":["DB_NAME=casn_local"%s]},"NetworkSettings":{"Ports":{"3306/tcp":[{"HostIp":"127.0.0.1"}]} }},{"Config":{"Env":["DB_DATABASE=casn_local"]},"NetworkSettings":{"Ports":{}}},{"Config":{"Env":["DB_NAME=casn_local"]},"NetworkSettings":{"Ports":{}}},{"Config":{"Env":[]},"NetworkSettings":{"Ports":{"8080/tcp":[{"HostIp":"127.0.0.1"}]}}}]' "$forbidden"
+    printf '[{"Config":{"Image":"mysql@sha256:a3dff78d876222746a0bacc36dd7e4bf9e673c85fb7ee0d12ed25bd32c43c19b","Env":["DB_NAME=casn_local"%s]},"NetworkSettings":{"Networks":{"candidate-network":{}},"Ports":{}}},{"Config":{"Image":"directus/directus:12.3.1@sha256:8978edf633ae28aa31464bb71c55300c94d8bc771ff3727b5fac485173283869","Env":["DB_DATABASE=casn_local"]},"NetworkSettings":{"Networks":{"candidate-network":{}},"Ports":{}}},{"Config":{"Image":"ghcr.io/przemekp95/casn-app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","Labels":{"org.opencontainers.image.revision":"cccccccccccccccccccccccccccccccccccccccc"},"Env":["DB_NAME=casn_local"]},"NetworkSettings":{"Networks":{"candidate-network":{}},"Ports":{}}},{"Config":{"Image":"ghcr.io/przemekp95/casn-nginx@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","Labels":{"org.opencontainers.image.revision":"cccccccccccccccccccccccccccccccccccccccc"},"Env":[]},"NetworkSettings":{"Networks":{"candidate-network":{},"candidate-loopback":{}},"Ports":{"8080/tcp":[{"HostIp":"127.0.0.1"}]}}}]' "$forbidden"
     ;;
   *" network inspect candidate-network "*)
     if [[ "\${FAKE_EXTERNAL_NETWORK:-0}" == 1 ]]; then printf '[{"Internal":false}]'; else printf '[{"Internal":true}]'; fi
     ;;
+  *" network inspect candidate-loopback "*) printf '[{"Internal":false}]' ;;
   *) printf 'unexpected docker invocation' >&2; exit 64 ;;
 esac
 `;
@@ -135,10 +137,22 @@ function runVerifier(mismatch?: Mismatch) {
     snapshotId,
     capturedAt: "2026-08-26T12:15:00Z",
     source: { databaseNameHash: sha256("casn"), serverUuidHash: sha256("prod-uuid") },
-    database: { tables: 18, views: 0, triggers: 2, routines: 1, events: 0, sha256: sha256("database-dump") },
+    database: {
+      tables: 18, views: 0, triggers: 2, routines: 1, events: 0,
+      sha256: sha256("database-dump"),
+      canonicalSha256: sha256("database-dump"),
+    },
     media: {
-      directus: { files: mismatch === "emptyMedia" ? 0 : 2, sha256: sha256("directus-archive") },
-      legacy: { files: mismatch === "emptyMedia" ? 0 : 3, sha256: sha256("legacy-archive") },
+      directus: {
+        files: mismatch === "emptyMedia" ? 0 : 2,
+        representativePath: mismatch === "emptyMedia" ? null : "/cms/assets/author-1.jpg",
+        sha256: sha256("directus-archive"),
+      },
+      legacy: {
+        files: mismatch === "emptyMedia" ? 0 : 3,
+        representativePath: mismatch === "emptyMedia" ? null : "/cms/uploads/analysis-1.jpg",
+        sha256: sha256("legacy-archive"),
+      },
     },
     public: {
       authors: { count: 32, sha256: sha256(normalizedJson(authors)) },
@@ -154,10 +168,12 @@ function runVerifier(mismatch?: Mismatch) {
     snapshotId,
     project: "casn_snapshot_20260826t121500z-a1b2c3d4",
     database: "casn_local",
-    dbPort: "13307",
     httpPort: "13010",
     manifestSha256: sha256(readFileSync(manifestFile)),
     databaseContentSha256: sha256("database-dump"),
+    appImage: `ghcr.io/przemekp95/casn-app@sha256:${"a".repeat(64)}`,
+    nginxImage: `ghcr.io/przemekp95/casn-nginx@sha256:${"b".repeat(64)}`,
+    appRevision: "c".repeat(40),
     previousProject: "casn_previous",
   }), { mode: 0o600 });
   chmodSync(handoffFile, 0o600);

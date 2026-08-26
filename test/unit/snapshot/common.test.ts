@@ -22,6 +22,15 @@ function callCommon(functionName: string, ...args: string[]) {
 }
 
 describe("snapshot safety boundary", () => {
+  it("ignores the exact manifest filename emitted by the exporter", () => {
+    const result = spawnSync("git", [
+      "check-ignore", "--no-index", "--quiet",
+      "20260826T121500Z-a1b2c3d4.manifest.json",
+    ], { cwd: process.cwd() });
+
+    expect(result.status).toBe(0);
+  });
+
   it.each(["127.0.0.1", "localhost", "::1"])("accepts loopback host %s", (host) => {
     expect(callCommon("require_loopback_host", host).status).toBe(0);
   });

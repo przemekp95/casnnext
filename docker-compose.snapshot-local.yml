@@ -12,11 +12,6 @@ services:
       - --collation-server=utf8mb4_unicode_ci
     volumes:
       - mysql_data:/var/lib/mysql
-    ports:
-      - target: 3306
-        published: "${CASN_LOCAL_DB_PORT:?CASN_LOCAL_DB_PORT is required}"
-        host_ip: 127.0.0.1
-        protocol: tcp
     healthcheck:
       test:
         - CMD-SHELL
@@ -26,7 +21,6 @@ services:
       retries: 30
     networks:
       - casn_snapshot_internal
-      - casn_snapshot_loopback
 
   directus:
     image: directus/directus:12.3.1@sha256:8978edf633ae28aa31464bb71c55300c94d8bc771ff3727b5fac485173283869

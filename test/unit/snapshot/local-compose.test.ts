@@ -54,9 +54,7 @@ describe("snapshot local Compose boundary", () => {
     expect(config.services.app.environment?.DB_MIGRATION_CONFIRM).toBeUndefined();
     expect(config.services.directus.command).toEqual(["node", "docker-entrypoint.cjs"]);
 
-    expect(config.services.mysql.ports).toEqual([
-      expect.objectContaining({ host_ip: "127.0.0.1", published: "13307", target: 3306 }),
-    ]);
+    expect(config.services.mysql.ports).toBeUndefined();
     expect(config.services.nginx.ports).toEqual([
       expect.objectContaining({ host_ip: "127.0.0.1", published: "13010", target: 8080 }),
     ]);
@@ -70,7 +68,7 @@ describe("snapshot local Compose boundary", () => {
     }
     expect(Object.keys(config.services.app.networks ?? {})).toEqual(["casn_snapshot_internal"]);
     expect(Object.keys(config.services.directus.networks ?? {})).toEqual(["casn_snapshot_internal"]);
-    expect(Object.keys(config.services.mysql.networks ?? {}).sort()).toEqual(["casn_snapshot_internal", "casn_snapshot_loopback"]);
+    expect(Object.keys(config.services.mysql.networks ?? {})).toEqual(["casn_snapshot_internal"]);
     expect(Object.keys(config.services.nginx.networks ?? {}).sort()).toEqual(["casn_snapshot_internal", "casn_snapshot_loopback"]);
 
     const directusVolumes = config.services.directus.volumes ?? [];
