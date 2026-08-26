@@ -14,6 +14,7 @@
     "start": "node server.js",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --ignore-pattern 'lib/' --ignore-pattern 'migrations/'",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix --ignore-pattern 'lib/' --ignore-pattern 'migrations/'",
+    "quality:policy": "bash scripts/ci/quality-debt-policy.sh",
     "type-check": "tsc --noEmit -p tsconfig.ci.json",
     "test": "jest",
     "test:ci": "jest --runInBand",

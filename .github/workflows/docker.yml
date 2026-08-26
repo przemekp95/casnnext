@@ -81,6 +81,9 @@ jobs:
       - name: Lint code
         run: npm run lint
 
+      - name: Enforce quality debt policy
+        run: npm run quality:policy
+
       - name: Check posts
         run: npm run check:posts
 
