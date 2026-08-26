@@ -53,6 +53,10 @@ if rg -n 'it\.skip\(' "$CYPRESS_HYDRATION"; then
   report_failure 'Hydration Cypress scenarios must execute instead of using it.skip.'
 fi
 
+if ! npm run runtime:policy:test; then
+  report_failure 'Runtime source policy fixture contract failed.'
+fi
+
 if [[ -f server.js ]] && rg -n '^/\* eslint-disable' server.js; then
   report_failure 'The custom server must express its module boundary without inline lint suppression.'
 fi
