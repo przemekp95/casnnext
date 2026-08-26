@@ -27,8 +27,18 @@ trap cleanup EXIT
 deploy_path="$test_root/deploy"
 fake_bin="$test_root/bin"
 mkdir -p "$deploy_path/scripts/deploy" "$fake_bin"
-cp scripts/deploy/write-artifact-env.sh "$deploy_path/scripts/deploy/write-artifact-env.sh"
+cp scripts/deploy/write-artifact-env.sh "$deploy_path/scripts/deploy/write-artifact-env-real.sh"
 cp scripts/deploy/login-registry.sh "$deploy_path/scripts/deploy/login-registry.sh"
+cat >"$deploy_path/scripts/deploy/write-artifact-env.sh" <<'EOF_WRITER'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${FAKE_ENV_WRITER_FAIL:-0}" == '1' ]] \
+  && [[ "$(cat "$FAKE_GIT_STATE")" == "$CANDIDATE_REVISION" ]]; then
+  echo 'simulated artifact environment writer failure' >&2
+  exit 72
+fi
+exec "$(dirname "$0")/write-artifact-env-real.sh" "$@"
+EOF_WRITER
 chmod 700 "$deploy_path/scripts/deploy/"*.sh
 : >"$deploy_path/docker-compose.portainer.yml"
 
@@ -47,6 +57,10 @@ case "${1:-} ${2:-}" in
   'rev-parse HEAD') cat "$FAKE_GIT_STATE" ;;
   'cat-file -e') exit 0 ;;
   'checkout --detach')
+    printf 'checkout-attempt %s\n' "$3" >>"$FAKE_GIT_LOG"
+    if [[ "$3" == "$CANDIDATE_REVISION" && "${FAKE_GIT_FAIL_CANDIDATE_CHECKOUT:-0}" == '1' ]]; then
+      exit 71
+    fi
     printf '%s\n' "$3" >"$FAKE_GIT_STATE"
     printf 'checkout %s\n' "$3" >>"$FAKE_GIT_LOG"
     ;;
@@ -87,6 +101,8 @@ EOF_ENV
 }
 
 run_remote_deploy() {
+  local fail_candidate_checkout="${1:-0}"
+  local fail_env_writer="${2:-0}"
   env \
     PATH="$fake_bin:$PATH" \
     DEPLOY_PATH="$deploy_path" \
@@ -104,12 +120,28 @@ run_remote_deploy() {
     FAKE_GIT_LOG="$git_log" \
     FAKE_DOCKER_LOG="$docker_log" \
     FAKE_HEALTH_LOG="$health_log" \
+    FAKE_GIT_FAIL_CANDIDATE_CHECKOUT="$fail_candidate_checkout" \
+    FAKE_ENV_WRITER_FAIL="$fail_env_writer" \
     PREVIOUS_REVISION="$PREVIOUS_REVISION" \
     CANDIDATE_REVISION="$CANDIDATE_REVISION" \
     bash "$REMOTE_DEPLOY_SCRIPT"
 }
 
-write_previous_env
+reset_deploy_fixture() {
+  printf '%s\n' "$PREVIOUS_REVISION" >"$git_state"
+  : >"$git_log"
+  : >"$docker_log"
+  : >"$health_log"
+  write_previous_env
+}
+
+assert_pull_sequence() {
+  awk '$1 == "pull"' "$docker_log" >"$test_root/actual-pulls"
+  printf '%s\n' "$@" >"$test_root/expected-pulls"
+  cmp "$test_root/expected-pulls" "$test_root/actual-pulls"
+}
+
+reset_deploy_fixture
 set +e
 run_remote_deploy >"$test_root/deploy.out" 2>"$test_root/deploy.err"
 candidate_status=$?
@@ -123,17 +155,52 @@ cmp "$test_root/expected.env" "$deploy_path/.env"
 test "$(cat "$git_state")" = "$PREVIOUS_REVISION"
 grep -Fx "checkout $CANDIDATE_REVISION" "$git_log" >/dev/null
 grep -Fx "checkout $PREVIOUS_REVISION" "$git_log" >/dev/null
-grep -F "pull $CANDIDATE_APP_IMAGE" "$docker_log" >/dev/null
-grep -F "pull $PREVIOUS_APP_IMAGE" "$docker_log" >/dev/null
+assert_pull_sequence \
+  "pull $CANDIDATE_APP_IMAGE" \
+  "pull $CANDIDATE_NGINX_IMAGE" \
+  "pull $PREVIOUS_APP_IMAGE" \
+  "pull $PREVIOUS_NGINX_IMAGE"
 test "$(sed -n '1p' "$health_log")" = "$CANDIDATE_REVISION"
 test "$(sed -n '2p' "$health_log")" = "$PREVIOUS_REVISION"
 grep -F 'Candidate deployment failed; previous immutable deployment restored and healthy.' "$test_root/deploy.err" >/dev/null
 
-printf '%s\n' "$PREVIOUS_REVISION" >"$git_state"
-: >"$git_log"
-: >"$docker_log"
-: >"$health_log"
-write_previous_env
+reset_deploy_fixture
+set +e
+run_remote_deploy 1 0 >"$test_root/checkout-failure.out" 2>"$test_root/checkout-failure.err"
+checkout_failure_status=$?
+set -e
+test "$checkout_failure_status" -eq 71
+cmp "$test_root/expected.env" "$deploy_path/.env"
+test "$(cat "$git_state")" = "$PREVIOUS_REVISION"
+grep -Fx "checkout-attempt $CANDIDATE_REVISION" "$git_log" >/dev/null
+test "$(grep -Fxc "checkout $CANDIDATE_REVISION" "$git_log" || true)" -eq 0
+grep -Fx "checkout $PREVIOUS_REVISION" "$git_log" >/dev/null
+assert_pull_sequence \
+  "pull $PREVIOUS_APP_IMAGE" \
+  "pull $PREVIOUS_NGINX_IMAGE"
+test "$(sed -n '1p' "$health_log")" = "$PREVIOUS_REVISION"
+test "$(wc -l <"$health_log")" -eq 1
+grep -F 'Candidate deployment failed; previous immutable deployment restored and healthy.' "$test_root/checkout-failure.err" >/dev/null
+
+reset_deploy_fixture
+set +e
+run_remote_deploy 0 1 >"$test_root/env-writer-failure.out" 2>"$test_root/env-writer-failure.err"
+env_writer_failure_status=$?
+set -e
+test "$env_writer_failure_status" -eq 72
+cmp "$test_root/expected.env" "$deploy_path/.env"
+test "$(cat "$git_state")" = "$PREVIOUS_REVISION"
+grep -Fx "checkout $CANDIDATE_REVISION" "$git_log" >/dev/null
+grep -Fx "checkout $PREVIOUS_REVISION" "$git_log" >/dev/null
+assert_pull_sequence \
+  "pull $PREVIOUS_APP_IMAGE" \
+  "pull $PREVIOUS_NGINX_IMAGE"
+test "$(sed -n '1p' "$health_log")" = "$PREVIOUS_REVISION"
+test "$(wc -l <"$health_log")" -eq 1
+grep -F 'simulated artifact environment writer failure' "$test_root/env-writer-failure.err" >/dev/null
+grep -F 'Candidate deployment failed; previous immutable deployment restored and healthy.' "$test_root/env-writer-failure.err" >/dev/null
+
+reset_deploy_fixture
 env \
   PATH="$fake_bin:$PATH" \
   DEPLOY_PATH="$deploy_path" \

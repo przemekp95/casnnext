@@ -119,10 +119,9 @@ trap 'if ((rollback_active == 1)); then rollback || true; fi; exit 129' HUP
 trap 'if ((rollback_active == 1)); then rollback || true; fi; exit 130' INT
 trap 'if ((rollback_active == 1)); then rollback || true; fi; exit 143' TERM
 
-git checkout --detach "$APP_REVISION"
-scripts/deploy/write-artifact-env.sh .env
-
-if start_release "$APP_IMAGE" "$NGINX_IMAGE" "$APP_REVISION"; then
+if git checkout --detach "$APP_REVISION" \
+  && scripts/deploy/write-artifact-env.sh .env \
+  && start_release "$APP_IMAGE" "$NGINX_IMAGE" "$APP_REVISION"; then
   rollback_active=0
   echo "Immutable deployment is healthy at revision $APP_REVISION."
   exit 0
