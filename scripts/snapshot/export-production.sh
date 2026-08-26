@@ -300,12 +300,7 @@ main() {
   elif [[ -n "$directus_representative_path" ]]; then
     directus_representative_evidence='public-api'
   else
-    directus_representative_path="$(mysql_query "SELECT CONCAT('/cms/assets/', id) FROM directus_files WHERE id IS NOT NULL AND id <> '' ORDER BY uploaded_on DESC, id LIMIT 1;")"
-    if [[ -n "$directus_representative_path" ]]; then
-      directus_representative_evidence='directus-db'
-    else
-      directus_representative_evidence='no-directus-record'
-    fi
+    directus_representative_evidence='no-public-directus-reference'
   fi
   if (( legacy_files == 0 )); then
     legacy_representative_evidence='empty-volume'

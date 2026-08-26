@@ -47,7 +47,6 @@ case "$all" in
     ;;
   *" run "*"SELECT DATABASE()"*) printf 'casn\n' ;;
   *" run "*"@@server_uuid"*) printf 'prod-uuid\n' ;;
-  *" run "*"SELECT CONCAT("*"/cms/assets/"*) printf '/cms/assets/11111111-1111-4111-8111-111111111111\n' ;;
   *" run "*"ENGINE NOT IN"*)
     [[ "\${FAKE_FAILURE_POINT-}" != nontransactional ]] && printf '0\n' || printf '1\n'
     ;;
@@ -200,12 +199,20 @@ describe("production snapshot exporter", () => {
       expect(run.result.status).toBe(0);
       expect(run.outputFiles.some((name) => name.endsWith(".casn-snapshot.age"))).toBe(true);
       expect(run.outputFiles.some((name) => name.endsWith(".manifest.json"))).toBe(true);
+      const manifestName = run.outputFiles.find((name) => name.endsWith(".manifest.json"));
+      const manifest = JSON.parse(readFileSync(join(run.output, manifestName!), "utf8"));
+      expect(manifest.media.directus).toMatchObject({
+        files: 2,
+        representativePath: null,
+        representativeEvidence: "no-public-directus-reference",
+      });
       expect(run.commandLog).toContain("docker stop");
       expect(run.commandLog).toContain("docker start verified-directus-id");
       expect(run.commandLog).toContain("--skip-dump-date");
       expect(run.commandLog).toContain("--skip-comments");
       expect(run.commandLog).not.toContain("--compact");
       expect(run.commandLog).not.toContain("SENTINEL_EXPORT_PASSWORD");
+      expect(run.commandLog).not.toContain("FROM directus_files");
       expect(run.result.stdout).not.toContain("SENTINEL_EXPORT_PASSWORD");
       expect(run.result.stderr).not.toContain("SENTINEL_EXPORT_PASSWORD");
     } finally {

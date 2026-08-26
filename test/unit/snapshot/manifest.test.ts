@@ -105,6 +105,23 @@ describe("snapshot manifest", () => {
     }
   });
 
+  it("accepts nonempty Directus media with no public reference without inventing an HTTP route", () => {
+    const inventory = validInventory();
+    inventory.media.directus.representativePath = null;
+    inventory.media.directus.representativeEvidence = "no-public-directus-reference";
+    const fixture = prepareFixture(inventory);
+    try {
+      expect(runManifest("build", "--input", fixture.directory, "--output", fixture.manifest).status).toBe(0);
+      expect(JSON.parse(readFileSync(fixture.manifest, "utf8")).media.directus).toMatchObject({
+        files: 2,
+        representativePath: null,
+        representativeEvidence: "no-public-directus-reference",
+      });
+    } finally {
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
+
   it.each([
     ["missing source field", (inventory: Inventory) => { delete inventory.source; }],
     ["extra top-level field", (inventory: Inventory) => { inventory.untrusted = "SENTINEL_TOKEN"; }],

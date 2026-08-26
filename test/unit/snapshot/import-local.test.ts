@@ -129,7 +129,7 @@ function prepareRun(options: RunOptions = {}) {
     source: { databaseNameHash: "a".repeat(64), serverUuidHash: "4835dae58c92570471bebc1f79021220d4f993b750206b646270f03b060eda08" },
     database: { tables: 18, views: 0, triggers: 2, routines: 1, events: 0 },
     media: {
-      directus: { files: 2, representativePath: "/cms/assets/author-1.jpg", representativeEvidence: "directus-db" },
+      directus: { files: 2, representativePath: "/cms/assets/author-1.jpg", representativeEvidence: "public-api" },
       legacy: { files: 3, representativePath: "/cms/uploads/analysis-1.jpg", representativeEvidence: "volume-inventory" },
     },
     public: {

@@ -52,8 +52,8 @@ validate_inventory() {
     and (.media.directus.representativePath == null or (.media.directus.representativePath | type == "string" and startswith("/cms/assets/")))
     and (
       (.media.directus.files == 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "empty-volume")
-      or (.media.directus.files > 0 and .media.directus.representativePath != null and (.media.directus.representativeEvidence == "public-api" or .media.directus.representativeEvidence == "directus-db"))
-      or (.media.directus.files > 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "no-directus-record")
+      or (.media.directus.files > 0 and .media.directus.representativePath != null and .media.directus.representativeEvidence == "public-api")
+      or (.media.directus.files > 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "no-public-directus-reference")
     )
     and (.media.legacy | (keys | sort) == ["files","representativeEvidence","representativePath"])
     and (.media.legacy.files | count)
@@ -101,8 +101,8 @@ validate_manifest() {
     and (.media.legacy.representativePath == null or (.media.legacy.representativePath | type == "string" and startswith("/cms/uploads/")))
     and (
       (.media.directus.files == 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "empty-volume")
-      or (.media.directus.files > 0 and .media.directus.representativePath != null and (.media.directus.representativeEvidence == "public-api" or .media.directus.representativeEvidence == "directus-db"))
-      or (.media.directus.files > 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "no-directus-record")
+      or (.media.directus.files > 0 and .media.directus.representativePath != null and .media.directus.representativeEvidence == "public-api")
+      or (.media.directus.files > 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "no-public-directus-reference")
     )
     and (
       (.media.legacy.files == 0 and .media.legacy.representativePath == null and .media.legacy.representativeEvidence == "empty-volume")

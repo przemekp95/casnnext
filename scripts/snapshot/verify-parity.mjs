@@ -159,8 +159,8 @@ function validateManifest(manifest) {
     const files = manifest.media?.[key]?.files;
     const validEvidence = key === "directus"
       ? ((files === 0 && representativePath === null && evidence === "empty-volume")
-        || (files > 0 && representativePath !== null && ["public-api", "directus-db"].includes(evidence))
-        || (files > 0 && representativePath === null && evidence === "no-directus-record"))
+        || (files > 0 && representativePath !== null && evidence === "public-api")
+        || (files > 0 && representativePath === null && evidence === "no-public-directus-reference"))
       : ((files === 0 && representativePath === null && evidence === "empty-volume")
         || (files > 0 && representativePath !== null && ["public-api", "volume-inventory"].includes(evidence)));
     if (!exactKeys(manifest.media?.[key], ["files", "representativeEvidence", "representativePath", "sha256"])
