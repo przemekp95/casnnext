@@ -9,6 +9,7 @@ readonly PREVIOUS_APP_IMAGE='ghcr.io/example/casn@sha256:aaaaaaaaaaaaaaaaaaaaaaa
 readonly PREVIOUS_NGINX_IMAGE='ghcr.io/example/casn-nginx@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 readonly CANDIDATE_APP_IMAGE='ghcr.io/example/casn@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
 readonly CANDIDATE_NGINX_IMAGE='ghcr.io/example/casn-nginx@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
+readonly REPOSITORY_ROOT="$PWD"
 
 if [[ ! -f "$REMOTE_DEPLOY_SCRIPT" ]]; then
   echo "Missing remote deployment script: $REMOTE_DEPLOY_SCRIPT" >&2
@@ -66,12 +67,23 @@ EOF_DOCKER
 cat >"$fake_bin/curl" <<'EOF_CURL'
 #!/usr/bin/env bash
 set -euo pipefail
+output=''
+while (($# > 0)); do
+  case "$1" in
+    --output) output="$2"; shift 2 ;;
+    --write-out) shift 2 ;;
+    *) shift ;;
+  esac
+done
+test -n "$output"
 revision="$(awk -F= '$1 == "APP_REVISION" { print $2 }' "$DEPLOY_PATH/.env")"
 printf '%s\n' "$revision" >>"$FAKE_CURL_LOG"
 if [[ "$revision" == "$CANDIDATE_REVISION" ]]; then
-  exit 22
+  printf '{"status":"ready","database":"connected","revision":"0000000000000000000000000000000000000000"}\n' >"$output"
+else
+  printf '{"status":"ready","database":"connected","revision":"%s"}\n' "$PREVIOUS_REVISION" >"$output"
 fi
-[[ "$revision" == "$PREVIOUS_REVISION" ]]
+printf '200'
 EOF_CURL
 
 chmod 700 "$fake_bin/git" "$fake_bin/docker" "$fake_bin/curl"
@@ -98,8 +110,9 @@ run_remote_deploy() {
     APP_REVISION="$CANDIDATE_REVISION" \
     EXPECTED_APP_REVISION="$CANDIDATE_REVISION" \
     HEALTH_CHECK_URL='https://health.example.invalid/api/health' \
+    HEALTH_VERIFIER="$REPOSITORY_ROOT/scripts/deploy/verify-health.sh" \
     HEALTH_CHECK_ATTEMPTS=1 \
-    HEALTH_CHECK_DELAY_SECONDS=0 \
+    HEALTH_CHECK_INTERVAL_SECONDS=0 \
     GHCR_TOKEN='test-token' \
     GHCR_USERNAME='test-user' \
     FAKE_GIT_STATE="$git_state" \
@@ -145,6 +158,7 @@ env \
   NGINX_IMAGE="$CANDIDATE_NGINX_IMAGE" \
   APP_REVISION="$CANDIDATE_REVISION" \
   EXPECTED_APP_REVISION="$CANDIDATE_REVISION" \
+  HEALTH_VERIFIER="$REPOSITORY_ROOT/scripts/deploy/verify-health.sh" \
   GHCR_TOKEN='test-token' \
   GHCR_USERNAME='test-user' \
   FAKE_GIT_STATE="$git_state" \

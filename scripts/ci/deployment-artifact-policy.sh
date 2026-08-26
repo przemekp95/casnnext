@@ -7,6 +7,7 @@ readonly REGISTRY_LOGIN='scripts/deploy/login-registry.sh'
 readonly REMOTE_DEPLOY='scripts/deploy/remote-deploy.sh'
 readonly REMOTE_DEPLOY_TEST='scripts/ci/remote-deploy-rollback-test.sh'
 readonly DEPLOYMENT_MUTATION_CHECK='scripts/ci/assert-no-deployment-db-mutation.sh'
+readonly HEALTH_VERIFIER='scripts/deploy/verify-health.sh'
 readonly ACTIONLINT_IMAGE='rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9'
 readonly APP_IMAGE_FIXTURE='ghcr.io/example/casn@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 readonly NGINX_IMAGE_FIXTURE='ghcr.io/example/casn-nginx@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -70,8 +71,11 @@ for required_source in \
   'GHCR_USERNAME: ${{ github.repository_owner }}' \
   'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION,DEPLOY_PATH,HEALTH_CHECK_URL' \
   'git show "$APP_REVISION:scripts/deploy/remote-deploy.sh"' \
+  'git show "$APP_REVISION:scripts/deploy/verify-health.sh"' \
   '"$remote_deploy_script"' \
+  'HEALTH_VERIFIER="$health_verifier_script"' \
   'scripts/deploy/login-registry.sh' \
+  'scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"' \
   'org.opencontainers.image.revision'; do
   if ! rg -Fq "$required_source" "$DEPLOY_WORKFLOW"; then
     echo "Deployment workflow is missing immutable-artifact control: $required_source" >&2
@@ -89,13 +93,12 @@ if [[ ! -x "$REGISTRY_LOGIN" ]]; then
   exit 1
 fi
 
-if [[ ! -x "$REMOTE_DEPLOY" || ! -x "$REMOTE_DEPLOY_TEST" || ! -x "$DEPLOYMENT_MUTATION_CHECK" ]]; then
-  echo 'Remote deployment, rollback test, and mutation boundary checker must be executable.' >&2
+if [[ ! -x "$REMOTE_DEPLOY" || ! -x "$REMOTE_DEPLOY_TEST" || ! -x "$DEPLOYMENT_MUTATION_CHECK" || ! -x "$HEALTH_VERIFIER" ]]; then
+  echo 'Remote deployment, rollback test, mutation boundary checker, and health verifier must be executable.' >&2
   exit 1
 fi
 
 "$REMOTE_DEPLOY_TEST"
-
 fake_docker="$policy_tmp_dir/docker"
 fake_docker_args="$policy_tmp_dir/docker-args"
 fake_docker_stdin="$policy_tmp_dir/docker-stdin"

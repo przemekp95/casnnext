@@ -25,6 +25,7 @@ if [[ "$DEPLOY_OPERATION" != 'deploy' ]]; then
   exit 1
 fi
 
+: "${HEALTH_VERIFIER:?HEALTH_VERIFIER is required}"
 : "${APP_IMAGE:?APP_IMAGE is required}"
 : "${NGINX_IMAGE:?NGINX_IMAGE is required}"
 : "${APP_REVISION:?APP_REVISION is required}"
@@ -61,30 +62,16 @@ validate_release() {
   [[ "$revision" =~ $revision_pattern ]] || { echo 'Stored APP_REVISION is not a full lowercase revision.' >&2; return 1; }
 }
 
-public_health_check() {
-  local attempt
-  local attempts="${HEALTH_CHECK_ATTEMPTS:-30}"
-  local delay="${HEALTH_CHECK_DELAY_SECONDS:-10}"
-  for ((attempt = 1; attempt <= attempts; attempt++)); do
-    if curl --fail --silent --show-error "$HEALTH_CHECK_URL" >/dev/null; then
-      return 0
-    fi
-    if ((attempt < attempts)); then
-      sleep "$delay"
-    fi
-  done
-  return 1
-}
-
 start_release() {
   local app_image="$1"
   local nginx_image="$2"
+  local revision="$3"
   docker pull "$app_image"
   docker pull "$nginx_image"
   docker compose --env-file .env -f "$compose_file" config --quiet
   docker compose --env-file .env -f "$compose_file" up -d --wait --wait-timeout 180 --remove-orphans
   docker compose --env-file .env -f "$compose_file" exec -T app curl -fsS http://127.0.0.1:3000/api/health >/dev/null
-  public_health_check
+  "$HEALTH_VERIFIER" "$HEALTH_CHECK_URL" "$revision"
 }
 
 previous_revision="$(git rev-parse HEAD)"
@@ -124,7 +111,7 @@ rollback() {
   fi
   git checkout --detach "$previous_revision" || rollback_status=$?
   if ((rollback_status == 0)); then
-    start_release "$previous_app_image" "$previous_nginx_image" || rollback_status=$?
+    start_release "$previous_app_image" "$previous_nginx_image" "$previous_revision" || rollback_status=$?
   fi
   if ((rollback_status == 0)); then
     echo 'Candidate deployment failed; previous immutable deployment restored and healthy.' >&2
@@ -141,7 +128,7 @@ trap 'if ((rollback_active == 1)); then rollback || true; fi; exit 143' TERM
 git checkout --detach "$APP_REVISION"
 scripts/deploy/write-artifact-env.sh .env
 
-if start_release "$APP_IMAGE" "$NGINX_IMAGE"; then
+if start_release "$APP_IMAGE" "$NGINX_IMAGE" "$APP_REVISION"; then
   rollback_active=0
   echo "Immutable deployment is healthy at revision $APP_REVISION."
   exit 0

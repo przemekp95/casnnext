@@ -262,6 +262,7 @@ jobs:
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       GHCR_USERNAME: ${{ github.repository_owner }}
       DEPLOY_OPERATION: ${{ inputs.operation }}
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
 
     steps:
       - name: Checkout repository
@@ -308,6 +309,20 @@ jobs:
             exit 1
           fi
 
+      - name: Validate health gate configuration
+        if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$HEALTH_CHECK_URL" || {
+            echo 'HEALTH_CHECK_URL is required for a remote deployment.' >&2
+            exit 1
+          }
+          if ! [[ "$DEPLOY_ENVIRONMENT" != 'production' || "$HEALTH_CHECK_URL" == 'https://casn.pl/api/health' ]]; then
+            echo 'Production HEALTH_CHECK_URL must be the canonical public readiness endpoint.' >&2
+            exit 1
+          fi
+
       - name: Deploy via SSH
         if: ${{ env.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.3
@@ -336,10 +351,12 @@ jobs:
 
             git fetch --depth=1 origin "$APP_REVISION"
             remote_deploy_script="$(mktemp)"
-            trap 'rm -f "$remote_deploy_script"' EXIT
+            health_verifier_script="$(mktemp)"
+            trap 'rm -f "$remote_deploy_script" "$health_verifier_script"' EXIT
             git show "$APP_REVISION:scripts/deploy/remote-deploy.sh" >"$remote_deploy_script"
-            chmod 700 "$remote_deploy_script"
-            "$remote_deploy_script"
+            git show "$APP_REVISION:scripts/deploy/verify-health.sh" >"$health_verifier_script"
+            chmod 700 "$remote_deploy_script" "$health_verifier_script"
+            HEALTH_VERIFIER="$health_verifier_script" "$remote_deploy_script"
 
       - name: Reject unimplemented Portainer-only deployment
         if: ${{ env.PORTAINER_URL != '' && env.DEPLOY_HOST == '' }}
@@ -364,6 +381,24 @@ jobs:
           echo '5. Pull the exact app/nginx references printed above'
           echo '6. Run scripts/deploy/remote-deploy.sh with DEPLOY_PATH and HEALTH_CHECK_URL set'
           echo '7. If candidate health fails, the script restores and verifies the previous immutable release'
+          echo '8. Verify the canonical public health JSON reports the exact deployed revision'
+
+      - name: Health check
+        if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          HEALTH_CHECK_URL: ${{ env.HEALTH_CHECK_URL }}
+          APP_REVISION: ${{ env.APP_REVISION }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          envs: HEALTH_CHECK_URL,APP_REVISION
+          script: |
+            set -eu
+            cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
+            scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"
 
       - name: Notify deployment status
         if: always()
