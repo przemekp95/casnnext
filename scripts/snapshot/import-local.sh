@@ -28,6 +28,14 @@ require_port() {
   (( 10#$1 <= 65535 )) || die 'local port is outside TCP range'
 }
 
+require_local_image_ref() {
+  local value="${1-}"
+  if [[ "$value" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    return 0
+  fi
+  require_digest_ref "$value"
+}
+
 require_local_url() {
   local value="$1" expected_suffix="${2-}"
   [[ "$value" =~ ^http://(127\.0\.0\.1|localhost):([1-9][0-9]{0,4})(/.*)?$ ]] || die 'URL is not loopback HTTP'
@@ -127,8 +135,8 @@ main() {
     [[ -n "${!required_variable-}" ]] || die "missing required local configuration: $required_variable"
   done
   [[ -z "${MYSQL_DATABASE-}" || "$MYSQL_DATABASE" == "$database_name" ]] || die 'unsafe configured database name'
-  require_digest_ref "$APP_IMAGE"
-  require_digest_ref "$NGINX_IMAGE"
+  require_local_image_ref "$APP_IMAGE"
+  require_local_image_ref "$NGINX_IMAGE"
   require_digest_ref "$mysql_image"
   [[ "$APP_REVISION" =~ ^[0-9a-f]{40}$ ]] || die 'invalid local application revision'
   require_port "$CASN_LOCAL_DB_PORT"

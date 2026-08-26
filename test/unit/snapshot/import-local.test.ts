@@ -243,6 +243,20 @@ describe("local snapshot importer", () => {
     }
   });
 
+  it("accepts an immutable local Docker content ID", () => {
+    const run = prepareRun({
+      mutateEnv: (lines) => {
+        const index = lines.findIndex((line) => line.startsWith("NGINX_IMAGE="));
+        lines[index] = `NGINX_IMAGE=sha256:${"b".repeat(64)}`;
+      },
+    });
+    try {
+      expect(run.result.status).toBe(0);
+    } finally {
+      run.cleanup();
+    }
+  });
+
   it("rejects symlinked or corrupt encrypted artifacts before invoking Docker", () => {
     for (const options of [{ symlinkArtifact: true }, { tamperArtifact: true }]) {
       const run = prepareRun(options);
