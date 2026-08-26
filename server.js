@@ -7,6 +7,7 @@ loadEnvConfig(process.cwd());
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
 const { AppDataSource, isDatabaseConfigured } = require('./lib/db.shared');
+const { requireDatabaseReady } = require('./lib/server/startup-database');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || '0.0.0.0';
@@ -17,26 +18,13 @@ const handle = app.getRequestHandler();
 
 // Bootstrap function - runs once before starting the server
 async function bootstrap() {
-  if (!isDatabaseConfigured() || !AppDataSource) {
-    console.warn('[BOOT] Database is not configured; readiness remains 503');
-    return;
-  }
-
-  try {
-    console.log('[BOOT] Starting database bootstrap...');
-
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
-    }
-    await AppDataSource.query('SELECT 1');
-
-    console.log('[BOOT] Database bootstrap completed successfully');
-    console.log('[BOOT] Starting Next.js server...');
-
-  } catch (error) {
-    console.error('[BOOT] Database bootstrap failed:', error);
-    console.warn('[BOOT] Continuing without database connection; readiness remains 503 until it is available');
-  }
+  console.log('[BOOT] Starting database bootstrap...');
+  await requireDatabaseReady({
+    dataSource: AppDataSource,
+    isConfigured: isDatabaseConfigured,
+  });
+  console.log('[BOOT] Database bootstrap completed successfully');
+  console.log('[BOOT] Starting Next.js server...');
 }
 
 // Start the application

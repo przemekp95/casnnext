@@ -99,7 +99,7 @@ describe('lib/db.server', () => {
     await expect(mod.query('SELECT 1')).rejects.toThrow('Database not initialized');
   });
 
-  it('enables automatic migrations only with both exact confirmations', async () => {
+  it('keeps automatic migrations disabled even with both confirmations', async () => {
     process.env.DATABASE_URL = 'mysql://casn_user:casn_pass@db.internal:3308/casn_prod';
     process.env.RUN_DB_MIGRATIONS = '1';
     process.env.DB_MIGRATION_CONFIRM = 'RUN_CASN_MIGRATIONS';
@@ -107,7 +107,7 @@ describe('lib/db.server', () => {
     const { DataSourceMock } = await loadModule();
     const [config] = DataSourceMock.mock.calls[0];
 
-    expect(config.migrationsRun).toBe(true);
+    expect(config.migrationsRun).toBe(false);
   });
 
   it('executes query and always releases query runner', async () => {

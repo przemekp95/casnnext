@@ -61,12 +61,15 @@ local/rehearsal topology at `3001:8080`.
 - `/cms/` proxies to Directus, `/cms/assets/` is new Directus media, and the
   historical `/cms/uploads/` path is read-only legacy-volume access.
 
-The application does not automatically migrate unless both
+Application startup never runs migrations. `npm run migration:run` is the only
+supported migration path and refuses to run unless both
 `RUN_DB_MIGRATIONS=1` and
-`DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS` are present. The supplied Compose
-files deliberately do not inject either value. `npm run migration:run` remains
-an explicit migration command and must be used only in an approved isolated
-rehearsal or separately approved change.
+`DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS` are present. It also refuses an
+existing content schema without the recorded initial migration. The supplied
+Compose files deliberately inject neither variable. Use the command only in an
+approved isolated rehearsal or separately approved change. A non-zero result
+stops the command, but MySQL DDL can commit implicitly and is not guaranteed to
+roll back atomically.
 
 ## Required secrets and artifact variables
 

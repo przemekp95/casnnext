@@ -346,26 +346,31 @@ rehearsal volume be replaced. `mysql --force` is intentionally never used.
 "${rehearsal_docker[@]}" run -i --rm --mount "type=volume,src=$rehearsal_legacy_volume,dst=/to" "$volume_helper_image" sh -ec 'set -eu; find /to -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; exec tar -C /to -xf -' < "$protected_backup/legacy-uploads-before.tar"
 ```
 
-## Gate 3: production-JS automatic migration path
+## Gate 3: production startup cannot migrate implicitly
 
-The app image does not need `tsx`: exercise the production CommonJS DataSource
-that consumes `migrationsRun` under the two exact gate variables. Assert the
-validated MySQL identity both before and after it.
+The app image does not contain the explicit TypeScript migration runner. Prove
+that even the two migration confirmation variables cannot turn migration on in
+the production CommonJS datasource, and that initializing it leaves migration
+history unchanged. Run any separately approved migration from the source
+checkout with `npm run migration:run` and both exact confirmations before this
+gate; never substitute application startup for that operator action.
 
 ```bash
 assert_rehearsal_db
+"${rehearsal_compose_cmd[@]}" exec -T mysql sh -ec 'exec mysql -N -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "SELECT timestamp, name FROM migrations ORDER BY id;"' > "$evidence_root/rehearsal-migrations-before-startup.txt"
 "${rehearsal_compose_cmd[@]}" run --rm --no-deps -e NODE_ENV=production -e RUN_DB_MIGRATIONS=1 -e DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS app node -e '
-const { shouldRunDatabaseMigrations } = require("./lib/server/migration-policy.js");
 const { AppDataSource, isDatabaseConfigured } = require("./lib/db.shared");
-if (!shouldRunDatabaseMigrations(process.env) || shouldRunDatabaseMigrations({ RUN_DB_MIGRATIONS: "true", DB_MIGRATION_CONFIRM: "RUN_CASN_MIGRATIONS" }) || !isDatabaseConfigured() || !AppDataSource) process.exit(1);
-AppDataSource.initialize().then(() => AppDataSource.destroy()).catch((error) => { console.error(error.message); process.exit(1); });
+if (!isDatabaseConfigured() || !AppDataSource || AppDataSource.options.migrationsRun !== false) process.exit(1);
+AppDataSource.initialize().then(() => AppDataSource.query("SELECT 1")).then(() => AppDataSource.destroy()).catch((error) => { console.error(error.message); process.exit(1); });
 '
 assert_rehearsal_db
-"${rehearsal_compose_cmd[@]}" exec -T mysql sh -ec 'exec mysql -N -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "SELECT timestamp, name FROM migrations ORDER BY id;"' | tee "$evidence_root/rehearsal-migrations-after.txt"
+"${rehearsal_compose_cmd[@]}" exec -T mysql sh -ec 'exec mysql -N -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "SELECT timestamp, name FROM migrations ORDER BY id;"' > "$evidence_root/rehearsal-migrations-after-startup.txt"
+cmp "$evidence_root/rehearsal-migrations-before-startup.txt" "$evidence_root/rehearsal-migrations-after-startup.txt"
 ```
 
-Record two human approvals before this gate. Stop on unexpected migration or
-data loss; the initial migration can recreate `Author` and `Analysis`.
+Record two human approvals before the separate explicit migration action. Stop
+on an unexpected migration-history difference or data loss; the initial
+migration can recreate `Author` and `Analysis`.
 
 ## Gate 4: executable public, Directus, and webhook acceptance
 

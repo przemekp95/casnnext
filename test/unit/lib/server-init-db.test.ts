@@ -99,7 +99,7 @@ describe('lib/server/init-db', () => {
     jest.clearAllMocks();
   });
 
-  it('returns datasource when DB configuration is missing', async () => {
+  it('rejects when DB configuration is missing', async () => {
     delete process.env.DATABASE_URL;
     delete process.env.DB_HOST;
     delete process.env.DB_USER;
@@ -107,9 +107,9 @@ describe('lib/server/init-db', () => {
 
     const { dataSource } = createDataSource();
     const { initializeDatabase } = await loadInitDbModule(dataSource);
-    const result = await initializeDatabase();
-
-    expect(result).toBe(dataSource);
+    await expect(initializeDatabase()).rejects.toThrow(
+      'Database configuration is required for initialization',
+    );
     expect(dataSource.initialize).not.toHaveBeenCalled();
   });
 
@@ -127,13 +127,13 @@ describe('lib/server/init-db', () => {
     expect(dataSource.initialize).not.toHaveBeenCalled();
   });
 
-  it('returns null when datasource could not be created', async () => {
+  it('rejects when datasource could not be created', async () => {
     process.env.DATABASE_URL = 'mysql://user:pass@localhost:3306/casn';
 
     const { initializeDatabase } = await loadInitDbModule(null);
-    const result = await initializeDatabase();
-
-    expect(result).toBeNull();
+    await expect(initializeDatabase()).rejects.toThrow(
+      'Database datasource could not be created',
+    );
   });
 
   it('returns datasource immediately when already initialized', async () => {
@@ -163,43 +163,50 @@ describe('lib/server/init-db', () => {
     expect(queryRunner.release).toHaveBeenCalledTimes(1);
   });
 
-  it('returns early when required tables are missing', async () => {
+  it('rejects when required tables are missing', async () => {
     process.env.DATABASE_URL = 'mysql://user:pass@localhost:3306/casn';
 
     const { dataSource, queryRunner } = createDataSource({
       tables: [{ Tables_in_casn: 'Author' }],
     });
     const { initializeDatabase } = await loadInitDbModule(dataSource);
-    const result = await initializeDatabase();
-
-    expect(result).toBe(dataSource);
+    await expect(initializeDatabase()).rejects.toThrow(
+      'Migration verification failed: Required tables do not exist',
+    );
     expect(dataSource.getRepository).not.toHaveBeenCalled();
-    expect(queryRunner.release).not.toHaveBeenCalled();
+    expect(queryRunner.release).toHaveBeenCalledTimes(1);
   });
 
-  it('continues when verification query fails', async () => {
+  it('rejects when verification query fails', async () => {
     process.env.DATABASE_URL = 'mysql://user:pass@localhost:3306/casn';
 
     const { dataSource } = createDataSource({
       queryError: new Error('Cannot inspect tables'),
     });
     const { initializeDatabase } = await loadInitDbModule(dataSource);
-    const result = await initializeDatabase();
-
-    expect(result).toBe(dataSource);
-    expect(warnSpy).toHaveBeenCalledWith('Migrations may have completed but verification failed');
+    await expect(initializeDatabase()).rejects.toThrow('Cannot inspect tables');
   });
 
-  it('handles initialization errors and returns datasource', async () => {
+  it('propagates initialization errors', async () => {
     process.env.DATABASE_URL = 'mysql://user:pass@localhost:3306/casn';
 
     const { dataSource } = createDataSource({
       initializeError: new Error('Encoding not recognized: cesu8'),
     });
     const { initializeDatabase } = await loadInitDbModule(dataSource);
-    const result = await initializeDatabase();
-
-    expect(result).toBe(dataSource);
+    await expect(initializeDatabase()).rejects.toThrow('Encoding not recognized: cesu8');
     expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it('rejects when expected migration data is missing', async () => {
+    process.env.DATABASE_URL = 'mysql://user:pass@localhost:3306/casn';
+
+    const { dataSource, queryRunner } = createDataSource({ authorCount: 0 });
+    const { initializeDatabase } = await loadInitDbModule(dataSource);
+
+    await expect(initializeDatabase()).rejects.toThrow(
+      'Migration verification failed: Expected data not found',
+    );
+    expect(queryRunner.release).toHaveBeenCalledTimes(1);
   });
 });

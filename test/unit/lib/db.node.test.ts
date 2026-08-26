@@ -32,7 +32,7 @@ async function loadNodeDataSource() {
   return DataSourceMock;
 }
 
-describe('lib/db.node automatic migration policy', () => {
+describe('lib/db.node explicit migration policy', () => {
   const originalEnv = snapshotEnv();
 
   afterEach(() => {
@@ -42,12 +42,12 @@ describe('lib/db.node automatic migration policy', () => {
   });
 
   it.each([
-    [{}, false],
-    [{ RUN_DB_MIGRATIONS: '1' }, false],
-    [{ DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' }, false],
-    [{ RUN_DB_MIGRATIONS: 'true', DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' }, false],
-    [{ RUN_DB_MIGRATIONS: '1', DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' }, true],
-  ] as const)('sets migrationsRun to %s for %o', async (migrationEnv, expected) => {
+    {},
+    { RUN_DB_MIGRATIONS: '1' },
+    { DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' },
+    { RUN_DB_MIGRATIONS: 'true', DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' },
+    { RUN_DB_MIGRATIONS: '1', DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' },
+  ] as const)('keeps migrationsRun disabled for %o', async (migrationEnv) => {
     process.env.DATABASE_URL = 'mysql://casn_user:casn_pass@db.internal:3308/casn_prod';
     delete process.env.RUN_DB_MIGRATIONS;
     delete process.env.DB_MIGRATION_CONFIRM;
@@ -56,6 +56,6 @@ describe('lib/db.node automatic migration policy', () => {
     const DataSourceMock = await loadNodeDataSource();
     const [config] = DataSourceMock.mock.calls[0];
 
-    expect(config.migrationsRun).toBe(expected);
+    expect(config.migrationsRun).toBe(false);
   });
 });

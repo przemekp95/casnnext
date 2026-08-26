@@ -550,6 +550,8 @@ fi
 
 echo "Applying repository migrations to the disposable database..."
 if ! NODE_ENV=production \
+  RUN_DB_MIGRATIONS=1 \
+  DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS \
   DATABASE_URL="mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@127.0.0.1:${mysql_host_port}/${MYSQL_DATABASE}" \
   npm run migration:run >"$migration_log" 2>&1; then
   echo "Repository migration failed; last 200 migration log lines:" >&2

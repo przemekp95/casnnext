@@ -6,7 +6,6 @@ import { AnalysisSchema } from './entities/Analysis';
 import { IssueCollectionSchema } from './entities/IssueCollection';
 import { InitialSetup1736424470000 } from '../migrations/1736424470000-InitialSetup';
 import { AddCmsReadModel1736424470002 } from '../migrations/1736424470002-AddCmsReadModel';
-import { shouldRunDatabaseMigrations } from './server/migration-policy';
 
 // RSC-specific DataSource creation (not a global singleton)
 // Each RSC call gets its own fresh connection
@@ -14,7 +13,7 @@ export async function createRscDataSource(): Promise<DataSource> {
   const isProduction = process.env.NODE_ENV === 'production';
   const isTest = process.env.NODE_ENV === 'test';
 
-  // Production-ready configuration with automatic migrations
+  // Production-ready configuration; migrations are an explicit operator action.
   const databaseUrl = process.env.DATABASE_URL;
   let dbConfig;
 
@@ -68,7 +67,7 @@ export async function createRscDataSource(): Promise<DataSource> {
       InitialSetup1736424470000,
       AddCmsReadModel1736424470002,
     ],
-    migrationsRun: shouldRunDatabaseMigrations(process.env),
+    migrationsRun: false,
     subscribers: [],
   });
 

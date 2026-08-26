@@ -30,7 +30,7 @@
     "deploy:policy": "bash scripts/ci/deployment-artifact-policy.sh",
     "directus:smoke": "bash scripts/ci/directus-smoke.sh",
     "db:seed": "echo 'Seeding handled by migrations - data included in InitialSetup migration'",
-    "migration:run": "tsx node_modules/.bin/typeorm migration:run -d lib/db.datasource.ts",
+    "migration:run": "tsx scripts/run-migrations.ts",
     "migration:create": "tsx node_modules/.bin/typeorm migration:create",
     "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.datasource.ts"
   },

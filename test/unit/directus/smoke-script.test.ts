@@ -35,6 +35,8 @@ describe("Directus topology smoke contract", () => {
   it("runs migrations and the repository entrypoint in the isolated topology", () => {
     expect(smoke).toContain("npm run migration:run");
     expect(smoke).toContain('NODE_ENV=production \\');
+    expect(smoke).toContain('RUN_DB_MIGRATIONS=1 \\');
+    expect(smoke).toContain('DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS \\');
     expect(smoke).toContain('migration_log="$runtime_directory/migration.log"');
     expect(smoke).toContain('tail -n 200 "$migration_log"');
     expect(smoke).not.toContain("--default-authentication-plugin");
