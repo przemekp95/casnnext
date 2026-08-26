@@ -45,7 +45,7 @@ export default async function AnalysesPage() {
     });
 
     return (
-      <main className="bg-gray-100 min-h-screen pb-12">
+      <main className="bg-gray-100 min-h-screen pb-12 analyses-page">
         <Hero
           title="Analizy"
           breadcrumbs={[

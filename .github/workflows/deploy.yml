@@ -1,29 +1,45 @@
 name: Deploy to Production
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy to'
+        description: "Environment to deploy to"
         required: true
-        default: 'production'
+        default: "production"
         type: choice
         options:
           - production
           - staging
+      app_image:
+        description: "Immutable app image (ghcr.io/...@sha256:...)"
+        required: true
+        type: string
+      nginx_image:
+        description: "Immutable nginx image (ghcr.io/...@sha256:...)"
+        required: true
+        type: string
+      app_revision:
+        description: "Full 40-hex app Git revision; must match this workflow ref and image label"
+        required: true
+        type: string
+      operation:
+        description: "Authenticate the remote Docker daemon only, or perform the full deployment"
+        required: true
+        default: "deploy"
+        type: choice
+        options:
+          - deploy
+          - authenticate-only
 
 permissions:
   contents: read
+  packages: read
 
 env:
   REGISTRY: ghcr.io
-  APP_IMAGE_NAME: ${{ github.repository }}
-  STRAPI_IMAGE_NAME: ${{ github.repository_owner }}/casn-strapi
-  NGINX_IMAGE_NAME: ${{ github.repository_owner }}/casn-nginx
-  COVERAGE_MIN_LINES: '70'
-  COVERAGE_EXCELLENT_LINES: '80'
+  COVERAGE_MIN_LINES: "70"
+  COVERAGE_EXCELLENT_LINES: "80"
 
 jobs:
   test:
@@ -51,7 +67,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Install dependencies
         run: |
@@ -97,8 +113,6 @@ jobs:
         run: npm run audit:policy
         env:
           AUDIT_FAIL_ON_APP: high
-          # Temporary relaxation for Strapi until upstream high vulns are fixed.
-          AUDIT_FAIL_ON_STRAPI: critical
           AUDIT_SUMMARY_FILE: ${{ github.step_summary }}
 
       - name: Build application
@@ -149,7 +163,7 @@ jobs:
       - name: Stop application server
         run: |
           if [ -f server.pid ]; then
-            kill $(cat server.pid) || true
+            kill "$(cat server.pid)" || true
             rm server.pid
           fi
         if: always()
@@ -165,7 +179,7 @@ jobs:
             cypress/screenshots/
           retention-days: 30
 
-  strapi-smoke:
+  directus-smoke:
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -190,12 +204,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: strapi/package-lock.json
+          node-version: "22"
+          cache: "npm"
 
-      - name: Install Strapi dependencies
-        run: npm --prefix strapi ci
+      - name: Install dependencies
+        run: npm ci
 
       - name: Wait for MySQL
         run: |
@@ -205,119 +218,145 @@ jobs:
           done
           echo "MySQL is ready!"
 
-      - name: Build Strapi admin
-        run: npm --prefix strapi run build
+      - name: Run database migrations
+        run: npm run migration:run
         env:
-          NODE_ENV: production
-          HOST: 127.0.0.1
-          PORT: 1337
-          DATABASE_CLIENT: mysql
-          DATABASE_HOST: 127.0.0.1
-          DATABASE_PORT: 3306
-          DATABASE_NAME: casn_test
-          DATABASE_USERNAME: root
-          DATABASE_PASSWORD: rootpassword
-          STRAPI_URL: http://127.0.0.1:1337
-          STRAPI_ADMIN_PATH: /cms
-          STRAPI_ADMIN_BACKEND_URL: /cms
-          APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
-          API_TOKEN_SALT: ci-api-token-salt
-          ADMIN_JWT_SECRET: ci-admin-jwt-secret
-          TRANSFER_TOKEN_SALT: ci-transfer-token-salt
-          JWT_SECRET: ci-jwt-secret
-          STRAPI_TELEMETRY_DISABLED: true
+          DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
 
-      - name: Run Strapi smoke tests
-        run: bash scripts/ci/strapi-smoke.sh
+      - name: Run Directus smoke tests
+        run: npm run directus:smoke
         env:
-          NODE_ENV: production
-          HOST: 127.0.0.1
-          PORT: 1337
-          DATABASE_CLIENT: mysql
-          DATABASE_HOST: 127.0.0.1
-          DATABASE_PORT: 3306
-          DATABASE_NAME: casn_test
-          DATABASE_USERNAME: root
-          DATABASE_PASSWORD: rootpassword
-          STRAPI_URL: http://127.0.0.1:1337
-          STRAPI_ADMIN_PATH: /cms
-          STRAPI_ADMIN_BACKEND_URL: /cms
-          APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
-          API_TOKEN_SALT: ci-api-token-salt
-          ADMIN_JWT_SECRET: ci-admin-jwt-secret
-          TRANSFER_TOKEN_SALT: ci-transfer-token-salt
-          JWT_SECRET: ci-jwt-secret
-          STRAPI_TELEMETRY_DISABLED: true
+          DIRECTUS_DB_HOST: 127.0.0.1
+          DIRECTUS_DB_PORT: 3306
+          DIRECTUS_DB_NAME: casn_test
+          DIRECTUS_DB_USER: root
+          DIRECTUS_DB_PASSWORD: rootpassword
 
   deploy:
     runs-on: ubuntu-latest
-    environment: production
-    needs: [test, strapi-smoke]
+    environment: ${{ inputs.environment }}
+    needs: [test, directus-smoke]
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
       HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
+      APP_IMAGE: ${{ inputs.app_image }}
+      NGINX_IMAGE: ${{ inputs.nginx_image }}
+      APP_REVISION: ${{ inputs.app_revision }}
+      EXPECTED_APP_REVISION: ${{ github.sha }}
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      GHCR_USERNAME: ${{ github.repository_owner }}
+      DEPLOY_OPERATION: ${{ inputs.operation }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate immutable deployment artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          validation_env="$(mktemp)"
+          trap 'rm -f "$validation_env"' EXIT
+          chmod 600 "$validation_env"
+          scripts/deploy/write-artifact-env.sh "$validation_env"
+
+          app_repository="ghcr.io/${GITHUB_REPOSITORY,,}@sha256:"
+          nginx_repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/casn-nginx@sha256:"
+          if [[ "$APP_IMAGE" != "$app_repository"* ]]; then
+            echo 'APP_IMAGE does not belong to the application repository.' >&2
+            exit 1
+          fi
+          if [[ "$NGINX_IMAGE" != "$nginx_repository"* ]]; then
+            echo 'NGINX_IMAGE does not belong to the nginx repository.' >&2
+            exit 1
+          fi
+
+          docker pull "$APP_IMAGE"
+          docker pull "$NGINX_IMAGE"
+
+          app_image_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$APP_IMAGE")"
+          nginx_image_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$NGINX_IMAGE")"
+          if [[ "$app_image_revision" != "$APP_REVISION" ]]; then
+            echo 'APP_REVISION does not match the app image OCI revision label.' >&2
+            exit 1
+          fi
+          if [[ "$nginx_image_revision" != "$APP_REVISION" ]]; then
+            echo 'APP_REVISION does not match the nginx image OCI revision label.' >&2
+            exit 1
+          fi
+
       - name: Deploy via SSH
         if: ${{ env.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          APP_IMAGE: ${{ env.APP_IMAGE }}
+          NGINX_IMAGE: ${{ env.NGINX_IMAGE }}
+          APP_REVISION: ${{ env.APP_REVISION }}
+          EXPECTED_APP_REVISION: ${{ env.EXPECTED_APP_REVISION }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
+          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION
           script: |
+            set -eu
             cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
 
-            # Pull latest docker-compose configuration
-            git pull origin main
+            git fetch --depth=1 origin "$APP_REVISION"
+            git checkout --detach "$APP_REVISION"
+            test "$(git rev-parse HEAD)" = "$APP_REVISION"
 
-            # Pull latest Docker images
-            docker pull ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:main
-            docker pull ${{ env.REGISTRY }}/${{ env.STRAPI_IMAGE_NAME }}:main
-            docker pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:main
+            scripts/deploy/login-registry.sh
+            if [ "$DEPLOY_OPERATION" = "authenticate-only" ]; then
+              echo "Remote GHCR authentication completed; deployment intentionally skipped."
+              exit 0
+            fi
 
-            # Deploy with docker-compose
-            docker-compose -f docker-compose.portainer.yml down
-            docker-compose -f docker-compose.portainer.yml up -d
+            scripts/deploy/write-artifact-env.sh .env
+            docker pull "$APP_IMAGE"
+            docker pull "$NGINX_IMAGE"
 
-            # Clean up old images
-            docker image prune -f
+            docker compose --env-file .env -f docker-compose.portainer.yml config --quiet
+            docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans
 
-      - name: Deploy via Portainer API
+      - name: Reject unimplemented Portainer-only deployment
         if: ${{ env.PORTAINER_URL != '' && env.DEPLOY_HOST == '' }}
         run: |
-          echo "Deploying via Portainer API"
-          # Here you would add Portainer API calls
-          # Example:
-          # curl -X POST ${{ secrets.PORTAINER_URL }}/api/stacks/webhooks/${{ secrets.PORTAINER_WEBHOOK_ID }}
+          echo 'Portainer-only deployment cannot safely inject the validated immutable artifact environment.' >&2
+          exit 1
 
       - name: Manual deployment notification
         if: ${{ env.DEPLOY_HOST == '' && env.PORTAINER_URL == '' }}
         run: |
           echo "Deployment Ready!"
-          echo "Commit: ${{ github.sha }}"
-          echo "App image: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:main"
-          echo "Strapi image: ${{ env.REGISTRY }}/${{ env.STRAPI_IMAGE_NAME }}:main"
-          echo "Nginx image: ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:main"
+          echo "Commit: $APP_REVISION"
+          echo "App image: $APP_IMAGE"
+          echo "Directus image: directus/directus:12.3.1@sha256:8978edf633ae28aa31464bb71c55300c94d8bc771ff3727b5fac485173283869"
+          echo "Nginx image: $NGINX_IMAGE"
           echo ""
           echo "Manual deployment steps:"
-          echo "1. Pull latest code: git pull origin main"
-          echo "2. Pull app image: docker pull ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:main"
-          echo "3. Pull Strapi image: docker pull ${{ env.REGISTRY }}/${{ env.STRAPI_IMAGE_NAME }}:main"
-          echo "4. Pull nginx image: docker pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:main"
-          echo "5. Deploy: docker-compose -f docker-compose.portainer.yml up -d"
+          echo "1. Check out commit: $APP_REVISION"
+          echo '2. Authenticate to GHCR with a read:packages token via scripts/deploy/login-registry.sh'
+          echo '3. Preserve existing secrets and set APP_IMAGE, NGINX_IMAGE, and APP_REVISION in .env'
+          echo '4. Validate: docker compose --env-file .env -f docker-compose.portainer.yml config --quiet'
+          echo '5. Pull the exact app/nginx references printed above'
+          echo '6. Deploy: docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans'
 
       - name: Health check
-        if: ${{ env.HEALTH_CHECK_URL != '' }}
+        if: ${{ inputs.operation == 'deploy' && env.HEALTH_CHECK_URL != '' }}
         run: |
           echo "Performing health check..."
           for i in {1..30}; do
-            if curl -f -s ${{ env.HEALTH_CHECK_URL }} > /dev/null; then
+            if curl --fail --silent --show-error "$HEALTH_CHECK_URL" > /dev/null; then
               echo "Health check passed"
               exit 0
             fi

@@ -6,6 +6,7 @@ import { AnalysisSchema } from './entities/Analysis';
 import { IssueCollectionSchema } from './entities/IssueCollection';
 import { InitialSetup1736424470000 } from '../migrations/1736424470000-InitialSetup';
 import { AddCmsReadModel1736424470002 } from '../migrations/1736424470002-AddCmsReadModel';
+import { shouldRunDatabaseMigrations } from './server/migration-policy';
 
 // RSC-specific DataSource creation (not a global singleton)
 // Each RSC call gets its own fresh connection
@@ -67,7 +68,7 @@ export async function createRscDataSource(): Promise<DataSource> {
       InitialSetup1736424470000,
       AddCmsReadModel1736424470002,
     ],
-    migrationsRun: true,
+    migrationsRun: shouldRunDatabaseMigrations(process.env),
     subscribers: [],
   });
 

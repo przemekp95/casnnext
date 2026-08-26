@@ -26,12 +26,9 @@
     "check:posts": "bash scripts/check-posts.sh",
     "check:cms-mdx-media": "bash scripts/ci/check-cms-mdx-media-paths.sh",
     "audit:policy": "bash scripts/ci/security-audit-policy.sh",
-    "cms:import": "tsx scripts/cms/import-legacy-to-strapi.ts",
-    "cms:sync-db": "tsx scripts/cms/sync-strapi-to-db.ts",
-    "cms:verify": "tsx scripts/cms/verify-parity.ts",
-    "strapi:dev": "npm --prefix strapi run develop",
-    "strapi:build": "npm --prefix strapi run build",
-    "strapi:start": "npm --prefix strapi run start",
+    "compose:policy": "bash scripts/ci/compose-policy.sh",
+    "deploy:policy": "bash scripts/ci/deployment-artifact-policy.sh",
+    "directus:smoke": "bash scripts/ci/directus-smoke.sh",
     "db:seed": "echo 'Seeding handled by migrations - data included in InitialSetup migration'",
     "migration:run": "tsx node_modules/.bin/typeorm migration:run -d lib/db.datasource.ts",
     "migration:create": "tsx node_modules/.bin/typeorm migration:create",
@@ -46,19 +43,18 @@
     "gray-matter": "^4.0.3",
     "mdx": "^0.3.1",
     "mysql2": "^3.18.2",
-    "next": "^16.1.6",
-    "next-auth": "4.24.13",
+    "next": "16.3.3",
+    "next-auth": "4.24.15",
     "next-mdx-remote": "^6.0.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.4",
     "rehype-autolink-headings": "^7.1.0",
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
-    "typeorm": "^0.3.20",
+    "typeorm": "0.3.31",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@exodus/bytes": "^1.14.1",
     "@npmcli/fs": "^5.0.0",
     "@testing-library/jest-dom": "^6.8.0",
@@ -69,14 +65,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "csv-parse": "^6.1.0",
-    "cypress": "^15.11.0",
-    "eslint": "^9.39.3",
-    "eslint-config-next": "^16.1.6",
-    "eslint-plugin-boundaries": "^5.4.0",
-    "jest": "^30.1.1",
-    "jest-environment-jsdom": "^30.1.1",
-    "lighthouse": "^13.0.3",
-    "node-fetch": "^3.3.2",
+    "cypress": "15.21.1",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.3",
+    "jest": "30.4.2",
+    "jest-environment-jsdom": "30.4.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.4",
     "typescript": "^5.6.0",
@@ -90,7 +83,7 @@
     "nodemailer": "^7.0.7",
     "qs": ">=6.15.0",
     "rimraf": "^4.4.1",
-    "glob": "^9.3.5",
+    "glob": "13.0.6",
     "@npmcli/move-file": "npm:@npmcli/fs@^5.0.0",
     "html-encoding-sniffer": "^6.0.0",
     "jsdom": "^27.4.0",
@@ -99,8 +92,22 @@
     "@eslint/eslintrc": {
       "minimatch": "3.1.4"
     },
+    "babel-plugin-istanbul": "8.0.0",
     "test-exclude": {
-      "minimatch": "3.1.4"
+      ".": "8.0.0"
+    },
+    "eslint-config-next": {
+      "eslint-plugin-react-hooks": "7.0.1"
+    },
+    "gray-matter": {
+      "js-yaml": "3.15.1"
     }
+  },
+  "allowScripts": {
+    "bcrypt@6.0.0": true,
+    "cypress@15.21.1": true,
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true,
+    "unrs-resolver@1.12.2": true
   }
 }

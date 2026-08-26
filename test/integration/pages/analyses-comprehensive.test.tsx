@@ -90,10 +90,12 @@ describe('Analyses Pages - Comprehensive Coverage', () => {
       ]);
 
       const { default: PageComponent } = await import('@/app/analizy/page');
-      render(await PageComponent());
+      const { container } = render(await PageComponent());
 
       expect(screen.getByRole('heading', { name: 'Analizy' })).toBeInTheDocument();
       expect(screen.getByText('Wszystkie analizy (1)')).toBeInTheDocument();
+      expect(container.querySelector('main.analyses-page')).toBeInTheDocument();
+      expect(container.querySelector('main.analyses-page .projects-wrapper')).toBeInTheDocument();
       const analysisLinks = screen.getAllByRole('link', { name: 'Test Analysis' });
       expect(
         analysisLinks.some((link) => link.getAttribute('href') === '/analizy/test-analysis'),

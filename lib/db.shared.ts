@@ -4,6 +4,7 @@ import { AnalysisSchema } from "./entities/Analysis";
 import { IssueCollectionSchema } from "./entities/IssueCollection";
 import { InitialSetup1736424470000 } from "../migrations/1736424470000-InitialSetup";
 import { AddCmsReadModel1736424470002 } from "../migrations/1736424470002-AddCmsReadModel";
+import { shouldRunDatabaseMigrations } from "./server/migration-policy";
 
 const isProduction = process.env.NODE_ENV === "production";
 const isTest = process.env.NODE_ENV === "test";
@@ -74,7 +75,7 @@ function getDataSource(): DataSource | null {
       ...dbConfig,
       entities: [AuthorSchema, AnalysisSchema, IssueCollectionSchema],
       migrations: [InitialSetup1736424470000, AddCmsReadModel1736424470002],
-      migrationsRun: true,
+      migrationsRun: shouldRunDatabaseMigrations(process.env),
       subscribers: [],
     });
   }
