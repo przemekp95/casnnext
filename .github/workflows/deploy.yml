@@ -252,6 +252,7 @@ jobs:
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       GHCR_USERNAME: ${{ github.repository_owner }}
       DEPLOY_OPERATION: ${{ inputs.operation }}
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
 
     steps:
       - name: Checkout repository
@@ -295,6 +296,20 @@ jobs:
           fi
           if [[ "$nginx_image_revision" != "$APP_REVISION" ]]; then
             echo 'APP_REVISION does not match the nginx image OCI revision label.' >&2
+            exit 1
+          fi
+
+      - name: Validate health gate configuration
+        if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$HEALTH_CHECK_URL" || {
+            echo 'HEALTH_CHECK_URL is required for a remote deployment.' >&2
+            exit 1
+          }
+          if ! [[ "$DEPLOY_ENVIRONMENT" != 'production' || "$HEALTH_CHECK_URL" == 'https://casn.pl/api/health' ]]; then
+            echo 'Production HEALTH_CHECK_URL must be the canonical public readiness endpoint.' >&2
             exit 1
           fi
 
@@ -357,19 +372,21 @@ jobs:
           echo '6. Deploy: docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans'
 
       - name: Health check
-        if: ${{ inputs.operation == 'deploy' && env.HEALTH_CHECK_URL != '' }}
-        run: |
-          echo "Performing health check..."
-          for i in {1..30}; do
-            if curl --fail --silent --show-error "$HEALTH_CHECK_URL" > /dev/null; then
-              echo "Health check passed"
-              exit 0
-            fi
-            echo "Health check attempt $i failed, retrying in 10 seconds..."
-            sleep 10
-          done
-          echo "Health check failed after 30 attempts"
-          exit 1
+        if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          HEALTH_CHECK_URL: ${{ env.HEALTH_CHECK_URL }}
+          APP_REVISION: ${{ env.APP_REVISION }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          envs: HEALTH_CHECK_URL,APP_REVISION
+          script: |
+            set -eu
+            cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
+            scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"
 
       - name: Notify deployment status
         if: always()
