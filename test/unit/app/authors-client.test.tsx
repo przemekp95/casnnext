@@ -12,14 +12,16 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/image", () => ({
   __esModule: true,
-  default: ({
-    unoptimized: _unoptimized,
-    fill: _fill,
-    ...props
-  }: ImgHTMLAttributes<HTMLImageElement> & {
+  default: (props: ImgHTMLAttributes<HTMLImageElement> & {
     unoptimized?: boolean;
     fill?: boolean;
-  }) => <img {...props} alt={props.alt ?? ""} />,
+  }) => {
+    const imageProps = { ...props };
+    delete imageProps.unoptimized;
+    delete imageProps.fill;
+
+    return <img {...imageProps} alt={imageProps.alt ?? ""} />;
+  },
 }));
 
 describe("AuthorsClient", () => {

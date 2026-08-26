@@ -10,7 +10,7 @@
     "build": "npm run build:runtime && next build",
     "build:runtime": "tsc -p tsconfig.runtime.json",
     "prebuild": "bash scripts/check-posts.sh",
-    "postbuild": "node scripts/prepare-tmp.js",
+    "postbuild": "node scripts/prepare-tmp.mjs",
     "start": "node server.cjs",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs --fix --max-warnings 0",

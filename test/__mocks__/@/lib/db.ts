@@ -90,8 +90,7 @@ const mockRepository = {
 
 // Mock DataSource
 export const AppDataSource = {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getRepository: jest.fn().mockImplementation((_entityName: string) => {
+  getRepository: jest.fn<typeof mockRepository, [entityName: string]>().mockImplementation(() => {
     // Return the same mock repository for all entities
     return mockRepository;
   }),
@@ -127,8 +126,7 @@ export const buildConfig = jest.fn().mockImplementation(() => {
         delete config.host;
         delete config.port;
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_error) {
+    } catch {
       // Invalid URL, fall back to individual env vars
     }
   }

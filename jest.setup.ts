@@ -1,27 +1,16 @@
 import '@testing-library/jest-dom';
+import { jest } from '@jest/globals';
 import { TextEncoder, TextDecoder } from 'util';
 import {
   ReadableStream,
   TransformStream,
   WritableStream,
 } from 'node:stream/web';
-
-type EdgeFetchPrimitives = {
-  Headers: typeof Headers;
-  Request: typeof Request;
-  Response: typeof Response;
-  FormData: typeof FormData;
-  File: typeof File;
-  Blob: typeof Blob;
-};
-
-function defineGlobal(key: PropertyKey, value: unknown) {
-  Object.defineProperty(globalThis, key, {
-    value,
-    writable: true,
-    configurable: true,
-  });
-}
+import {
+  defineGlobal,
+  installEdgeFetchPrimitives,
+  type EdgeFetchPrimitives,
+} from './test/setup/edge-fetch-primitives';
 
 // Set test environment (this is safe in jest setup)
 Object.defineProperty(process.env, 'NODE_ENV', {
@@ -50,52 +39,26 @@ if (typeof globalThis.TransformStream === 'undefined') {
   defineGlobal('TransformStream', TransformStream);
 }
 
-if (
-  typeof global.Headers === 'undefined' ||
-  typeof global.Request === 'undefined' ||
-  typeof global.Response === 'undefined' ||
-  typeof global.FormData === 'undefined' ||
-  typeof global.File === 'undefined' ||
-  typeof global.Blob === 'undefined'
-) {
-  // Next bundles stable fetch primitives for environments like Jest + JSDOM.
-  // Keep fetch mocked below, but expose the request/response classes expected by app-router code.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const edgeFetch = require('next/dist/compiled/@edge-runtime/primitives/fetch') as EdgeFetchPrimitives;
-
-  if (typeof globalThis.Headers === 'undefined') defineGlobal('Headers', edgeFetch.Headers);
-  if (typeof globalThis.Request === 'undefined') defineGlobal('Request', edgeFetch.Request);
-  if (typeof globalThis.Response === 'undefined') defineGlobal('Response', edgeFetch.Response);
-  if (typeof globalThis.FormData === 'undefined') defineGlobal('FormData', edgeFetch.FormData);
-  if (typeof globalThis.File === 'undefined') defineGlobal('File', edgeFetch.File);
-  if (typeof globalThis.Blob === 'undefined') defineGlobal('Blob', edgeFetch.Blob);
-}
+// Next's compiled fetch implementation expects the stream globals above to exist
+// when the module is evaluated.
+const edge = jest.requireActual<EdgeFetchPrimitives>(
+  'next/dist/compiled/@edge-runtime/primitives/fetch',
+);
+installEdgeFetchPrimitives(edge);
 
 // Mock fetch for unit tests
-if (typeof global.fetch === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  global.fetch = jest.fn() as any;
-}
+const mockedFetch = jest.fn<typeof fetch>();
+defineGlobal('fetch', mockedFetch as typeof fetch);
 
 afterAll(async () => {
-  const teardownCandidates = [
-    './lib/db.shared',
-  ] as const;
-
-  for (const modulePath of teardownCandidates) {
-    try {
-      // Integration suites can initialize the shared app datasource. Tear it down
-      // so Jest can exit cleanly.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { AppDataSource } = require(modulePath) as {
-        AppDataSource?: { isInitialized?: boolean; destroy?: () => Promise<void> };
-      };
-
-      if (AppDataSource?.isInitialized) {
-        await AppDataSource.destroy?.();
-      }
-    } catch {
-      // Ignore teardown failures for test files that never touched the datasource.
+  try {
+    // Importing the canonical datasource does not initialize it. Integration
+    // suites that initialized it are responsible for leaving no open handles.
+    const { AppDataSource } = await import('@/lib/db.shared');
+    if (AppDataSource?.isInitialized) {
+      await AppDataSource.destroy();
     }
+  } catch {
+    // Test files that never touched the datasource do not need teardown.
   }
 });
