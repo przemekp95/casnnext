@@ -94,6 +94,8 @@ export default function Hero({
       <div
         className={`bg-overlay${variant === 'background-only' ? '' : ' hero-contrast-overlay'}`}
         style={{
+          backgroundColor: variant === 'background-only' ? '#000' : undefined,
+          opacity: variant === 'background-only' ? 0.5 : undefined,
           position: 'absolute',
           top: 0,
           left: 0,

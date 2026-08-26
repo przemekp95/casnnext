@@ -24,12 +24,15 @@ describe('Hero', () => {
       .toHaveClass('hero-breadcrumb-active');
   });
 
-  it('preserves the lighter base overlay for the background-only homepage hero', () => {
+  it('preserves the original solid-black 50% overlay for the background-only homepage hero', () => {
     const { container } = render(
       <Hero title="" variant="background-only" showBreadcrumbs={false} />
     );
 
-    expect(container.querySelector('.bg-overlay')).toBeInTheDocument();
+    expect(container.querySelector('.bg-overlay')).toHaveStyle({
+      backgroundColor: '#000',
+      opacity: '0.5',
+    });
     expect(container.querySelector('.hero-contrast-overlay')).not.toBeInTheDocument();
     expect(container.querySelector('.hero-content-panel')).not.toBeInTheDocument();
   });
