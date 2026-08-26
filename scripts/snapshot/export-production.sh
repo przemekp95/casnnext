@@ -100,7 +100,7 @@ dump_database() {
     --network "$source_network" \
     --env-file "$mysql_env_file" \
     "$mysql_image" \
-    sh -ec 'MYSQL_PWD="$MYSQL_PWD" exec mysqldump --host="$SOURCE_MYSQL_SERVICE" --user="$SNAPSHOT_EXPORT_USER" --single-transaction --quick --hex-blob --routines --triggers --events --skip-lock-tables --set-gtid-purged=OFF --no-tablespaces --skip-dump-date --compact "$SOURCE_DATABASE"'
+    sh -ec 'MYSQL_PWD="$MYSQL_PWD" exec mysqldump --host="$SOURCE_MYSQL_SERVICE" --user="$SNAPSHOT_EXPORT_USER" --single-transaction --quick --hex-blob --routines --triggers --events --skip-lock-tables --set-gtid-purged=OFF --no-tablespaces --skip-dump-date --skip-comments "$SOURCE_DATABASE"'
 }
 
 archive_volume() {

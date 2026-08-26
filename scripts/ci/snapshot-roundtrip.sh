@@ -137,7 +137,7 @@ mkdir "$payload" "$restored"
 chmod 700 "$payload" "$restored"
 
 docker exec "$source_container" sh -ec \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --quick --hex-blob --routines --triggers --events --skip-lock-tables --set-gtid-purged=OFF --no-tablespaces --skip-dump-date --compact casn' \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --quick --hex-blob --routines --triggers --events --skip-lock-tables --set-gtid-purged=OFF --no-tablespaces --skip-dump-date --skip-comments casn' \
   > "$payload/database.sql"
 docker run --rm --mount "type=volume,src=$source_directus_volume,dst=/from,readonly" "$mysql_image" \
   tar -C /from -cf - . > "$payload/directus-uploads.tar"
