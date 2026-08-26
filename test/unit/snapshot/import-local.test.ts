@@ -200,6 +200,7 @@ describe("local snapshot importer", () => {
       expect(handoffFiles).toEqual([`${snapshotId}.candidate.json`]);
       const handoff = readFileSync(join(run.handoff, handoffFiles[0]), "utf8");
       expect(handoff).toContain("casn_snapshot_20260826t121500z-a1b2c3d4");
+      expect(handoff).toContain('"databaseContentSha256"');
       expect(handoff).not.toContain("local-root-secret");
       expect(run.commandLog).toContain("run --rm -i --mount");
       expect(run.commandLog).not.toMatch(/ssh|scp|DROP|volume rm|down -v/);

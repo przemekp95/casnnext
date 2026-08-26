@@ -82,11 +82,12 @@ function mysqlQuery(container, sql) {
 }
 
 function databaseDump(container) {
-  return command("docker", [
+  const dump = command("docker", [
     "exec", container,
     "sh", "-ec",
     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --quick --hex-blob --routines --triggers --events --skip-lock-tables --set-gtid-purged=OFF --no-tablespaces --skip-dump-date --skip-comments casn_local',
   ], { binary: true });
+  return Buffer.from(dump.toString("utf8").replaceAll("CHARACTER SET utf8mb4 ", ""));
 }
 
 function volumeFileCount(volume) {
@@ -135,7 +136,8 @@ function normalizeSitemap(raw) {
   const paths = [];
   for (const match of raw.matchAll(/<loc>([^<]*)<\/loc>/g)) {
     const url = new URL(match[1]);
-    paths.push(`${url.pathname}${url.search}`);
+    if (!["http:", "https:"].includes(url.protocol)) fail();
+    paths.push(match[1].replace(/^https?:\/\/[^/]+/, ""));
   }
   paths.sort();
   return { count: paths.length, sha256: sha256(`${paths.join("\n")}\n`) };
@@ -174,10 +176,11 @@ function validateManifest(manifest) {
 }
 
 function validateHandoff(handoff, manifest, manifestBytes) {
-  if (!exactKeys(handoff, ["snapshotId", "project", "database", "dbPort", "httpPort", "manifestSha256", "previousProject"])) fail();
+  if (!exactKeys(handoff, ["snapshotId", "project", "database", "dbPort", "httpPort", "manifestSha256", "databaseContentSha256", "previousProject"])) fail();
   if (handoff.snapshotId !== manifest.snapshotId || !PROJECT_PATTERN.test(handoff.project)) fail();
   if (handoff.database !== "casn_local" || !/^\d{1,5}$/.test(handoff.httpPort) || !/^\d{1,5}$/.test(handoff.dbPort)) fail();
   if (handoff.manifestSha256 !== sha256(manifestBytes)) fail();
+  if (!HASH_PATTERN.test(handoff.databaseContentSha256)) fail();
 }
 
 function safeRuntimeBoundary(containerInspect, networkInspect) {
@@ -261,7 +264,7 @@ function main() {
   const gates = {
     databaseIdentity: database.selected === "casn_local" && database.uuidHash !== manifest.source.serverUuidHash,
     databaseObjects: ["tables", "views", "triggers", "routines", "events"].every((key) => database[key] === manifest.database[key]),
-    databasePayload: database.sha256 === manifest.database.sha256,
+    databasePayload: database.sha256 === handoff.databaseContentSha256,
     media: ["directus", "legacy"].every((key) => media[key].files === manifest.media[key].files && media[key].sha256 === manifest.media[key].sha256),
     public: [authors, analyses, sitemap].every((item, index) => {
       const expected = manifest.public[["authors", "analyses", "sitemap"][index]];

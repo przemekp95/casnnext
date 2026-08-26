@@ -119,6 +119,7 @@ function runVerifier(mismatch?: Mismatch) {
   }));
   const paths = ["/", "/autorzy", "/analizy", "/zbiory"];
   while (paths.length < 80) paths.push(`/analizy/analysis-${paths.length}`);
+  paths[paths.length - 1] = "/analizy/żółć";
   const sitemapPaths = `${[...paths].sort().join("\n")}\n`;
   const sitemapXml = `<urlset>${paths.map((path) => `<url><loc>https://casn.pl${path}</loc></url>`).join("")}</urlset>`;
 
@@ -156,6 +157,7 @@ function runVerifier(mismatch?: Mismatch) {
     dbPort: "13307",
     httpPort: "13010",
     manifestSha256: sha256(readFileSync(manifestFile)),
+    databaseContentSha256: sha256("database-dump"),
     previousProject: "casn_previous",
   }), { mode: 0o600 });
   chmodSync(handoffFile, 0o600);

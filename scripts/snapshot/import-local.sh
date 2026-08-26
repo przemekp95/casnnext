@@ -185,6 +185,8 @@ main() {
     "$staging_directory/directus-uploads.tar" \
     "$staging_directory/legacy-uploads.tar"
   bash "$script_directory/manifest.sh" verify --manifest "$manifest" --payload-dir "$staging_directory"
+  database_content_hash="$(sed 's/CHARACTER SET utf8mb4 //g' "$staging_directory/database.sql" | sha256sum | awk '{print $1}')"
+  readonly database_content_hash
 
   require_new_volume "$mysql_volume"
   require_new_volume "$directus_volume"
@@ -251,8 +253,9 @@ main() {
     --arg db_port "$CASN_LOCAL_DB_PORT" \
     --arg http_port "$CASN_LOCAL_HTTP_PORT" \
     --arg manifest_sha256 "$(sha256sum "$manifest" | awk '{print $1}')" \
+    --arg database_content_sha256 "$database_content_hash" \
     --arg previous_project "${CURRENT_LOCAL_PROJECT-}" \
-    '{snapshotId:$snapshot_id, project:$project, database:$database, dbPort:$db_port, httpPort:$http_port, manifestSha256:$manifest_sha256, previousProject:$previous_project}' \
+    '{snapshotId:$snapshot_id, project:$project, database:$database, dbPort:$db_port, httpPort:$http_port, manifestSha256:$manifest_sha256, databaseContentSha256:$database_content_sha256, previousProject:$previous_project}' \
     > "$handoff_file"
   set +C
   chmod 600 "$handoff_file"
