@@ -34,7 +34,7 @@ for attempt in $(seq 1 "$attempts"); do
     --env-file .env \
     -f docker-compose.portainer.yml \
     exec -T app \
-    wget -qO- http://127.0.0.1:3000/api/health > "$response_file" \
+    wget -T 10 -qO- http://127.0.0.1:3000/api/health > "$response_file" \
     && jq -e --arg revision "$expected_revision" '
       type == "object"
       and .status == "ready"

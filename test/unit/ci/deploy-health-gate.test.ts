@@ -102,7 +102,7 @@ describe("production deployment health gate", () => {
     expect(verifierSource).toMatch(
       /docker compose[\s\\]+--env-file \.env[\s\\]+-f docker-compose\.portainer\.yml[\s\\]+exec -T app/,
     );
-    expect(verifierSource).toContain("wget -qO- http://127.0.0.1:3000/api/health");
+    expect(verifierSource).toContain("wget -T 10 -qO- http://127.0.0.1:3000/api/health");
     expect(verifierSource).not.toContain("https://casn.pl");
   });
 });
