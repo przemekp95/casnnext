@@ -244,7 +244,6 @@ jobs:
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
-      HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
       APP_IMAGE: ${{ inputs.app_image }}
       NGINX_IMAGE: ${{ inputs.nginx_image }}
       APP_REVISION: ${{ inputs.app_revision }}
@@ -252,7 +251,6 @@ jobs:
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       GHCR_USERNAME: ${{ github.repository_owner }}
       DEPLOY_OPERATION: ${{ inputs.operation }}
-      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
 
     steps:
       - name: Checkout repository
@@ -296,20 +294,6 @@ jobs:
           fi
           if [[ "$nginx_image_revision" != "$APP_REVISION" ]]; then
             echo 'APP_REVISION does not match the nginx image OCI revision label.' >&2
-            exit 1
-          fi
-
-      - name: Validate health gate configuration
-        if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$HEALTH_CHECK_URL" || {
-            echo 'HEALTH_CHECK_URL is required for a remote deployment.' >&2
-            exit 1
-          }
-          if ! [[ "$DEPLOY_ENVIRONMENT" != 'production' || "$HEALTH_CHECK_URL" == 'https://casn.pl/api/health' ]]; then
-            echo 'Production HEALTH_CHECK_URL must be the canonical public readiness endpoint.' >&2
             exit 1
           fi
 
@@ -375,18 +359,17 @@ jobs:
         if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.3
         env:
-          HEALTH_CHECK_URL: ${{ env.HEALTH_CHECK_URL }}
           APP_REVISION: ${{ env.APP_REVISION }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: HEALTH_CHECK_URL,APP_REVISION
+          envs: APP_REVISION
           script: |
             set -eu
             cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
-            scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"
+            scripts/deploy/verify-health.sh "$APP_REVISION"
 
       - name: Notify deployment status
         if: always()
