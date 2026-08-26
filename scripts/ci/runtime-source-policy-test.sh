@@ -161,6 +161,10 @@ node -e '
 expect_rejected 'ESLint config must not classify every .cjs file as a script or config.' sources
 
 create_fixture
+printf '\nexport const legacyLibraryOverride = {\n  files: ["lib/**/*.ts"],\n  rules: { "@typescript-eslint/no-require-imports": "off" },\n};\n' >>"$fixture/eslint.config.mjs"
+expect_rejected 'ESLint config must not disable CommonJS import rules for TypeScript library sources.' sources
+
+create_fixture
 printf "const runtime = require('./dist/runtime/server.js');\n" >>"$fixture/server.cjs"
 expect_rejected 'server.cjs must not contain require(.' launcher
 

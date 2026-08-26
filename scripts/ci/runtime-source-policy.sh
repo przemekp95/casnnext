@@ -49,6 +49,8 @@ const classifiesAllCjsAsScripts = fileGroups.some((files) =>
   files.includes('"**/*.cjs"') &&
   (files.includes('"scripts/**/*.js"') || files.includes('"**/*.config.js"')),
 );
+const disablesTypeScriptLibraryCommonJs =
+  /files:\[[^\]]*"lib\/\*\*\/\*\.ts"[^\]]*\],rules:\{[^}]*"@typescript-eslint\/no-require-imports":"off"/.test(normalized);
 
 if (ignoresGeneratedSource) {
   console.error('[runtime-policy] ESLint config must not ignore generated runtime source-output paths.');
@@ -58,6 +60,9 @@ if (ignoresGeneratedSource) {
   process.exitCode = 1;
 } else if (classifiesAllCjsAsScripts) {
   console.error('[runtime-policy] ESLint config must not classify every .cjs file as a script or config.');
+  process.exitCode = 1;
+} else if (disablesTypeScriptLibraryCommonJs) {
+  console.error('[runtime-policy] ESLint config must not disable CommonJS import rules for TypeScript library sources.');
   process.exitCode = 1;
 }
 NODE

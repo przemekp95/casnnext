@@ -17,9 +17,9 @@ server suppression, and all lint warnings.
   `/dist/runtime/` directory. ESLint ignores `dist/**` as generated output but
   no longer ignores runtime-like paths beneath `lib/` or `migrations/`.
 - **Lint boundary:** `server.cjs` no longer needs a runtime CommonJS override;
-  the broad `lib/**/*.js` plus `**/*.cjs` override and the scripts/config-wide
-  `**/*.cjs` exception are removed. The runtime-source fixture rejects their
-  return.
+  the broad `lib/**/*.js` plus `**/*.cjs` override, the `lib/**/*.ts`
+  `no-require-imports` exception, and the scripts/config-wide `**/*.cjs`
+  exception are removed. The runtime-source fixture rejects their return.
 
 This resolves only the generated-output and runtime CommonJS exceptions.
 QD-002, QD-003, and QD-004 remain open with their existing inventories and exit

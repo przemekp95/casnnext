@@ -61,7 +61,6 @@ export default defineConfig(
     files: ["lib/**/*.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off", // Database operations require any types
-      "@typescript-eslint/no-require-imports": "off", // Some legacy imports
     },
   },
 
