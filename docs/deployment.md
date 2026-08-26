@@ -34,16 +34,26 @@ required inputs are:
 Before its deployment path, the workflow reruns application and Directus smoke
 checks, rejects invalid immutable artifact inputs, pulls the supplied app and
 Nginx digests, and checks their OCI revision labels. With `DEPLOY_HOST`, it
-uses SSH to check out the supplied revision, writes the artifact references to
-`.env` using `scripts/deploy/write-artifact-env.sh`, validates
-`docker-compose.portainer.yml`, and starts it with `docker compose ... up -d
---remove-orphans`.
+uses SSH to fetch the supplied revision and securely execute that revision's
+`scripts/deploy/remote-deploy.sh`. The script preserves the previous exact
+revision, digest references, and `.env`, deploys with Compose readiness checks,
+and requires the configured public health endpoint to pass.
+
+If candidate readiness or public health fails, the same remote process restores
+the previous `.env` atomically, checks out the previous full revision, pulls its
+exact app and Nginx digests, and proves both internal and public health again.
+The workflow still fails even after a successful restore, so the candidate is
+never reported as deployed. This is artifact/configuration rollback only: it
+does not reverse MySQL migrations or Directus metadata changes. A failed
+rollback emits a critical error and requires the separately approved recovery
+procedure in `deployment-reconciliation.md`.
 
 Without `DEPLOY_HOST`, a set `PORTAINER_URL` deliberately fails because a
 Portainer-only path cannot inject validated immutable artifacts. With neither,
-the workflow only prints a manual-deployment notification. A set
-`HEALTH_CHECK_URL` causes a retrying HTTP check, but that check alone is not a
-complete post-deploy acceptance suite.
+the workflow only prints a manual-deployment notification. SSH deployment
+requires `HEALTH_CHECK_URL`; absence fails before checkout, environment, or
+Compose mutation. This health gate is not a complete post-deploy acceptance
+suite.
 
 ## Runtime contract
 

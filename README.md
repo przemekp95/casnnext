@@ -128,6 +128,9 @@ then publishes app and Nginx images for qualifying pushes. It does not build a
 CASN Directus image. `.github/workflows/deploy.yml` is manual
 (`workflow_dispatch`) and requires immutable image digests plus a matching
 40-hex `app_revision`; it validates those inputs before an SSH deployment path.
+The SSH path requires public health verification and restores the previous
+exact revision, image digests, and environment when candidate health fails. It
+does not automatically roll back database or Directus state.
 A GitHub Release is not deployment evidence. See
 [docs/docker-ghcr.md](docs/docker-ghcr.md) and
 [docs/deployment-reconciliation.md](docs/deployment-reconciliation.md).

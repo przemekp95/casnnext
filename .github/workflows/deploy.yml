@@ -305,32 +305,30 @@ jobs:
           NGINX_IMAGE: ${{ env.NGINX_IMAGE }}
           APP_REVISION: ${{ env.APP_REVISION }}
           EXPECTED_APP_REVISION: ${{ env.EXPECTED_APP_REVISION }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
+          HEALTH_CHECK_URL: ${{ env.HEALTH_CHECK_URL }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION
+          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION,DEPLOY_PATH,HEALTH_CHECK_URL
           script: |
             set -eu
-            cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
+            cd "$DEPLOY_PATH"
 
-            git fetch --depth=1 origin "$APP_REVISION"
-            git checkout --detach "$APP_REVISION"
-            test "$(git rev-parse HEAD)" = "$APP_REVISION"
-
-            scripts/deploy/login-registry.sh
             if [ "$DEPLOY_OPERATION" = "authenticate-only" ]; then
+              scripts/deploy/login-registry.sh
               echo "Remote GHCR authentication completed; deployment intentionally skipped."
               exit 0
             fi
 
-            scripts/deploy/write-artifact-env.sh .env
-            docker pull "$APP_IMAGE"
-            docker pull "$NGINX_IMAGE"
-
-            docker compose --env-file .env -f docker-compose.portainer.yml config --quiet
-            docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans
+            git fetch --depth=1 origin "$APP_REVISION"
+            remote_deploy_script="$(mktemp)"
+            trap 'rm -f "$remote_deploy_script"' EXIT
+            git show "$APP_REVISION:scripts/deploy/remote-deploy.sh" >"$remote_deploy_script"
+            chmod 700 "$remote_deploy_script"
+            "$remote_deploy_script"
 
       - name: Reject unimplemented Portainer-only deployment
         if: ${{ env.PORTAINER_URL != '' && env.DEPLOY_HOST == '' }}
@@ -353,22 +351,8 @@ jobs:
           echo '3. Preserve existing secrets and set APP_IMAGE, NGINX_IMAGE, and APP_REVISION in .env'
           echo '4. Validate: docker compose --env-file .env -f docker-compose.portainer.yml config --quiet'
           echo '5. Pull the exact app/nginx references printed above'
-          echo '6. Deploy: docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans'
-
-      - name: Health check
-        if: ${{ inputs.operation == 'deploy' && env.HEALTH_CHECK_URL != '' }}
-        run: |
-          echo "Performing health check..."
-          for i in {1..30}; do
-            if curl --fail --silent --show-error "$HEALTH_CHECK_URL" > /dev/null; then
-              echo "Health check passed"
-              exit 0
-            fi
-            echo "Health check attempt $i failed, retrying in 10 seconds..."
-            sleep 10
-          done
-          echo "Health check failed after 30 attempts"
-          exit 1
+          echo '6. Run scripts/deploy/remote-deploy.sh with DEPLOY_PATH and HEALTH_CHECK_URL set'
+          echo '7. If candidate health fails, the script restores and verifies the previous immutable release'
 
       - name: Notify deployment status
         if: always()

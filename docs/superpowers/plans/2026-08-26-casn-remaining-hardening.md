@@ -234,7 +234,6 @@ git commit -m "fix(database): fail closed on startup and migrations"
 - Create: `scripts/ci/remote-deploy-rollback-test.sh`
 - Modify: `.github/workflows/deploy.yml`
 - Modify: `scripts/ci/deployment-artifact-policy.sh`
-- Modify: `test/unit/deployment/security-config.test.ts`
 - Modify: `docs/deployment.md`
 
 **Interfaces:**
@@ -278,7 +277,6 @@ printing their values. Keep immutable image-label validation unchanged.
 ```bash
 bash scripts/ci/remote-deploy-rollback-test.sh
 npm run deploy:policy
-npx jest --runInBand --runTestsByPath test/unit/deployment/security-config.test.ts
 npm run test:ci
 ```
 
