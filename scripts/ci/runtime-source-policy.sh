@@ -54,6 +54,12 @@ check_sources() {
       fail "generated JavaScript source artifact must not be tracked: $legacy"
     fi
   done
+
+  local first_party_js
+  while IFS= read -r first_party_js; do
+    [[ -n "$first_party_js" ]] || continue
+    fail "first-party lib source must not be JavaScript: $first_party_js"
+  done < <(git -C "$ROOT" ls-files -- ':(glob)lib/*.js' ':(glob)lib/**/*.js')
 }
 
 check_build() {

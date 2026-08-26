@@ -111,6 +111,12 @@ for legacy_path in \
   expect_rejected "generated JavaScript source artifact must not be tracked: $legacy_path" sources
 done
 
+future_runtime_source='lib/server/future-runtime.js'
+create_fixture
+touch "$fixture/$future_runtime_source"
+git -C "$fixture" add "$future_runtime_source"
+expect_rejected "first-party lib source must not be JavaScript: $future_runtime_source" sources
+
 create_fixture
 printf "const runtime = require('./dist/runtime/server.js');\n" >>"$fixture/server.cjs"
 expect_rejected 'server.cjs must not contain require(.' launcher
