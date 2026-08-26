@@ -29,13 +29,25 @@ all=" $* "
 case "$all" in
   *" ps "*"com.docker.compose.service=mysql"*) printf 'verified-mysql-id\n' ;;
   *" ps "*"com.docker.compose.service=directus"*) printf 'verified-directus-id\n' ;;
+  *" ps "*"com.docker.compose.service=nginx"*) printf 'verified-nginx-id\n' ;;
   *" volume ls "*"com.docker.compose.volume=directus_uploads"*) printf 'verified-directus-volume\n' ;;
   *" volume ls "*"com.docker.compose.volume=strapi_uploads"*) printf 'verified-legacy-volume\n' ;;
   *" network ls "*"com.docker.compose.network=casn-network"*) printf 'verified-network\n' ;;
   *" inspect "*"State.Health.Status"*) printf 'healthy\n' ;;
   *" inspect "*"State.Status"*) printf 'running\n' ;;
+  *" inspect verified-directus-id"*)
+    volume=verified-directus-volume
+    [[ "\${FAKE_BAD_MOUNT:-}" != directus ]] || volume=wrong-directus-volume
+    printf '[{"Mounts":[{"Type":"volume","Name":"%s","Destination":"/directus/uploads","RW":true}]}]' "$volume"
+    ;;
+  *" inspect verified-nginx-id"*)
+    volume=verified-legacy-volume
+    [[ "\${FAKE_BAD_MOUNT:-}" != legacy ]] || volume=wrong-legacy-volume
+    printf '[{"Mounts":[{"Type":"volume","Name":"%s","Destination":"/legacy-strapi-uploads","RW":false}]}]' "$volume"
+    ;;
   *" run "*"SELECT DATABASE()"*) printf 'casn\n' ;;
   *" run "*"@@server_uuid"*) printf 'prod-uuid\n' ;;
+  *" run "*"SELECT CONCAT("*"/cms/assets/"*) printf '/cms/assets/11111111-1111-4111-8111-111111111111\n' ;;
   *" run "*"ENGINE NOT IN"*)
     [[ "\${FAKE_FAILURE_POINT-}" != nontransactional ]] && printf '0\n' || printf '1\n'
     ;;
@@ -109,6 +121,7 @@ function runExporter(options: {
   envMode?: number;
   mutateEnv?: (lines: string[]) => void;
   preflightOnly?: boolean;
+  badMount?: "directus" | "legacy";
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "casn-exporter-test-"));
   const scripts = join(root, "scripts");
@@ -137,6 +150,7 @@ function runExporter(options: {
     "SOURCE_MYSQL_SERVICE=mysql",
     "SOURCE_DATABASE=casn",
     "SOURCE_DIRECTUS_SERVICE=directus",
+    "SOURCE_NGINX_SERVICE=nginx",
     "SOURCE_DIRECTUS_UPLOADS_VOLUME=directus_uploads",
     "SOURCE_LEGACY_UPLOADS_VOLUME=strapi_uploads",
     "SOURCE_DOCKER_NETWORK=casn-network",
@@ -164,6 +178,7 @@ function runExporter(options: {
       PATH: `${fakeBin}:${process.env.PATH}`,
       FAKE_COMMAND_LOG: commandLog,
       FAKE_FAILURE_POINT: options.failurePoint ?? "",
+      FAKE_BAD_MOUNT: options.badMount ?? "",
     },
   });
 
@@ -239,6 +254,19 @@ describe("production snapshot exporter", () => {
       run.cleanup();
     }
   });
+
+  it.each(["directus", "legacy"] as const)(
+    "rejects a wrong %s production media mount before stopping Directus",
+    (badMount) => {
+      const run = runExporter({ badMount });
+      try {
+        expect(run.result.status).not.toBe(0);
+        expect(run.commandLog).not.toContain("docker stop");
+      } finally {
+        run.cleanup();
+      }
+    },
+  );
 
   it("rejects non-transactional application tables before stopping Directus", () => {
     const run = runExporter({ failurePoint: "nontransactional" });

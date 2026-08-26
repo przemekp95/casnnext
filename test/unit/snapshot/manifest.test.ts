@@ -22,8 +22,8 @@ type Inventory = {
   source: { databaseNameHash: string; serverUuidHash: string };
   database: { tables: number; views: number; triggers: number; routines: number; events: number };
   media: {
-    directus: { files: number; representativePath: string | null };
-    legacy: { files: number; representativePath: string | null };
+    directus: { files: number; representativePath: string | null; representativeEvidence: string };
+    legacy: { files: number; representativePath: string | null; representativeEvidence: string };
   };
   public: {
     authors: { count: number; sha256: string };
@@ -40,8 +40,8 @@ function validInventory(): Inventory {
     source: { databaseNameHash: "a".repeat(64), serverUuidHash: "b".repeat(64) },
     database: { tables: 18, views: 0, triggers: 2, routines: 1, events: 0 },
     media: {
-      directus: { files: 2, representativePath: "/cms/assets/author-1.jpg" },
-      legacy: { files: 3, representativePath: null },
+      directus: { files: 2, representativePath: "/cms/assets/author-1.jpg", representativeEvidence: "public-api" },
+      legacy: { files: 3, representativePath: "/cms/uploads/legacy.jpg", representativeEvidence: "volume-inventory" },
     },
     public: {
       authors: { count: 32, sha256: "c".repeat(64) },
@@ -77,8 +77,8 @@ describe("snapshot manifest", () => {
         version: 1,
         database: { ...validInventory().database, sha256: databaseHash, canonicalSha256: databaseHash },
         media: {
-          directus: { files: 2, representativePath: "/cms/assets/author-1.jpg", sha256: directusHash },
-          legacy: { files: 3, representativePath: null, sha256: legacyHash },
+          directus: { files: 2, representativePath: "/cms/assets/author-1.jpg", representativeEvidence: "public-api", sha256: directusHash },
+          legacy: { files: 3, representativePath: "/cms/uploads/legacy.jpg", representativeEvidence: "volume-inventory", sha256: legacyHash },
         },
       });
 
@@ -113,6 +113,7 @@ describe("snapshot manifest", () => {
     ["negative count", (inventory: Inventory) => { inventory.public.authors.count = -1; }],
     ["uppercase hash", (inventory: Inventory) => { inventory.public.authors.sha256 = "C".repeat(64); }],
     ["unsafe representative path", (inventory: Inventory) => { inventory.media.directus.representativePath = "https://casn.pl/cms/assets/a.jpg"; }],
+    ["inconsistent representative evidence", (inventory: Inventory) => { inventory.media.legacy.representativeEvidence = "empty-volume"; }],
   ])("rejects inventory with %s", (_name, mutate) => {
     const inventory = validInventory();
     mutate(inventory);

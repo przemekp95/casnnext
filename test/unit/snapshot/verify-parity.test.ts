@@ -65,7 +65,7 @@ case "$args" in
   *" exec "*"information_schema.TRIGGERS"*) printf '2\\n' ;;
   *" exec "*"information_schema.ROUTINES"*) printf '1\\n' ;;
   *" exec "*"information_schema.EVENTS"*) printf '0\\n' ;;
-  *" exec "*"mysqldump "*) printf 'database-dump' ;;
+  *" exec "*"mysqldump "*) printf '%s' "\${FAKE_DATABASE_DUMP:-database-dump}" ;;
   *" run "*"candidate-directus"*"find /from"*) printf '%s\\n' "\${FAKE_DIRECTUS_FILES:-2}" ;;
   *" run "*"candidate-legacy"*"find /from"*) printf '%s\\n' "\${FAKE_LEGACY_FILES:-3}" ;;
   *" run "*"candidate-directus"*"tar -C /from"*) printf 'directus-archive' ;;
@@ -97,7 +97,7 @@ esac
 `;
 }
 
-type Mismatch = "tables" | "public" | "media" | "network" | "environment" | "uuid" | "emptyMedia";
+type Mismatch = "tables" | "database" | "public" | "media" | "network" | "environment" | "uuid" | "emptyMedia";
 
 function runVerifier(mismatch?: Mismatch) {
   const root = mkdtempSync(join(tmpdir(), "casn-parity-test-"));
@@ -146,11 +146,13 @@ function runVerifier(mismatch?: Mismatch) {
       directus: {
         files: mismatch === "emptyMedia" ? 0 : 2,
         representativePath: mismatch === "emptyMedia" ? null : "/cms/assets/author-1.jpg",
+        representativeEvidence: mismatch === "emptyMedia" ? "empty-volume" : "public-api",
         sha256: sha256("directus-archive"),
       },
       legacy: {
         files: mismatch === "emptyMedia" ? 0 : 3,
         representativePath: mismatch === "emptyMedia" ? null : "/cms/uploads/analysis-1.jpg",
+        representativeEvidence: mismatch === "emptyMedia" ? "empty-volume" : "public-api",
         sha256: sha256("legacy-archive"),
       },
     },
@@ -194,6 +196,7 @@ function runVerifier(mismatch?: Mismatch) {
       FAKE_ANALYSES: analysesFile,
       FAKE_SITEMAP: sitemapFile,
       FAKE_TABLES: mismatch === "tables" ? "17" : "18",
+      FAKE_DATABASE_DUMP: mismatch === "database" ? "modified-database-dump" : "database-dump",
       FAKE_PUBLIC_MISMATCH: mismatch === "public" ? "1" : "0",
       FAKE_DIRECTUS_FILES: mismatch === "media" ? "1" : "2",
       FAKE_LEGACY_FILES: mismatch === "emptyMedia" ? "0" : "3",
@@ -225,7 +228,7 @@ describe("candidate parity verifier", () => {
     }
   });
 
-  it.each(["tables", "public", "media", "network", "environment", "uuid"] as Mismatch[])(
+  it.each(["tables", "database", "public", "media", "network", "environment", "uuid"] as Mismatch[])(
     "fails closed on a %s mismatch without leaking source data",
     (mismatch) => {
       const run = runVerifier(mismatch);

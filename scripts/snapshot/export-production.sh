@@ -63,6 +63,23 @@ resolve_single() {
   printf '%s\n' "$output"
 }
 
+validate_source_volume_mount() {
+  local container_id="$1" volume="$2" destination="$3" expected_rw="$4" inspected
+  inspected="$(docker inspect "$container_id")"
+  jq -e \
+    --arg volume "$volume" \
+    --arg destination "$destination" \
+    --argjson expected_rw "$expected_rw" '
+      length == 1
+      and ([.[0].Mounts[] | select(
+        .Type == "volume"
+        and .Name == $volume
+        and .Destination == $destination
+        and .RW == $expected_rw
+      )] | length == 1)
+    ' <<< "$inspected" >/dev/null || die 'source media volume is not mounted at the approved service boundary'
+}
+
 wait_for_directus_health() {
   local container_id="$1" status
   for _ in {1..30}; do
@@ -119,6 +136,17 @@ count_volume_files() {
     sh -ec 'find /from -type f -print | LC_ALL=C sort | wc -l'
 }
 
+first_legacy_route() {
+  local volume="$1" relative
+  relative="$(docker run --rm \
+    --mount "type=volume,src=$volume,dst=/from,readonly" \
+    "$mysql_image" \
+    sh -ec 'find /from -type f -print | LC_ALL=C sort' \
+    | sed -n '1{s#^/from/##;p;}')"
+  [[ -n "$relative" && "$relative" != *$'\n'* ]] || return 1
+  jq -nr --arg value "$relative" '"/cms/uploads/" + ($value | split("/") | map(@uri) | join("/"))'
+}
+
 normalize_json() {
   jq -S 'if type == "array" then sort_by(.id // .slug // .url // "") else . end'
 }
@@ -143,7 +171,7 @@ main() {
 
   local required_variable
   for required_variable in \
-    SOURCE_COMPOSE_PROJECT SOURCE_MYSQL_SERVICE SOURCE_DATABASE SOURCE_DIRECTUS_SERVICE \
+    SOURCE_COMPOSE_PROJECT SOURCE_MYSQL_SERVICE SOURCE_DATABASE SOURCE_DIRECTUS_SERVICE SOURCE_NGINX_SERVICE \
     SOURCE_DIRECTUS_UPLOADS_VOLUME SOURCE_LEGACY_UPLOADS_VOLUME SOURCE_DOCKER_NETWORK \
     EXPECTED_DATABASE_NAME_HASH EXPECTED_SERVER_UUID_HASH SNAPSHOT_EXPORT_USER \
     SNAPSHOT_EXPORT_PASSWORD SNAPSHOT_AGE_RECIPIENT SNAPSHOT_OUTPUT_DIRECTORY SOURCE_PUBLIC_URL; do
@@ -162,6 +190,7 @@ main() {
   require_name "$SOURCE_MYSQL_SERVICE"
   require_name "$SOURCE_DATABASE"
   require_name "$SOURCE_DIRECTUS_SERVICE"
+  require_name "$SOURCE_NGINX_SERVICE"
   require_name "$SOURCE_DIRECTUS_UPLOADS_VOLUME"
   require_name "$SOURCE_LEGACY_UPLOADS_VOLUME"
   require_name "$SOURCE_DOCKER_NETWORK"
@@ -175,12 +204,16 @@ main() {
   resolve_single container "$SOURCE_COMPOSE_PROJECT" com.docker.compose.service "$SOURCE_MYSQL_SERVICE" >/dev/null
   source_directus_id="$(resolve_single container "$SOURCE_COMPOSE_PROJECT" com.docker.compose.service "$SOURCE_DIRECTUS_SERVICE")"
   readonly source_directus_id
+  source_nginx_id="$(resolve_single container "$SOURCE_COMPOSE_PROJECT" com.docker.compose.service "$SOURCE_NGINX_SERVICE")"
+  readonly source_nginx_id
   source_directus_volume="$(resolve_single volume "$SOURCE_COMPOSE_PROJECT" com.docker.compose.volume "$SOURCE_DIRECTUS_UPLOADS_VOLUME")"
   readonly source_directus_volume
   source_legacy_volume="$(resolve_single volume "$SOURCE_COMPOSE_PROJECT" com.docker.compose.volume "$SOURCE_LEGACY_UPLOADS_VOLUME")"
   readonly source_legacy_volume
   source_network="$(resolve_single network "$SOURCE_COMPOSE_PROJECT" com.docker.compose.network "$SOURCE_DOCKER_NETWORK")"
   readonly source_network
+  validate_source_volume_mount "$source_directus_id" "$source_directus_volume" /directus/uploads true
+  validate_source_volume_mount "$source_nginx_id" "$source_legacy_volume" /legacy-strapi-uploads false
 
   staging_directory="$(mktemp -d /tmp/casn-production-snapshot.XXXXXXXX)"
   readonly staging_directory
@@ -261,6 +294,28 @@ main() {
     "$staging_directory/authors.json" "$staging_directory/analyses.json")"
   legacy_representative_path="$(jq -sr '[.[] | .. | strings | select(startswith("/cms/uploads/"))][0] // ""' \
     "$staging_directory/authors.json" "$staging_directory/analyses.json")"
+  if (( directus_files == 0 )); then
+    directus_representative_evidence='empty-volume'
+    directus_representative_path=''
+  elif [[ -n "$directus_representative_path" ]]; then
+    directus_representative_evidence='public-api'
+  else
+    directus_representative_path="$(mysql_query "SELECT CONCAT('/cms/assets/', id) FROM directus_files WHERE id IS NOT NULL AND id <> '' ORDER BY uploaded_on DESC, id LIMIT 1;")"
+    if [[ -n "$directus_representative_path" ]]; then
+      directus_representative_evidence='directus-db'
+    else
+      directus_representative_evidence='no-directus-record'
+    fi
+  fi
+  if (( legacy_files == 0 )); then
+    legacy_representative_evidence='empty-volume'
+    legacy_representative_path=''
+  elif [[ -n "$legacy_representative_path" ]]; then
+    legacy_representative_evidence='public-api'
+  else
+    legacy_representative_path="$(first_legacy_route "$source_legacy_volume")"
+    legacy_representative_evidence='volume-inventory'
+  fi
 
   jq -n \
     --arg snapshot_id "$snapshot_id" \
@@ -272,6 +327,8 @@ main() {
     --arg sitemap_hash "$(sha256sum "$staging_directory/sitemap.paths" | awk '{print $1}')" \
     --arg directus_representative_path "$directus_representative_path" \
     --arg legacy_representative_path "$legacy_representative_path" \
+    --arg directus_representative_evidence "$directus_representative_evidence" \
+    --arg legacy_representative_evidence "$legacy_representative_evidence" \
     --argjson tables "$database_tables" \
     --argjson views "$database_views" \
     --argjson triggers "$database_triggers" \
@@ -288,8 +345,8 @@ main() {
       source: {databaseNameHash: $database_name_hash, serverUuidHash: $server_uuid_hash},
       database: {tables: $tables, views: $views, triggers: $triggers, routines: $routines, events: $events},
       media: {
-        directus: {files: $directus_files, representativePath: (if $directus_representative_path == "" then null else $directus_representative_path end)},
-        legacy: {files: $legacy_files, representativePath: (if $legacy_representative_path == "" then null else $legacy_representative_path end)}
+        directus: {files: $directus_files, representativePath: (if $directus_representative_path == "" then null else $directus_representative_path end), representativeEvidence: $directus_representative_evidence},
+        legacy: {files: $legacy_files, representativePath: (if $legacy_representative_path == "" then null else $legacy_representative_path end), representativeEvidence: $legacy_representative_evidence}
       },
       public: {
         authors: {count: $authors_count, sha256: $authors_hash},

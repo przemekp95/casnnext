@@ -82,6 +82,7 @@ describe("production exporter installer", () => {
       expect(statSync(config).mode & 0o777).toBe(0o600);
       expect(readFileSync(config, "utf8")).toBe("");
       expect(result.stdout).toContain("SOURCE_COMPOSE_PROJECT");
+      expect(result.stdout).toContain("SOURCE_NGINX_SERVICE");
       expect(result.stdout).toContain("SNAPSHOT_AGE_RECIPIENT");
       const log = readFileSync(test.log, "utf8");
       expect(log).toContain("chown root:root");

@@ -22,10 +22,11 @@ nonce="${nonce,,}"
 source_project="casn_snapshot_source_$nonce"
 source_mysql="${source_project}_mysql"
 source_directus="${source_project}_directus"
+source_nginx="${source_project}_nginx"
 source_network="${source_project}_default"
 source_directus_volume="${source_project}_directus_uploads"
 source_legacy_volume="${source_project}_strapi_uploads"
-readonly nonce source_project source_mysql source_directus source_network
+readonly nonce source_project source_mysql source_directus source_nginx source_network
 readonly source_directus_volume source_legacy_volume
 
 temporary_directory="$(mktemp -d /tmp/casn-snapshot-roundtrip.XXXXXXXX)"
@@ -54,7 +55,7 @@ cleanup() {
       --env-file "$temporary_directory/local.env" --file "$compose_file" \
       down --volumes --remove-orphans >/dev/null 2>&1
   fi
-  docker rm -f "$source_directus" "$source_mysql" >/dev/null 2>&1
+  docker rm -f "$source_nginx" "$source_directus" "$source_mysql" >/dev/null 2>&1
   docker volume rm "$source_directus_volume" "$source_legacy_volume" >/dev/null 2>&1
   docker network rm "$source_network" >/dev/null 2>&1
   [[ -z "$app_image" ]] || docker image rm "$app_image" >/dev/null 2>&1
@@ -67,7 +68,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-for resource in "$source_mysql" "$source_directus"; do
+for resource in "$source_mysql" "$source_directus" "$source_nginx"; do
   ! docker container inspect "$resource" >/dev/null 2>&1 || die
 done
 for resource in "$source_directus_volume" "$source_legacy_volume"; do
@@ -77,8 +78,8 @@ done
 
 cat > "$fixture_directory/server.js" <<'JS'
 const http = require('node:http');
-const authors = [{ id: 1, slug: 'author-one', avatar: null }, { id: 2, slug: 'author-two', avatar: null }];
-const analyses = [{ id: 1, slug: 'analysis-one', legacyFile: null }, { id: 2, slug: 'analysis-two', legacyFile: null }];
+const authors = [{ id: 1, slug: 'author-one', avatar: '/cms/assets/11111111-1111-4111-8111-111111111111' }, { id: 2, slug: 'author-two', avatar: null }];
+const analyses = [{ id: 1, slug: 'analysis-one', legacyFile: '/cms/uploads/legacy.jpg' }, { id: 2, slug: 'analysis-two', legacyFile: null }];
 const sitemap = `<urlset>
 <url><loc>http://127.0.0.1/</loc></url>
 <url><loc>http://127.0.0.1/analizy</loc></url>
@@ -119,6 +120,10 @@ docker volume create --label "com.docker.compose.project=$source_project" \
   --label com.docker.compose.volume=directus_uploads "$source_directus_volume" >/dev/null
 docker volume create --label "com.docker.compose.project=$source_project" \
   --label com.docker.compose.volume=strapi_uploads "$source_legacy_volume" >/dev/null
+docker run -d --name "$source_nginx" --network "$source_network" \
+  --label "com.docker.compose.project=$source_project" --label com.docker.compose.service=nginx \
+  --mount "type=volume,src=$source_legacy_volume,dst=/legacy-strapi-uploads,readonly" \
+  --entrypoint sh "$mysql_image" -c 'sleep infinity' >/dev/null
 
 readonly source_password='snapshot-smoke-local-only'
 docker run -d --name "$source_mysql" --network "$source_network" --network-alias mysql \
@@ -141,6 +146,7 @@ docker run -d --name "$source_directus" --network "$source_network" \
   -e DB_CLIENT=mysql -e DB_HOST=mysql -e DB_PORT=3306 -e DB_DATABASE=casn \
   -e DB_USER=root -e "DB_PASSWORD=$source_password" \
   -e STORAGE_LOCATIONS=local -e STORAGE_LOCAL_DRIVER=local -e STORAGE_LOCAL_ROOT=/directus/uploads \
+  --mount "type=bind,src=$repository_root/directus/extensions/directus-extension-casn-field-guard,dst=/directus/extensions/directus-extension-casn-field-guard,readonly" \
   --mount "type=volume,src=$source_directus_volume,dst=/directus/uploads" "$directus_image" >/dev/null
 for _ in {1..120}; do
   [[ "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$source_directus")" == healthy ]] && break
@@ -157,9 +163,13 @@ CREATE TRIGGER SnapshotFixtureInsert AFTER INSERT ON SnapshotFixture FOR EACH RO
 CREATE PROCEDURE SnapshotFixtureCount() SELECT COUNT(*) FROM SnapshotFixture;
 CREATE EVENT SnapshotFixtureEvent ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 1 DAY DO INSERT INTO SnapshotFixtureAudit (fixture_id) VALUES (0);
 INSERT INTO SnapshotFixture (id, label) VALUES (1, 'first'), (2, 'second'), (3, 'third');
+INSERT INTO directus_files (id, storage, filename_disk, filename_download, title, type, filesize, uploaded_on)
+VALUES ('11111111-1111-4111-8111-111111111111', 'local', '11111111-1111-4111-8111-111111111111', 'author.jpg', 'Author', 'image/jpeg', 12, CURRENT_TIMESTAMP);
+INSERT INTO directus_permissions (collection, action, permissions, fields, policy)
+SELECT 'directus_files', 'read', '{}', '*', id FROM directus_policies WHERE name = '$t:public_label';
 SQL
 docker run --rm --mount "type=volume,src=$source_directus_volume,dst=/to" "$mysql_image" \
-  sh -ec 'mkdir -p /to/nested; printf directus-one > /to/one.jpg; printf directus-two > /to/nested/two.png'
+  sh -ec 'mkdir -p /to/nested; printf directus-one > /to/11111111-1111-4111-8111-111111111111; printf directus-two > /to/nested/two.png'
 docker run --rm --mount "type=volume,src=$source_legacy_volume,dst=/to" "$mysql_image" \
   sh -ec 'mkdir -p /to/history; printf legacy-one > /to/legacy.jpg; printf legacy-two > /to/history/two.pdf; printf legacy-three > /to/history/three.png'
 
@@ -185,6 +195,7 @@ SOURCE_COMPOSE_PROJECT=$source_project
 SOURCE_MYSQL_SERVICE=mysql
 SOURCE_DATABASE=casn
 SOURCE_DIRECTUS_SERVICE=directus
+SOURCE_NGINX_SERVICE=nginx
 SOURCE_DIRECTUS_UPLOADS_VOLUME=directus_uploads
 SOURCE_LEGACY_UPLOADS_VOLUME=strapi_uploads
 SOURCE_DOCKER_NETWORK=default

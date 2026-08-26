@@ -47,12 +47,21 @@ validate_inventory() {
     and (.database.routines | count)
     and (.database.events | count)
     and (.media | (keys | sort) == ["directus","legacy"])
-    and (.media.directus | (keys | sort) == ["files","representativePath"])
+    and (.media.directus | (keys | sort) == ["files","representativeEvidence","representativePath"])
     and (.media.directus.files | count)
     and (.media.directus.representativePath == null or (.media.directus.representativePath | type == "string" and startswith("/cms/assets/")))
-    and (.media.legacy | (keys | sort) == ["files","representativePath"])
+    and (
+      (.media.directus.files == 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "empty-volume")
+      or (.media.directus.files > 0 and .media.directus.representativePath != null and (.media.directus.representativeEvidence == "public-api" or .media.directus.representativeEvidence == "directus-db"))
+      or (.media.directus.files > 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "no-directus-record")
+    )
+    and (.media.legacy | (keys | sort) == ["files","representativeEvidence","representativePath"])
     and (.media.legacy.files | count)
     and (.media.legacy.representativePath == null or (.media.legacy.representativePath | type == "string" and startswith("/cms/uploads/")))
+    and (
+      (.media.legacy.files == 0 and .media.legacy.representativePath == null and .media.legacy.representativeEvidence == "empty-volume")
+      or (.media.legacy.files > 0 and .media.legacy.representativePath != null and (.media.legacy.representativeEvidence == "public-api" or .media.legacy.representativeEvidence == "volume-inventory"))
+    )
     and (.public | (keys | sort) == ["analyses","authors","sitemap"])
     and ([.public.authors, .public.analyses, .public.sitemap] | all(
       (keys | sort) == ["count","sha256"]
@@ -84,12 +93,21 @@ validate_manifest() {
     and (.database.events | count)
     and (.media | (keys | sort) == ["directus","legacy"])
     and ([.media.directus, .media.legacy] | all(
-      (keys | sort) == ["files","representativePath","sha256"]
+      (keys | sort) == ["files","representativeEvidence","representativePath","sha256"]
       and (.files | count)
       and (.sha256 | lowercase_hash)
     ))
     and (.media.directus.representativePath == null or (.media.directus.representativePath | type == "string" and startswith("/cms/assets/")))
     and (.media.legacy.representativePath == null or (.media.legacy.representativePath | type == "string" and startswith("/cms/uploads/")))
+    and (
+      (.media.directus.files == 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "empty-volume")
+      or (.media.directus.files > 0 and .media.directus.representativePath != null and (.media.directus.representativeEvidence == "public-api" or .media.directus.representativeEvidence == "directus-db"))
+      or (.media.directus.files > 0 and .media.directus.representativePath == null and .media.directus.representativeEvidence == "no-directus-record")
+    )
+    and (
+      (.media.legacy.files == 0 and .media.legacy.representativePath == null and .media.legacy.representativeEvidence == "empty-volume")
+      or (.media.legacy.files > 0 and .media.legacy.representativePath != null and (.media.legacy.representativeEvidence == "public-api" or .media.legacy.representativeEvidence == "volume-inventory"))
+    )
     and (.public | (keys | sort) == ["analyses","authors","sitemap"])
     and ([.public.authors, .public.analyses, .public.sitemap] | all(
       (keys | sort) == ["count","sha256"]

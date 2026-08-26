@@ -9,6 +9,8 @@ Ten runbook odtwarza lokalnie pełną bazę MySQL oraz wolumeny plików Directus
 - Lokalna baza zawsze nazywa się `casn_local`, a jej `server_uuid` musi różnić się od produkcyjnego.
 - Import tworzy nowe, nazwane snapshotem wolumeny i nie usuwa poprzedniego środowiska.
 - Eksporter produkcyjny korzysta z osobnego konta tylko do odczytu, zatrzymuje wyłącznie Directusa i zawsze próbuje go ponownie uruchomić w `trap`.
+- Przed zatrzymaniem Directusa eksporter potwierdza, że wskazany wolumen Directusa jest faktycznie zamontowany jako zapisywalny w `/directus/uploads`, a wolumen legacy jako tylko do odczytu w `/legacy-strapi-uploads` usługi nginx. `SOURCE_NGINX_SERVICE` jest obowiązkową częścią konfiguracji źródła.
+- Manifest zapisuje dla każdego rodzaju mediów reprezentatywną ścieżkę i źródło dowodu (`public-api`, `directus-db`, `volume-inventory`, `empty-volume` lub jawne `no-directus-record`). Każda zapisana ścieżka przechodzi później rzeczywisty test HTTP przez lokalny nginx.
 - Artefakt jest szyfrowany `age` przed opuszczeniem katalogu tymczasowego. Klucz prywatny pozostaje lokalnie i ma tryb `0600`.
 - Dowody API mogą być pobierane przez zweryfikowany origin `http://127.0.0.1:PORT`, gdy edge blokuje hairpin przez Cloudflare. Eksporter odrzuca każdy zwykły HTTP poza dokładnym loopbackiem, a zewnętrzne publiczne health-checki pozostają osobną bramką.
 - Wyniku `SHOW GRANTS` nie wolno wklejać do Git, czatu, zgłoszenia ani logu CI. To wrażliwy dowód operacyjny; zapisujemy go tylko w zatwierdzonym katalogu właściciela z trybem `0600`.

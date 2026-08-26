@@ -155,9 +155,18 @@ function validateManifest(manifest) {
   for (const key of ["directus", "legacy"]) {
     const expectedPrefix = key === "directus" ? "/cms/assets/" : "/cms/uploads/";
     const representativePath = manifest.media?.[key]?.representativePath;
-    if (!exactKeys(manifest.media?.[key], ["files", "representativePath", "sha256"])
+    const evidence = manifest.media?.[key]?.representativeEvidence;
+    const files = manifest.media?.[key]?.files;
+    const validEvidence = key === "directus"
+      ? ((files === 0 && representativePath === null && evidence === "empty-volume")
+        || (files > 0 && representativePath !== null && ["public-api", "directus-db"].includes(evidence))
+        || (files > 0 && representativePath === null && evidence === "no-directus-record"))
+      : ((files === 0 && representativePath === null && evidence === "empty-volume")
+        || (files > 0 && representativePath !== null && ["public-api", "volume-inventory"].includes(evidence)));
+    if (!exactKeys(manifest.media?.[key], ["files", "representativeEvidence", "representativePath", "sha256"])
         || !count(manifest.media[key].files) || !HASH_PATTERN.test(manifest.media[key].sha256)
-        || (representativePath !== null && (typeof representativePath !== "string" || !representativePath.startsWith(expectedPrefix)))) fail();
+        || (representativePath !== null && (typeof representativePath !== "string" || !representativePath.startsWith(expectedPrefix)))
+        || !validEvidence) fail();
   }
   for (const key of ["authors", "analyses", "sitemap"]) {
     if (!exactKeys(manifest.public?.[key], ["count", "sha256"]) || !count(manifest.public[key].count) || !HASH_PATTERN.test(manifest.public[key].sha256)) fail();
@@ -268,7 +277,8 @@ function main() {
   const gates = {
     databaseIdentity: database.selected === "casn_local" && database.uuidHash !== manifest.source.serverUuidHash,
     databaseObjects: ["tables", "views", "triggers", "routines", "events"].every((key) => database[key] === manifest.database[key]),
-    databasePayload: manifest.database.canonicalSha256 === handoff.databaseContentSha256,
+    databasePayload: database.sha256 === handoff.databaseContentSha256
+      && database.sha256 === manifest.database.canonicalSha256,
     media: ["directus", "legacy"].every((key) => media[key].files === manifest.media[key].files && media[key].sha256 === manifest.media[key].sha256),
     public: [authors, analyses, sitemap].every((item, index) => {
       const expected = manifest.public[["authors", "analyses", "sitemap"][index]];

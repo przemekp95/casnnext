@@ -267,6 +267,7 @@ Require an absolute owner-only env file and explicit values for:
 SOURCE_COMPOSE_PROJECT
 SOURCE_MYSQL_SERVICE
 SOURCE_DIRECTUS_SERVICE
+SOURCE_NGINX_SERVICE
 SOURCE_DIRECTUS_UPLOADS_VOLUME
 SOURCE_LEGACY_UPLOADS_VOLUME
 EXPECTED_DATABASE_NAME_HASH
@@ -278,7 +279,8 @@ SNAPSHOT_OUTPUT_DIRECTORY
 ```
 
 Resolve containers by both Compose project and service labels, not by ambient
-names. Resolve volumes by project and logical-volume labels. Read database name,
+names. Resolve volumes by project and logical-volume labels, then inspect the
+actual Directus and Nginx mounts, destinations, and read/write flags. Read database name,
 server UUID, engine inventory, object counts, and public counts with the
 dedicated account through the pinned MySQL client container. Abort when any
 table engine is neither `InnoDB` nor a MySQL system engine explicitly excluded
