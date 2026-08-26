@@ -42,18 +42,20 @@ uses SSH to check out the supplied revision, writes the artifact references to
 Without `DEPLOY_HOST`, a set `PORTAINER_URL` deliberately fails because a
 Portainer-only path cannot inject validated immutable artifacts. With neither,
 the workflow only prints a manual-deployment notification. After a successful
-SSH deployment, a set `HEALTH_CHECK_URL` causes a separate retrying public
-readiness check from the deployment host. The gate accepts only HTTP success
-with JSON reporting `status=ready`, `database=connected`, and a `revision`
-exactly equal to the dispatched `app_revision`; HTTP 200 alone is insufficient.
-Production additionally requires the secret to equal the canonical public
-`https://casn.pl/api/health` endpoint. The failing run was diagnosed without
-printing the secret: GitHub-hosted runner requests to that exact endpoint were
-answered with HTTP 403 and a Cloudflare Managed Challenge, including requests
-with JSON `Accept` and a browser-like user agent. Running the public probe from
-the deployment host avoids that runner-address challenge while still traversing
-the public URL. This gate is distinct from successful SSH execution and is not
-a complete post-deploy acceptance suite.
+SSH deployment, a separate retrying health gate executes the database-backed
+`/api/health` probe over loopback inside the deployed app container. The gate
+accepts only JSON reporting `status=ready`, `database=connected`, and a
+`revision` exactly equal to the dispatched `app_revision`; transport success
+alone is insufficient.
+
+Public runtime acceptance remains a separate check against
+`https://casn.pl/api/health`. The original secret was diagnosed without
+printing it and matched that exact canonical URL. Both GitHub-hosted runner and
+deployment-host requests received HTTP 403 from a Cloudflare Managed Challenge;
+JSON `Accept` and a browser-like user agent did not change the response. The
+internal revision gate therefore determines workflow success, while an
+independent public probe records edge/runtime evidence. Successful SSH, the
+internal health gate, and public runtime acceptance are three distinct claims.
 
 ## Runtime contract
 

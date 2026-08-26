@@ -9,39 +9,31 @@ const repositoryRoot = process.cwd();
 const verifier = join(repositoryRoot, "scripts/deploy/verify-health.sh");
 const expectedRevision = "52a75ace9db03b8c47a2a634ac35f410e855d7df";
 
-function runVerifier(body: unknown, httpStatus = 200) {
+function runVerifier(body: unknown, probeExitStatus = 0) {
   const temporaryDirectory = mkdtempSync(join(tmpdir(), "casn-health-gate-"));
   const fakeBin = join(temporaryDirectory, "bin");
   const responseFile = join(temporaryDirectory, "response.json");
   mkdirSync(fakeBin);
   writeFileSync(responseFile, JSON.stringify(body));
   writeFileSync(
-    join(fakeBin, "curl"),
+    join(fakeBin, "docker"),
     `#!/usr/bin/env bash
 set -euo pipefail
-output=''
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --output) output="$2"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-test -n "$output"
-cp "$FAKE_HEALTH_RESPONSE" "$output"
-printf '%s' "$FAKE_HEALTH_STATUS"
+cat "$FAKE_HEALTH_RESPONSE"
+exit "$FAKE_HEALTH_EXIT_STATUS"
 `,
     { mode: 0o755 },
   );
 
   try {
-    return spawnSync("bash", [verifier, "https://casn.pl/api/health", expectedRevision], {
+    return spawnSync("bash", [verifier, expectedRevision], {
       cwd: repositoryRoot,
       encoding: "utf8",
       env: {
         ...process.env,
         PATH: `${fakeBin}:${process.env.PATH}`,
         FAKE_HEALTH_RESPONSE: responseFile,
-        FAKE_HEALTH_STATUS: String(httpStatus),
+        FAKE_HEALTH_EXIT_STATUS: String(probeExitStatus),
         HEALTH_CHECK_ATTEMPTS: "1",
         HEALTH_CHECK_INTERVAL_SECONDS: "0",
       },
@@ -83,38 +75,34 @@ describe("production deployment health gate", () => {
     expect(runVerifier(body).status).not.toBe(0);
   });
 
-  it("rejects a redirect even if its body contains matching readiness JSON", () => {
+  it("rejects a failed internal probe even if it emits matching readiness JSON", () => {
     const result = runVerifier(
       { status: "ready", database: "connected", revision: expectedRevision },
-      302,
+      8,
     );
 
     expect(result.status).not.toBe(0);
   });
 
-  it("runs the public health gate remotely after deployment without Bearer auth", () => {
+  it("runs an internal revision health gate remotely after deployment without Bearer auth", () => {
     const workflow = readFileSync(join(repositoryRoot, ".github/workflows/deploy.yml"), "utf8");
+    const verifierSource = readFileSync(verifier, "utf8");
     const healthStep = workflow.slice(
       workflow.indexOf("      - name: Health check"),
       workflow.indexOf("      - name: Notify deployment status"),
     );
-    const configurationStep = workflow.slice(
-      workflow.indexOf("      - name: Validate health gate configuration"),
-      workflow.indexOf("      - name: Health check"),
-    );
 
-    expect(configurationStep).toContain('test -n "$HEALTH_CHECK_URL"');
-    expect(configurationStep).toContain(
-      `[[ "$DEPLOY_ENVIRONMENT" != 'production' || "$HEALTH_CHECK_URL" == 'https://casn.pl/api/health' ]]`,
-    );
+    expect(workflow).not.toContain("      - name: Validate health gate configuration");
     expect(healthStep).toContain("env.DEPLOY_HOST != ''");
-    expect(healthStep).not.toContain("env.HEALTH_CHECK_URL != ''");
     expect(healthStep).toContain("uses: appleboy/ssh-action@v1.0.3");
-    expect(healthStep).toContain("envs: HEALTH_CHECK_URL,APP_REVISION");
-    expect(healthStep).toContain(
-      'scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"',
-    );
+    expect(healthStep).toContain("envs: APP_REVISION");
+    expect(healthStep).toContain('scripts/deploy/verify-health.sh "$APP_REVISION"');
+    expect(healthStep).not.toContain("HEALTH_CHECK_URL");
     expect(healthStep).not.toMatch(/authorization|bearer/i);
-    expect(healthStep).not.toContain('curl --fail --silent --show-error "$HEALTH_CHECK_URL"');
+    expect(verifierSource).toMatch(
+      /docker compose[\s\\]+--env-file \.env[\s\\]+-f docker-compose\.portainer\.yml[\s\\]+exec -T app/,
+    );
+    expect(verifierSource).toContain("wget -qO- http://127.0.0.1:3000/api/health");
+    expect(verifierSource).not.toContain("https://casn.pl");
   });
 });

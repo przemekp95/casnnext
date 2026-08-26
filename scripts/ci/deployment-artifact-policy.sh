@@ -54,7 +54,7 @@ for required_source in \
   'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION' \
   'scripts/deploy/write-artifact-env.sh .env' \
   'scripts/deploy/login-registry.sh' \
-  'scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"' \
+  'scripts/deploy/verify-health.sh "$APP_REVISION"' \
   "docker pull \"\$APP_IMAGE\"" \
   "docker pull \"\$NGINX_IMAGE\"" \
   'docker compose --env-file .env -f docker-compose.portainer.yml config --quiet' \
