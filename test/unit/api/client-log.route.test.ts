@@ -1,7 +1,6 @@
 /** @jest-environment node */
 
 import { promises as fs } from "fs";
-import path from "path";
 import { POST } from "@/app/api/client-log/route";
 
 jest.mock("fs", () => ({
@@ -12,84 +11,25 @@ jest.mock("fs", () => ({
 }));
 
 describe("/api/client-log route", () => {
-  const mkdirMock = fs.mkdir as jest.MockedFunction<typeof fs.mkdir>;
-  const appendFileMock = fs.appendFile as jest.MockedFunction<typeof fs.appendFile>;
-  const originalCwd = process.cwd;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mkdirMock.mockResolvedValue(undefined);
-    appendFileMock.mockResolvedValue(undefined);
-    process.cwd = jest.fn().mockReturnValue("/test-root");
-  });
-
-  afterEach(() => {
-    process.cwd = originalCwd;
-  });
-
-  it("writes a formatted client log line and returns ok", async () => {
-    const req = new Request("http://localhost/api/client-log", {
+  it("discards attacker-controlled telemetry without parsing or persisting it", async () => {
+    const request = new Request("http://localhost/api/client-log", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         type: "error",
-        message: "Oops",
-        stack: "Stack trace",
+        message: "attacker-controlled\nforged-log-entry",
+        stack: "x".repeat(100_000),
         source: "component.tsx",
       }),
     });
+    const jsonSpy = jest.spyOn(request, "json");
 
-    const response = await POST(req as never);
-    const body = await response.json();
+    const response = await POST(request as never);
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({ ok: true });
-    expect(mkdirMock).toHaveBeenCalledWith(path.join("/test-root", "tmp"), {
-      recursive: true,
-    });
-    expect(appendFileMock).toHaveBeenCalledWith(
-      path.join("/test-root", "tmp", "client.log"),
-      expect.stringMatching(
-        /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] error Oops Stack trace component\.tsx\n$/
-      ),
-      "utf8"
-    );
-  });
-
-  it("falls back to defaults when request JSON parsing fails", async () => {
-    const req = new Request("http://localhost/api/client-log", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{invalid",
-    });
-
-    const response = await POST(req as never);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toEqual({ ok: true });
-    expect(appendFileMock).toHaveBeenCalledWith(
-      path.join("/test-root", "tmp", "client.log"),
-      expect.stringMatching(
-        /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] client   \n$/
-      ),
-      "utf8"
-    );
-  });
-
-  it("returns 500 when filesystem write fails", async () => {
-    appendFileMock.mockRejectedValue(new Error("disk error"));
-
-    const req = new Request("http://localhost/api/client-log", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message: "any" }),
-    });
-
-    const response = await POST(req as never);
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(body).toEqual({ ok: false });
+    expect(response.status).toBe(204);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(fs.mkdir).not.toHaveBeenCalled();
+    expect(fs.appendFile).not.toHaveBeenCalled();
   });
 });
