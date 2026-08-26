@@ -8,11 +8,6 @@ readonly digest_image_pattern='^ghcr\.io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$'
 : "${DEPLOY_PATH:?DEPLOY_PATH is required}"
 : "${DEPLOY_OPERATION:?DEPLOY_OPERATION is required}"
 
-if [[ "$DEPLOY_OPERATION" == 'deploy' && -z "${HEALTH_CHECK_URL:-}" ]]; then
-  echo 'HEALTH_CHECK_URL is required for deployment' >&2
-  exit 1
-fi
-
 cd "$DEPLOY_PATH"
 scripts/deploy/login-registry.sh
 
@@ -70,8 +65,7 @@ start_release() {
   docker pull "$nginx_image"
   docker compose --env-file .env -f "$compose_file" config --quiet
   docker compose --env-file .env -f "$compose_file" up -d --wait --wait-timeout 180 --remove-orphans
-  docker compose --env-file .env -f "$compose_file" exec -T app curl -fsS http://127.0.0.1:3000/api/health >/dev/null
-  "$HEALTH_VERIFIER" "$HEALTH_CHECK_URL" "$revision"
+  "$HEALTH_VERIFIER" "$revision"
 }
 
 previous_revision="$(git rev-parse HEAD)"

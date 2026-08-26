@@ -254,7 +254,6 @@ jobs:
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
-      HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
       APP_IMAGE: ${{ inputs.app_image }}
       NGINX_IMAGE: ${{ inputs.nginx_image }}
       APP_REVISION: ${{ inputs.app_revision }}
@@ -262,7 +261,6 @@ jobs:
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       GHCR_USERNAME: ${{ github.repository_owner }}
       DEPLOY_OPERATION: ${{ inputs.operation }}
-      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
 
     steps:
       - name: Checkout repository
@@ -309,20 +307,6 @@ jobs:
             exit 1
           fi
 
-      - name: Validate health gate configuration
-        if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$HEALTH_CHECK_URL" || {
-            echo 'HEALTH_CHECK_URL is required for a remote deployment.' >&2
-            exit 1
-          }
-          if ! [[ "$DEPLOY_ENVIRONMENT" != 'production' || "$HEALTH_CHECK_URL" == 'https://casn.pl/api/health' ]]; then
-            echo 'Production HEALTH_CHECK_URL must be the canonical public readiness endpoint.' >&2
-            exit 1
-          fi
-
       - name: Deploy via SSH
         if: ${{ env.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.3
@@ -332,13 +316,12 @@ jobs:
           APP_REVISION: ${{ env.APP_REVISION }}
           EXPECTED_APP_REVISION: ${{ env.EXPECTED_APP_REVISION }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
-          HEALTH_CHECK_URL: ${{ env.HEALTH_CHECK_URL }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION,DEPLOY_PATH,HEALTH_CHECK_URL
+          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION,DEPLOY_PATH
           script: |
             set -eu
             cd "$DEPLOY_PATH"
@@ -379,26 +362,25 @@ jobs:
           echo '3. Preserve existing secrets and set APP_IMAGE, NGINX_IMAGE, and APP_REVISION in .env'
           echo '4. Validate: docker compose --env-file .env -f docker-compose.portainer.yml config --quiet'
           echo '5. Pull the exact app/nginx references printed above'
-          echo '6. Run scripts/deploy/remote-deploy.sh with DEPLOY_PATH and HEALTH_CHECK_URL set'
-          echo '7. If candidate health fails, the script restores and verifies the previous immutable release'
-          echo '8. Verify the canonical public health JSON reports the exact deployed revision'
+          echo '6. Run the exact revision scripts/deploy/remote-deploy.sh with DEPLOY_PATH and HEALTH_VERIFIER=scripts/deploy/verify-health.sh'
+          echo '7. If the internal exact-revision gate fails, the script restores and verifies the previous immutable release'
+          echo '8. Independently verify the canonical public health JSON reports the exact deployed revision'
 
       - name: Health check
         if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.3
         env:
-          HEALTH_CHECK_URL: ${{ env.HEALTH_CHECK_URL }}
           APP_REVISION: ${{ env.APP_REVISION }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: HEALTH_CHECK_URL,APP_REVISION
+          envs: APP_REVISION
           script: |
             set -eu
             cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
-            scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"
+            scripts/deploy/verify-health.sh "$APP_REVISION"
 
       - name: Notify deployment status
         if: always()

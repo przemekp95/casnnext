@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly health_check_url="${1:-}"
-readonly expected_revision="${2:-}"
+readonly expected_revision="${1:-}"
 readonly attempts="${HEALTH_CHECK_ATTEMPTS:-30}"
 readonly interval_seconds="${HEALTH_CHECK_INTERVAL_SECONDS:-10}"
 
-if [[ "$health_check_url" != https://* ]]; then
-  echo 'Health check URL must use HTTPS.' >&2
-  exit 1
-fi
 if [[ ! "$expected_revision" =~ ^[0-9a-f]{40}$ ]]; then
   echo 'Expected health check revision must be a full lowercase 40-hex Git revision.' >&2
   exit 1
@@ -23,7 +18,7 @@ if [[ ! "$interval_seconds" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
-for command_name in curl jq; do
+for command_name in docker jq; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo "Required health check command is unavailable: $command_name" >&2
     exit 1
@@ -35,17 +30,11 @@ trap 'rm -f "$response_file"' EXIT
 
 for attempt in $(seq 1 "$attempts"); do
   : > "$response_file"
-  http_status=''
-  if http_status="$(curl \
-    --fail \
-    --silent \
-    --show-error \
-    --max-time 10 \
-    --header 'Accept: application/json' \
-    --output "$response_file" \
-    --write-out '%{http_code}' \
-    "$health_check_url")" \
-    && [[ "$http_status" == '200' ]] \
+  if docker compose \
+    --env-file .env \
+    -f docker-compose.portainer.yml \
+    exec -T app \
+    wget -T 10 -qO- http://127.0.0.1:3000/api/health > "$response_file" \
     && jq -e --arg revision "$expected_revision" '
       type == "object"
       and .status == "ready"

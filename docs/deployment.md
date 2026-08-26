@@ -37,11 +37,13 @@ Nginx digests, and checks their OCI revision labels. With `DEPLOY_HOST`, it
 uses SSH to fetch the supplied revision and securely execute that revision's
 `scripts/deploy/remote-deploy.sh`. The script preserves the previous exact
 revision, digest references, and `.env`, deploys with Compose readiness checks,
-and requires the configured public health endpoint to pass.
+and runs the exact revision's internal health verifier against `/api/health`
+inside the app container.
 
-If candidate readiness or public health fails, the same remote process restores
-the previous `.env` atomically, checks out the previous full revision, pulls its
-exact app and Nginx digests, and proves both internal and public health again.
+If candidate readiness or the internal exact-revision gate fails, the same
+remote process restores the previous `.env` atomically, checks out the previous
+full revision, pulls its exact app and Nginx digests, and proves the restored
+revision's internal health again.
 The workflow still fails even after a successful restore, so the candidate is
 never reported as deployed. This is artifact/configuration rollback only: it
 does not reverse MySQL migrations or Directus metadata changes. A failed
@@ -57,21 +59,22 @@ rollback.
 
 Without `DEPLOY_HOST`, a set `PORTAINER_URL` deliberately fails because a
 Portainer-only path cannot inject validated immutable artifacts. With neither,
-the workflow only prints a manual-deployment notification. SSH deployment
-requires `HEALTH_CHECK_URL`; absence fails before checkout, environment, or
-Compose mutation. After the rollback-capable SSH deployment succeeds, a
-separate retrying public readiness check runs from the deployment host. The
-gate accepts only HTTP success
-with JSON reporting `status=ready`, `database=connected`, and a `revision`
-exactly equal to the dispatched `app_revision`; HTTP 200 alone is insufficient.
-Production additionally requires the secret to equal the canonical public
-`https://casn.pl/api/health` endpoint. The failing run was diagnosed without
-printing the secret: GitHub-hosted runner requests to that exact endpoint were
-answered with HTTP 403 and a Cloudflare Managed Challenge, including requests
-with JSON `Accept` and a browser-like user agent. Running the public probe from
-the deployment host avoids that runner-address challenge while still traversing
-the public URL. This gate is distinct from successful SSH execution and is not
-a complete post-deploy acceptance suite.
+the workflow only prints a manual-deployment notification. The rollback-capable
+remote deployment gates both the candidate and any restored release by probing
+the database-backed `/api/health` endpoint over loopback inside the app
+container. It accepts only JSON reporting `status=ready`,
+`database=connected`, and a `revision` exactly equal to the release being
+started; transport success alone is insufficient.
+
+After the remote deployment returns successfully, the workflow runs the same
+internal exact-revision gate again as a separate, intentionally redundant item
+of evidence. Public runtime acceptance remains independent and must probe
+`https://casn.pl/api/health` separately. A Cloudflare Managed Challenge can
+answer that edge request with HTTP 403 even when the container is healthy, so
+the public endpoint is unsuitable as the workflow-success gate. Successful SSH,
+the candidate/rollback internal gate, the later workflow internal gate, and
+public runtime acceptance remain distinct claims. This checked-in contract does
+not establish that production was accessed or deployed.
 
 ## Runtime contract
 

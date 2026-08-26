@@ -26,6 +26,13 @@ awk '
   in_deploy { print }
 ' "$DEPLOY_WORKFLOW" >"$ssh_deploy_block"
 
+health_check_block="$policy_tmp_dir/health-check-block.yml"
+awk '
+  /- name: Health check/ { in_health=1 }
+  /- name: Notify deployment status/ { in_health=0 }
+  in_health { print }
+' "$DEPLOY_WORKFLOW" >"$health_check_block"
+
 forbidden_fixture="$policy_tmp_dir/forbidden-remote-deploy.sh"
 printf '%s\n' '#!/usr/bin/env bash' 'npm run migration:run' >"$forbidden_fixture"
 if "$DEPLOYMENT_MUTATION_CHECK" "$forbidden_fixture" >/dev/null 2>&1; then
@@ -60,6 +67,11 @@ if rg -n "ghcr\\.io/[^[:space:]\"']+:(main|dev|latest)([^[:alnum:]_-]|$)" "$DEPL
   exit 1
 fi
 
+if rg -n 'HEALTH_CHECK_URL' "$DEPLOY_WORKFLOW" "$REMOTE_DEPLOY"; then
+  echo 'Deployment must use the internal exact-revision health verifier without a public health URL.' >&2
+  exit 1
+fi
+
 for required_source in \
   'app_image:' \
   'nginx_image:' \
@@ -69,19 +81,32 @@ for required_source in \
   "EXPECTED_APP_REVISION: \${{ github.sha }}" \
   'GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}' \
   'GHCR_USERNAME: ${{ github.repository_owner }}' \
-  'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION,DEPLOY_PATH,HEALTH_CHECK_URL' \
+  'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION,DEPLOY_PATH' \
   'git show "$APP_REVISION:scripts/deploy/remote-deploy.sh"' \
   'git show "$APP_REVISION:scripts/deploy/verify-health.sh"' \
-  '"$remote_deploy_script"' \
-  'HEALTH_VERIFIER="$health_verifier_script"' \
+  'HEALTH_VERIFIER="$health_verifier_script" "$remote_deploy_script"' \
   'scripts/deploy/login-registry.sh' \
-  'scripts/deploy/verify-health.sh "$HEALTH_CHECK_URL" "$APP_REVISION"' \
   'org.opencontainers.image.revision'; do
   if ! rg -Fq "$required_source" "$DEPLOY_WORKFLOW"; then
     echo "Deployment workflow is missing immutable-artifact control: $required_source" >&2
     exit 1
   fi
 done
+
+for required_health_source in \
+  "if: \${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}" \
+  'envs: APP_REVISION' \
+  'scripts/deploy/verify-health.sh "$APP_REVISION"'; do
+  if ! rg -Fq "$required_health_source" "$health_check_block"; then
+    echo "Deployment workflow is missing internal health-gate control: $required_health_source" >&2
+    exit 1
+  fi
+done
+
+if ! rg -Fq '"$HEALTH_VERIFIER" "$revision"' "$REMOTE_DEPLOY"; then
+  echo 'Remote deployment must health-gate candidate and rollback releases by exact revision.' >&2
+  exit 1
+fi
 
 if [[ ! -x "$ARTIFACT_ENV_WRITER" ]]; then
   echo "$ARTIFACT_ENV_WRITER must exist and be executable" >&2

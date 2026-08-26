@@ -35,7 +35,7 @@ chmod 700 "$deploy_path/scripts/deploy/"*.sh
 git_state="$test_root/git-state"
 git_log="$test_root/git.log"
 docker_log="$test_root/docker.log"
-curl_log="$test_root/curl.log"
+health_log="$test_root/health.log"
 printf '%s\n' "$PREVIOUS_REVISION" >"$git_state"
 
 cat >"$fake_bin/git" <<'EOF_GIT'
@@ -61,32 +61,18 @@ cat >"$fake_bin/docker" <<'EOF_DOCKER'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"$FAKE_DOCKER_LOG"
+if [[ "${1:-}" == 'compose' && " $* " == *' exec '* ]]; then
+  revision="$(awk -F= '$1 == "APP_REVISION" { print $2 }' "$DEPLOY_PATH/.env")"
+  printf '%s\n' "$revision" >>"$FAKE_HEALTH_LOG"
+  if [[ "$revision" == "$CANDIDATE_REVISION" ]]; then
+    printf '{"status":"ready","database":"connected","revision":"0000000000000000000000000000000000000000"}\n'
+  else
+    printf '{"status":"ready","database":"connected","revision":"%s"}\n' "$PREVIOUS_REVISION"
+  fi
+fi
 exit 0
 EOF_DOCKER
-
-cat >"$fake_bin/curl" <<'EOF_CURL'
-#!/usr/bin/env bash
-set -euo pipefail
-output=''
-while (($# > 0)); do
-  case "$1" in
-    --output) output="$2"; shift 2 ;;
-    --write-out) shift 2 ;;
-    *) shift ;;
-  esac
-done
-test -n "$output"
-revision="$(awk -F= '$1 == "APP_REVISION" { print $2 }' "$DEPLOY_PATH/.env")"
-printf '%s\n' "$revision" >>"$FAKE_CURL_LOG"
-if [[ "$revision" == "$CANDIDATE_REVISION" ]]; then
-  printf '{"status":"ready","database":"connected","revision":"0000000000000000000000000000000000000000"}\n' >"$output"
-else
-  printf '{"status":"ready","database":"connected","revision":"%s"}\n' "$PREVIOUS_REVISION" >"$output"
-fi
-printf '200'
-EOF_CURL
-
-chmod 700 "$fake_bin/git" "$fake_bin/docker" "$fake_bin/curl"
+chmod 700 "$fake_bin/git" "$fake_bin/docker"
 
 write_previous_env() {
   cat >"$deploy_path/.env" <<EOF_ENV
@@ -109,7 +95,6 @@ run_remote_deploy() {
     NGINX_IMAGE="$CANDIDATE_NGINX_IMAGE" \
     APP_REVISION="$CANDIDATE_REVISION" \
     EXPECTED_APP_REVISION="$CANDIDATE_REVISION" \
-    HEALTH_CHECK_URL='https://health.example.invalid/api/health' \
     HEALTH_VERIFIER="$REPOSITORY_ROOT/scripts/deploy/verify-health.sh" \
     HEALTH_CHECK_ATTEMPTS=1 \
     HEALTH_CHECK_INTERVAL_SECONDS=0 \
@@ -118,7 +103,7 @@ run_remote_deploy() {
     FAKE_GIT_STATE="$git_state" \
     FAKE_GIT_LOG="$git_log" \
     FAKE_DOCKER_LOG="$docker_log" \
-    FAKE_CURL_LOG="$curl_log" \
+    FAKE_HEALTH_LOG="$health_log" \
     PREVIOUS_REVISION="$PREVIOUS_REVISION" \
     CANDIDATE_REVISION="$CANDIDATE_REVISION" \
     bash "$REMOTE_DEPLOY_SCRIPT"
@@ -140,46 +125,34 @@ grep -Fx "checkout $CANDIDATE_REVISION" "$git_log" >/dev/null
 grep -Fx "checkout $PREVIOUS_REVISION" "$git_log" >/dev/null
 grep -F "pull $CANDIDATE_APP_IMAGE" "$docker_log" >/dev/null
 grep -F "pull $PREVIOUS_APP_IMAGE" "$docker_log" >/dev/null
-test "$(sed -n '1p' "$curl_log")" = "$CANDIDATE_REVISION"
-test "$(sed -n '2p' "$curl_log")" = "$PREVIOUS_REVISION"
+test "$(sed -n '1p' "$health_log")" = "$CANDIDATE_REVISION"
+test "$(sed -n '2p' "$health_log")" = "$PREVIOUS_REVISION"
 grep -F 'Candidate deployment failed; previous immutable deployment restored and healthy.' "$test_root/deploy.err" >/dev/null
 
 printf '%s\n' "$PREVIOUS_REVISION" >"$git_state"
 : >"$git_log"
 : >"$docker_log"
-: >"$curl_log"
+: >"$health_log"
 write_previous_env
-set +e
 env \
   PATH="$fake_bin:$PATH" \
   DEPLOY_PATH="$deploy_path" \
-  DEPLOY_OPERATION=deploy \
-  APP_IMAGE="$CANDIDATE_APP_IMAGE" \
-  NGINX_IMAGE="$CANDIDATE_NGINX_IMAGE" \
-  APP_REVISION="$CANDIDATE_REVISION" \
-  EXPECTED_APP_REVISION="$CANDIDATE_REVISION" \
-  HEALTH_VERIFIER="$REPOSITORY_ROOT/scripts/deploy/verify-health.sh" \
+  DEPLOY_OPERATION=authenticate-only \
   GHCR_TOKEN='test-token' \
   GHCR_USERNAME='test-user' \
   FAKE_GIT_STATE="$git_state" \
   FAKE_GIT_LOG="$git_log" \
   FAKE_DOCKER_LOG="$docker_log" \
-  FAKE_CURL_LOG="$curl_log" \
+  FAKE_HEALTH_LOG="$health_log" \
   PREVIOUS_REVISION="$PREVIOUS_REVISION" \
   CANDIDATE_REVISION="$CANDIDATE_REVISION" \
-  bash "$REMOTE_DEPLOY_SCRIPT" >"$test_root/missing-health.out" 2>"$test_root/missing-health.err"
-missing_health_status=$?
-set -e
-if [[ "$missing_health_status" -eq 0 ]]; then
-  echo 'Deployment unexpectedly accepted a missing HEALTH_CHECK_URL.' >&2
-  exit 1
-fi
+  bash "$REMOTE_DEPLOY_SCRIPT" >"$test_root/authenticate.out" 2>"$test_root/authenticate.err"
 
 cmp "$test_root/expected.env" "$deploy_path/.env"
 test "$(cat "$git_state")" = "$PREVIOUS_REVISION"
 test ! -s "$git_log"
-test ! -s "$docker_log"
-test ! -s "$curl_log"
-grep -F 'HEALTH_CHECK_URL is required for deployment' "$test_root/missing-health.err" >/dev/null
+grep -Fx 'login ghcr.io --username test-user --password-stdin' "$docker_log" >/dev/null
+test ! -s "$health_log"
+grep -F 'Remote GHCR authentication completed; deployment intentionally skipped.' "$test_root/authenticate.out" >/dev/null
 
 echo 'Remote deployment rollback behavior passed.'
