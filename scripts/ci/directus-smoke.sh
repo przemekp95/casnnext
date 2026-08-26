@@ -206,7 +206,7 @@ mysql_is_ready() {
     return 2
   fi
   docker exec "$MYSQL_CONTAINER_NAME" sh -c \
-    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqladmin ping --host=127.0.0.1 --user=root --silent' \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqladmin ping --protocol=TCP --host=127.0.0.1 --port=3306 --user=root --silent' \
     >/dev/null 2>&1
 }
 
