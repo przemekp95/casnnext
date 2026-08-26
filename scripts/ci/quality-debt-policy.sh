@@ -57,6 +57,10 @@ if ! npm run runtime:policy:test; then
   report_failure 'Runtime source policy fixture contract failed.'
 fi
 
+if ! bash scripts/ci/server-launcher-test.sh; then
+  report_failure 'Server launcher fixture contract failed.'
+fi
+
 if [[ -f server.js ]] && rg -n '^/\* eslint-disable' server.js; then
   report_failure 'The custom server must express its module boundary without inline lint suppression.'
 fi
