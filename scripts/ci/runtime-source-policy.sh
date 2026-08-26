@@ -44,16 +44,10 @@ check_sources() {
   done
 
   local legacy
-  for legacy in \
-    lib/db.shared.js \
-    lib/server/migration-policy.js \
-    lib/server/startup-database.js \
-    lib/db.node.js \
-    lib/init-db.js; do
-    if tracked "$legacy"; then
-      fail "generated JavaScript source artifact must not be tracked: $legacy"
-    fi
-  done
+  while IFS= read -r legacy; do
+    [[ -n "$legacy" ]] || continue
+    fail "generated JavaScript source artifact must not be tracked: $legacy"
+  done < <(git -C "$ROOT" ls-files -- ':(glob)lib/*.js' ':(glob)lib/**/*.js')
 }
 
 check_build() {

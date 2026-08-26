@@ -359,7 +359,7 @@ gate; never substitute application startup for that operator action.
 assert_rehearsal_db
 "${rehearsal_compose_cmd[@]}" exec -T mysql sh -ec 'exec mysql -N -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "SELECT timestamp, name FROM migrations ORDER BY id;"' > "$evidence_root/rehearsal-migrations-before-startup.txt"
 "${rehearsal_compose_cmd[@]}" run --rm --no-deps -e NODE_ENV=production -e RUN_DB_MIGRATIONS=1 -e DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS app node -e '
-const { AppDataSource, isDatabaseConfigured } = require("./lib/db.shared");
+const { AppDataSource, isDatabaseConfigured } = require("./dist/runtime/lib/db.shared");
 if (!isDatabaseConfigured() || !AppDataSource || AppDataSource.options.migrationsRun !== false) process.exit(1);
 AppDataSource.initialize().then(() => AppDataSource.query("SELECT 1")).then(() => AppDataSource.destroy()).catch((error) => { console.error(error.message); process.exit(1); });
 '

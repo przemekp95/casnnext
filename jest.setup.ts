@@ -80,13 +80,12 @@ if (typeof global.fetch === 'undefined') {
 afterAll(async () => {
   const teardownCandidates = [
     './lib/db.shared',
-    './lib/db.node',
   ] as const;
 
   for (const modulePath of teardownCandidates) {
     try {
-      // Integration suites can initialize either the shared app datasource or the
-      // bootstrap datasource. Tear both down so Jest can exit cleanly.
+      // Integration suites can initialize the shared app datasource. Tear it down
+      // so Jest can exit cleanly.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { AppDataSource } = require(modulePath) as {
         AppDataSource?: { isInitialized?: boolean; destroy?: () => Promise<void> };

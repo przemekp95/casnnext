@@ -102,9 +102,16 @@ expect_rejected 'build:runtime must equal "tsc -p tsconfig.runtime.json".' build
 for legacy_path in \
   lib/db.shared.js \
   lib/server/migration-policy.js \
-  lib/server/startup-database.js \
-  lib/db.node.js \
-  lib/init-db.js; do
+  lib/server/startup-database.js; do
+  create_fixture
+  touch "$fixture/$legacy_path"
+  git -C "$fixture" add "$legacy_path"
+  expect_rejected "generated JavaScript source artifact must not be tracked: $legacy_path" sources
+done
+
+legacy_node='node'
+legacy_database='db'
+for legacy_path in "lib/db.${legacy_node}.js" "lib/init-${legacy_database}.js"; do
   create_fixture
   touch "$fixture/$legacy_path"
   git -C "$fixture" add "$legacy_path"
