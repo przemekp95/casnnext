@@ -2,6 +2,12 @@ import { render, waitFor } from '@testing-library/react';
 import http from 'node:http';
 import https from 'node:https';
 
+const liveBaseUrl = process.env.LIVE_BASE_URL ?? 'http://localhost:3000';
+
+function serverUrl(path: string): string {
+  return new URL(path, liveBaseUrl).toString();
+}
+
 async function fetchFromServer(url: string, init?: RequestInit): Promise<Response> {
   const requestUrl = new URL(url);
   const client = requestUrl.protocol === 'https:' ? https : http;
@@ -58,7 +64,7 @@ async function assertLocalServerAvailable() {
   const timeoutId = setTimeout(() => controller.abort(), 1_500);
 
   try {
-    const response = await fetchFromServer('http://localhost:3000/api/health', {
+    const response = await fetchFromServer(serverUrl('/api/health'), {
       signal: controller.signal
     });
 
@@ -81,7 +87,7 @@ describe('Hydration and Data Integration Tests - Live', () => {
     });
 
     it('API /api/authors returns proper data structure with all attributes', async () => {
-      const response = await fetchFromServer('http://localhost:3000/api/authors');
+      const response = await fetchFromServer(serverUrl('/api/authors'));
       expect(response.ok).toBe(true);
 
       const data = await response.json();
@@ -107,12 +113,12 @@ describe('Hydration and Data Integration Tests - Live', () => {
     });
 
     it('API /api/authors/[slug] returns detailed author with analyses', async () => {
-      const authorsResponse = await fetchFromServer('http://localhost:3000/api/authors');
+      const authorsResponse = await fetchFromServer(serverUrl('/api/authors'));
       const authors = await authorsResponse.json();
 
       if (authors.length > 0) {
         const firstAuthor = authors[0];
-        const detailResponse = await fetchFromServer(`http://localhost:3000/api/authors/${firstAuthor.slug}`);
+        const detailResponse = await fetchFromServer(serverUrl(`/api/authors/${firstAuthor.slug}`));
         expect(detailResponse.ok).toBe(true);
 
         const detailData = await detailResponse.json();
@@ -141,7 +147,7 @@ describe('Hydration and Data Integration Tests - Live', () => {
     });
 
     it('API /api/articles returns articles with proper structure', async () => {
-      const response = await fetchFromServer('http://localhost:3000/api/articles');
+      const response = await fetchFromServer(serverUrl('/api/articles'));
       expect(response.ok).toBe(true);
 
       const data = await response.json();
@@ -172,8 +178,8 @@ describe('Hydration and Data Integration Tests - Live', () => {
 
     it('articles link correctly to their authors', async () => {
       const [articlesResponse, authorsResponse] = await Promise.all([
-        fetchFromServer('http://localhost:3000/api/articles'),
-        fetchFromServer('http://localhost:3000/api/authors')
+        fetchFromServer(serverUrl('/api/articles')),
+        fetchFromServer(serverUrl('/api/authors'))
       ]);
 
       const articles = await articlesResponse.json();
@@ -196,7 +202,7 @@ describe('Hydration and Data Integration Tests - Live', () => {
       const pagesToTest = ['/', '/kontakt', '/zbiory'];
 
       for (const page of pagesToTest) {
-        const response = await fetchFromServer(`http://localhost:3000${page}`);
+        const response = await fetchFromServer(serverUrl(page));
         expect(response.ok).toBe(true);
 
         const html = await response.text();
@@ -209,12 +215,12 @@ describe('Hydration and Data Integration Tests - Live', () => {
     });
 
     it('dynamic author pages render without hydration errors', async () => {
-      const authorsResponse = await fetchFromServer('http://localhost:3000/api/authors');
+      const authorsResponse = await fetchFromServer(serverUrl('/api/authors'));
       const authors = await authorsResponse.json();
 
       if (authors.length > 0) {
         const firstAuthor = authors[0];
-        const response = await fetchFromServer(`http://localhost:3000/autor/${firstAuthor.slug}`);
+        const response = await fetchFromServer(serverUrl(`/autor/${firstAuthor.slug}`));
         expect(response.ok).toBe(true);
 
         const html = await response.text();
@@ -225,12 +231,12 @@ describe('Hydration and Data Integration Tests - Live', () => {
     });
 
     it('dynamic analysis pages render without hydration errors', async () => {
-      const articlesResponse = await fetchFromServer('http://localhost:3000/api/articles');
+      const articlesResponse = await fetchFromServer(serverUrl('/api/articles'));
       const articles = await articlesResponse.json();
 
       if (articles.length > 0) {
         const firstArticle = articles[0];
-        const response = await fetchFromServer(`http://localhost:3000/analizy/${firstArticle.slug}`);
+        const response = await fetchFromServer(serverUrl(`/analizy/${firstArticle.slug}`));
         expect(response.ok).toBe(true);
 
         const html = await response.text();
@@ -249,7 +255,7 @@ describe('Hydration and Data Integration Tests - Live', () => {
       ];
 
       for (const page of testPages) {
-        const response = await fetchFromServer(`http://localhost:3000${page}`);
+        const response = await fetchFromServer(serverUrl(page));
         expect(response.ok).toBe(true);
 
         const html = await response.text();
@@ -265,7 +271,7 @@ describe('Hydration and Data Integration Tests - Live', () => {
       const pages = ['/', '/kontakt', '/zbiory', '/autorzy'];
 
       for (const page of pages) {
-        const response = await fetchFromServer(`http://localhost:3000${page}`);
+        const response = await fetchFromServer(serverUrl(page));
         expect(response.ok).toBe(true);
 
         const html = await response.text();
@@ -286,8 +292,8 @@ describe('Hydration and Data Integration Tests - Live', () => {
 
     it('complete data flow: DB → API → UI', async () => {
       const [authorsResponse, articlesResponse] = await Promise.all([
-        fetchFromServer('http://localhost:3000/api/authors'),
-        fetchFromServer('http://localhost:3000/api/articles')
+        fetchFromServer(serverUrl('/api/authors')),
+        fetchFromServer(serverUrl('/api/articles'))
       ]);
 
       const authors = await authorsResponse.json();
