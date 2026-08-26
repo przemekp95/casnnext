@@ -45,10 +45,12 @@ for required_source in \
   'app_image:' \
   'nginx_image:' \
   'app_revision:' \
+  'authenticate-only' \
+  'DEPLOY_OPERATION: ${{ inputs.operation }}' \
   "EXPECTED_APP_REVISION: \${{ github.sha }}" \
   'GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}' \
   'GHCR_USERNAME: ${{ github.repository_owner }}' \
-  'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME' \
+  'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION' \
   'scripts/deploy/write-artifact-env.sh .env' \
   'scripts/deploy/login-registry.sh' \
   "docker pull \"\$APP_IMAGE\"" \
