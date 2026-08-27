@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
 
 import { finalizeOwnedRun, resolveExitStatus, type CleanupResult } from './finalize';
@@ -15,7 +16,12 @@ import {
   type OwnedProcess,
 } from './owned-process';
 import { lookupGroup, lookupProcess } from './proc';
-import { LifecycleFailure, type ChildOutcome, type ProcessIdentity } from './types';
+import {
+  LifecycleFailure,
+  type ChildOutcome,
+  type GroupLookup,
+  type ProcessIdentity,
+} from './types';
 
 export type FastScenario = 'proc' | 'root' | 'process' | 'cleanup' | 'all-fast';
 
@@ -29,6 +35,22 @@ export type CliDependencies = Readonly<{
 
 export type RootOnlyScenarioTestActors = Readonly<{
   removeRoot: typeof removeOwnedRoot;
+}>;
+
+export type TargetReadinessTestActors = Readonly<{
+  lookupGroup: (
+    processGroupId: number,
+    sessionId: number,
+    excludedPids: ReadonlySet<number>,
+  ) => GroupLookup;
+  now: () => number;
+  wait: (milliseconds: number) => Promise<void>;
+}>;
+
+type TargetReadinessIdentity = Readonly<{
+  anchorPid: number;
+  processGroupId: number;
+  sessionId: number;
 }>;
 
 type CliSignal = 'SIGHUP' | 'SIGINT' | 'SIGTERM';
@@ -52,6 +74,14 @@ const ownedProcessEvidencePrefix = 'owned-process-evidence:';
 const productionRootOnlyActors: RootOnlyScenarioTestActors = {
   removeRoot: removeOwnedRoot,
 };
+const productionTargetReadinessActors: TargetReadinessTestActors = {
+  lookupGroup: (processGroupId, sessionId, excludedPids) =>
+    lookupGroup(processGroupId, sessionId, undefined, excludedPids),
+  now: performance.now.bind(performance),
+  wait: async (milliseconds) => {
+    await new Promise((resolveWait) => setTimeout(resolveWait, milliseconds));
+  },
+};
 
 class ScenarioInterrupted extends Error {}
 
@@ -68,8 +98,13 @@ function failureStatus(error: unknown): number {
 }
 
 function reportFailure(error: unknown): number {
-  process.stderr.write(`${errorMessage(error)}\n`);
-  return failureStatus(error);
+  const status = failureStatus(error);
+  try {
+    process.stderr.write(`${errorMessage(error)}\n`);
+  } catch {
+    return 70;
+  }
+  return status;
 }
 
 function validateDelayEnvironment(): number {
@@ -142,28 +177,35 @@ function verifyRootScenario(root: OwnedRoot): void {
 }
 
 async function waitForTargetMember(
-  owned: OwnedProcess,
+  target: TargetReadinessIdentity,
   interruption: AbortSignal,
+  actors: TargetReadinessTestActors = productionTargetReadinessActors,
 ): Promise<readonly ProcessIdentity[]> {
-  const deadline = Date.now() + scenarioTimeoutMs;
+  const deadline = actors.now() + scenarioTimeoutMs;
   while (true) {
     requireActive(interruption);
-    const group = lookupGroup(
-      owned.anchor.processGroupId,
-      owned.anchor.sessionId,
-      undefined,
-      new Set([owned.anchor.pid]),
+    const group = actors.lookupGroup(
+      target.processGroupId,
+      target.sessionId,
+      new Set([target.anchorPid]),
     );
+    const observedAt = actors.now();
     if (group.kind === 'unknown') {
       throw new LifecycleFailure(70, `scenario group lookup unknown:${group.reason}`);
     }
     if (group.kind === 'present') {
+      if (observedAt >= deadline) {
+        throw new LifecycleFailure(
+          124,
+          `scenario target did not start within ${scenarioTimeoutMs}ms`,
+        );
+      }
       return group.members;
     }
-    if (Date.now() >= deadline) {
+    if (observedAt >= deadline) {
       throw new LifecycleFailure(124, `scenario target did not start within ${scenarioTimeoutMs}ms`);
     }
-    await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+    await actors.wait(10);
   }
 }
 
@@ -276,13 +318,27 @@ async function runDefaultFastScenario(
     }
     if (scenario === 'process') {
       owned = await startScenarioProcess(root, false);
-      const members = await waitForTargetMember(owned, interruption);
+      const members = await waitForTargetMember(
+        {
+          anchorPid: owned.anchor.pid,
+          processGroupId: owned.anchor.processGroupId,
+          sessionId: owned.anchor.sessionId,
+        },
+        interruption,
+      );
       emitOwnedProcessEvidence([owned.anchor, ...members]);
       childOutcome = await waitForOwnedOutcome(owned, scenarioTimeoutMs);
     }
     if (scenario === 'cleanup' || scenario === 'all-fast') {
       owned = await startScenarioProcess(root, true);
-      const members = await waitForTargetMember(owned, interruption);
+      const members = await waitForTargetMember(
+        {
+          anchorPid: owned.anchor.pid,
+          processGroupId: owned.anchor.processGroupId,
+          sessionId: owned.anchor.sessionId,
+        },
+        interruption,
+      );
       emitOwnedProcessEvidence([owned.anchor, ...members]);
     }
   } catch (error: unknown) {
@@ -310,7 +366,21 @@ export function runDefaultRootOnlyScenarioForTests(
   if (process.env.NODE_ENV !== 'test') {
     throw new LifecycleFailure(64, 'root-only CLI scenario test boundary requires NODE_ENV=test');
   }
+  if (scenario !== 'proc' && scenario !== 'root') {
+    throw new LifecycleFailure(64, 'root-only CLI scenario test boundary requires proc or root');
+  }
   return runDefaultFastScenario(scenario, root, actors);
+}
+
+export function waitForTargetMemberForTests(
+  target: TargetReadinessIdentity,
+  interruption: AbortSignal,
+  actors: TargetReadinessTestActors,
+): Promise<readonly ProcessIdentity[]> {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new LifecycleFailure(64, 'target readiness test boundary requires NODE_ENV=test');
+  }
+  return waitForTargetMember(target, interruption, actors);
 }
 
 const defaultDependencies: CliDependencies = {

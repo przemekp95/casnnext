@@ -17,6 +17,7 @@ import { join, resolve } from 'node:path';
 import {
   runCli,
   runDefaultRootOnlyScenarioForTests,
+  waitForTargetMemberForTests,
   type CliDependencies,
 } from '@/scripts/ci/disposable-lifecycle/cli';
 import { lookupProcess } from '@/scripts/ci/disposable-lifecycle/proc';
@@ -150,6 +151,10 @@ function completeOwnedRootTeardown(root: OwnedRoot, restoreEnvironment: () => vo
   if (cleanupFailure !== undefined) {
     throw cleanupFailure;
   }
+}
+
+function presentFailures(failures: readonly unknown[]): unknown[] {
+  return failures.filter((failure) => failure !== undefined);
 }
 
 function lifecycleInventory(): readonly string[] {
@@ -710,47 +715,65 @@ test(
   'records root-only removal diagnostics and an unavailable concurrent outcome',
   async () => {
     const before = lifecycleInventory();
-    const root = createOwnedRoot();
+    let root: OwnedRoot | undefined;
     const diagnostics: string[] = [];
-    const stderr = jest.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
-      diagnostics.push(String(chunk));
-      return true;
-    });
+    let stderr: jest.SpiedFunction<typeof process.stderr.write> | undefined;
     let removalCalls = 0;
     let status: number | undefined;
-    let testFailure: unknown;
-    const dependencies: CliDependencies = {
-      createRoot: () => root,
-      runFastScenario: async (_scenario, ownedRoot) =>
-        runDefaultRootOnlyScenarioForTests('proc', ownedRoot, {
-          removeRoot: () => {
-            removalCalls += 1;
-            if (removalCalls !== 1) {
-              throw new Error('root-only removal actor was called more than once');
-            }
-            return { kind: 'failed', reason: 'filesystem-error' };
-          },
-        }),
-    };
+    let operationFailure: unknown;
+    let removalFailure: unknown;
+    let restorationFailure: unknown;
 
     try {
-      status = await runCli(['proc'], dependencies);
-    } catch (error: unknown) {
-      testFailure = error;
-    } finally {
-      stderr.mockRestore();
-      const removal = removeOwnedRoot(root);
-      if (removal.kind === 'failed') {
-        const cleanupFailure = new Error(`root-only fixture cleanup failed:${removal.reason}`);
-        if (testFailure !== undefined) {
-          throw new AggregateError([testFailure, cleanupFailure]);
+      root = createOwnedRoot();
+      try {
+        stderr = jest.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+          diagnostics.push(String(chunk));
+          return true;
+        });
+        const createdRoot = root;
+        const dependencies: CliDependencies = {
+          createRoot: () => createdRoot,
+          runFastScenario: async (_scenario, ownedRoot) =>
+            runDefaultRootOnlyScenarioForTests('proc', ownedRoot, {
+              removeRoot: () => {
+                removalCalls += 1;
+                if (removalCalls !== 1) {
+                  throw new Error('root-only removal actor was called more than once');
+                }
+                return { kind: 'failed', reason: 'filesystem-error' };
+              },
+            }),
+        };
+        status = await runCli(['proc'], dependencies);
+      } catch (error: unknown) {
+        operationFailure = error;
+      } finally {
+        try {
+          const removal = removeOwnedRoot(root);
+          if (removal.kind === 'failed') {
+            removalFailure = new Error(`root-only fixture cleanup failed:${removal.reason}`);
+          }
+        } catch (error: unknown) {
+          removalFailure = error;
         }
-        throw cleanupFailure;
+      }
+    } catch (error: unknown) {
+      operationFailure = error;
+    } finally {
+      try {
+        stderr?.mockRestore();
+      } catch (error: unknown) {
+        restorationFailure = error;
       }
     }
 
-    if (testFailure !== undefined) {
-      throw testFailure;
+    const failures = presentFailures([operationFailure, removalFailure, restorationFailure]);
+    if (failures.length === 1) {
+      throw failures[0];
+    }
+    if (failures.length > 1) {
+      throw new AggregateError(failures, 'root-only operation, removal, or restoration failed');
     }
     expect(status).toBe(70);
     expect(removalCalls).toBe(1);
@@ -764,74 +787,259 @@ test(
 
 test('restores CLI listeners and interruption state when cleanup reporting throws', async () => {
   const beforeInventory = lifecycleInventory();
-  const root = createOwnedRoot();
+  let root: OwnedRoot | undefined;
   const signals = ['SIGHUP', 'SIGINT', 'SIGTERM'] as const;
   const listenerSnapshots = signals.map((signal) => ({
     signal,
     listeners: process.rawListeners(signal),
   }));
-  const stderr = jest.spyOn(process.stderr, 'write').mockImplementation(() => {
-    throw new Error('injected cleanup report failure');
-  });
+  let stderr: jest.SpiedFunction<typeof process.stderr.write> | undefined;
   let runFailure: unknown;
+  let operationFailure: unknown;
+  let removalFailure: unknown;
+  const postRemovalFailures: unknown[] = [];
   let stateCleared = false;
   let probeRemovalCalls = 0;
   let listenersRestored = false;
-  let cleanupFailure: unknown;
-  const dependencies: CliDependencies = {
-    createRoot: () => root,
-    runFastScenario: async (_scenario, ownedRoot) =>
-      runDefaultRootOnlyScenarioForTests('proc', ownedRoot, {
-        removeRoot: () => ({ kind: 'failed', reason: 'filesystem-error' }),
-      }),
-  };
 
   try {
-    await runCli(['proc'], dependencies);
-  } catch (error: unknown) {
-    runFailure = error;
-  } finally {
-    stderr.mockRestore();
-    listenersRestored = listenerSnapshots.every(
-      ({ signal, listeners }) =>
-        process.rawListeners(signal).length === listeners.length &&
-        process.rawListeners(signal).every((listener, index) => listener === listeners[index]),
-    );
+    root = createOwnedRoot();
     try {
-      await runDefaultRootOnlyScenarioForTests('proc', root, {
-        removeRoot: () => {
-          probeRemovalCalls += 1;
-          return { kind: 'failed', reason: 'filesystem-error' };
-        },
+      stderr = jest.spyOn(process.stderr, 'write').mockImplementation(() => {
+        throw new Error('injected cleanup report failure');
       });
+      const createdRoot = root;
+      const dependencies: CliDependencies = {
+        createRoot: () => createdRoot,
+        runFastScenario: async (_scenario, ownedRoot) =>
+          runDefaultRootOnlyScenarioForTests('proc', ownedRoot, {
+            removeRoot: () => ({ kind: 'failed', reason: 'filesystem-error' }),
+          }),
+      };
+      try {
+        await runCli(['proc'], dependencies);
+      } catch (error: unknown) {
+        runFailure = error;
+      }
     } catch (error: unknown) {
-      stateCleared =
-        error instanceof Error && error.message === 'CLI interruption context is unavailable';
+      operationFailure = error;
+    } finally {
+      try {
+        const removal = removeOwnedRoot(root);
+        if (removal.kind === 'failed') {
+          removalFailure = new Error(`report-throw fixture cleanup failed:${removal.reason}`);
+        }
+      } catch (error: unknown) {
+        removalFailure = error;
+      }
+    }
+  } catch (error: unknown) {
+    operationFailure = error;
+  } finally {
+    try {
+      stderr?.mockRestore();
+    } catch (error: unknown) {
+      postRemovalFailures.push(error);
+    }
+    try {
+      listenersRestored = listenerSnapshots.every(
+        ({ signal, listeners }) =>
+          process.rawListeners(signal).length === listeners.length &&
+          process.rawListeners(signal).every((listener, index) => listener === listeners[index]),
+      );
+    } catch (error: unknown) {
+      postRemovalFailures.push(error);
+    }
+    try {
+      if (root !== undefined) {
+        await runDefaultRootOnlyScenarioForTests('proc', root, {
+          removeRoot: () => {
+            probeRemovalCalls += 1;
+            return { kind: 'failed', reason: 'filesystem-error' };
+          },
+        });
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'CLI interruption context is unavailable') {
+        stateCleared = true;
+      } else {
+        postRemovalFailures.push(error);
+      }
     }
     for (const { signal, listeners } of listenerSnapshots) {
       for (const listener of process.rawListeners(signal)) {
         if (!listeners.includes(listener)) {
-          process.off(signal, listener as () => void);
+          try {
+            process.off(signal, listener as () => void);
+          } catch (error: unknown) {
+            postRemovalFailures.push(error);
+          }
         }
       }
     }
-    const removal = removeOwnedRoot(root);
-    if (removal.kind === 'failed') {
-      cleanupFailure = new Error(`report-throw fixture cleanup failed:${removal.reason}`);
-    }
   }
 
-  if (cleanupFailure !== undefined) {
-    if (runFailure !== undefined) {
-      throw new AggregateError([runFailure, cleanupFailure]);
-    }
-    throw cleanupFailure;
+  const unexpectedFailures = presentFailures([
+    operationFailure,
+    removalFailure,
+    ...postRemovalFailures,
+  ]);
+  if (unexpectedFailures.length === 1) {
+    throw unexpectedFailures[0];
+  }
+  if (unexpectedFailures.length > 1) {
+    throw new AggregateError(unexpectedFailures, 'report-throw fixture teardown failed');
   }
   expect(runFailure).toEqual(new Error('injected cleanup report failure'));
   expect(listenersRestored).toBe(true);
   expect(stateCleared).toBe(true);
   expect(probeRemovalCalls).toBe(0);
   expect(lifecycleInventory()).toEqual(beforeInventory);
+});
+
+test('rejects a process-owning runtime value at the root-only seam before mutation', async () => {
+  const inertRoot = Object.freeze({}) as OwnedRoot;
+  let actorCalled = false;
+
+  await expect(
+    Promise.resolve().then(() =>
+      runDefaultRootOnlyScenarioForTests('process' as 'proc', inertRoot, {
+        removeRoot: () => {
+          actorCalled = true;
+          return { kind: 'failed', reason: 'filesystem-error' };
+        },
+      }),
+    ),
+  ).rejects.toMatchObject({
+    exitCode: 64,
+    message: 'root-only CLI scenario test boundary requires proc or root',
+  });
+  expect(actorCalled).toBe(false);
+});
+
+test.each([
+  ['before', 2_999, 'success'],
+  ['at', 3_000, 'timeout'],
+] as const)(
+  'treats target readiness observed %s the monotonic deadline',
+  async (_boundary, observedAt, expected) => {
+    const member: ProcessIdentity = {
+      pid: 43,
+      startTime: BigInt(101),
+      parentPid: 42,
+      processGroupId: 42,
+      sessionId: 42,
+    };
+    const times = [0, observedAt];
+    let waits = 0;
+    const readiness = Promise.resolve().then(() =>
+      waitForTargetMemberForTests(
+        { anchorPid: 42, processGroupId: 42, sessionId: 42 },
+        new AbortController().signal,
+        {
+          lookupGroup: () => ({ kind: 'present', members: [member] }),
+          now: () => times.shift() ?? observedAt,
+          wait: async () => {
+            waits += 1;
+          },
+        },
+      ),
+    );
+
+    if (expected === 'success') {
+      await expect(readiness).resolves.toEqual([member]);
+    } else {
+      await expect(readiness).rejects.toMatchObject({
+        exitCode: 124,
+        message: 'scenario target did not start within 3000ms',
+      });
+    }
+    expect(waits).toBe(0);
+  },
+);
+
+test('returns status 70 and restores state when ordinary failure reporting cannot write', async () => {
+  const inertRoot = Object.freeze({}) as OwnedRoot;
+  const signals = ['SIGHUP', 'SIGINT', 'SIGTERM'] as const;
+  const listenerSnapshots = signals.map((signal) => ({
+    signal,
+    listeners: process.rawListeners(signal),
+  }));
+  const stderr = jest.spyOn(process.stderr, 'write').mockImplementation(() => {
+    throw new Error('injected ordinary report write failure');
+  });
+  let status: number | undefined;
+  let runFailure: unknown;
+  let restorationFailure: unknown;
+  const rescueFailures: unknown[] = [];
+  let stateCleared = false;
+  let actorCalled = false;
+  let listenersRestored = false;
+  const dependencies: CliDependencies = {
+    createRoot: () => inertRoot,
+    runFastScenario: async () => {
+      throw new LifecycleFailure(91, 'injected scenario failure');
+    },
+  };
+
+  try {
+    status = await runCli(['proc'], dependencies);
+  } catch (error: unknown) {
+    runFailure = error;
+  } finally {
+    try {
+      stderr.mockRestore();
+    } catch (error: unknown) {
+      restorationFailure = error;
+    }
+    try {
+      listenersRestored = listenerSnapshots.every(
+        ({ signal, listeners }) =>
+          process.rawListeners(signal).length === listeners.length &&
+          process.rawListeners(signal).every((listener, index) => listener === listeners[index]),
+      );
+    } catch (error: unknown) {
+      rescueFailures.push(error);
+    }
+    try {
+      await runDefaultRootOnlyScenarioForTests('proc', inertRoot, {
+        removeRoot: () => {
+          actorCalled = true;
+          return { kind: 'failed', reason: 'filesystem-error' };
+        },
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'CLI interruption context is unavailable') {
+        stateCleared = true;
+      } else {
+        rescueFailures.push(error);
+      }
+    }
+    for (const { signal, listeners } of listenerSnapshots) {
+      for (const listener of process.rawListeners(signal)) {
+        if (!listeners.includes(listener)) {
+          try {
+            process.off(signal, listener as () => void);
+          } catch (error: unknown) {
+            rescueFailures.push(error);
+          }
+        }
+      }
+    }
+  }
+
+  const failures = presentFailures([restorationFailure, ...rescueFailures]);
+  if (failures.length === 1) {
+    throw failures[0];
+  }
+  if (failures.length > 1) {
+    throw new AggregateError(failures, 'ordinary reporting fixture restoration failed');
+  }
+  expect(runFailure).toBeUndefined();
+  expect(status).toBe(70);
+  expect(listenersRestored).toBe(true);
+  expect(stateCleared).toBe(true);
+  expect(actorCalled).toBe(false);
 });
 
 test(
