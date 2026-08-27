@@ -2423,6 +2423,79 @@ test(
 );
 
 test(
+  'accepts five absent stabilization observations completed at 500ms',
+  async () => {
+    let anchor: ProcessIdentity | undefined;
+    let members: readonly ProcessIdentity[] = [];
+
+    await withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      const markerDirectory = fixture.createDirectory();
+      const marker = fixture.absentFile(markerDirectory, 'stabilization-late-success-ready');
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: [
+            '--input-type=module',
+            '-e',
+            "import { writeFileSync } from 'node:fs'; writeFileSync(process.env.MARKER, 'ready'); setInterval(() => undefined, 1000)",
+          ],
+          env: { MARKER: marker },
+        },
+        fixtureDependencies(fixture),
+      );
+      await releaseGatedProcess(owned);
+      await waitForFixtureFile(marker, 2_000);
+      anchor = owned.anchor;
+      members = await captureOwnedGroupMembers(owned.anchor, 2_000);
+
+      let clock = 0;
+      let processLookups = 0;
+      let fullGroupLookups = 0;
+      const testFinalize = createFinalizeOwnedRunForTests(
+        finalizeTestActors({
+          assertOwnedProcess: () => undefined,
+          lookupProcess: () => {
+            processLookups += 1;
+            return processLookups === 1
+              ? { kind: 'present', identity: owned.anchor, state: 'S' }
+              : { kind: 'absent' };
+          },
+          lookupGroup: (_processGroupId, _sessionId, excludedPids) => {
+            if (excludedPids.size === 0) {
+              fullGroupLookups += 1;
+              if (fullGroupLookups === 5) {
+                clock = 500;
+              }
+            }
+            return { kind: 'absent' };
+          },
+          now: () => clock,
+          wait: async (milliseconds) => {
+            clock += milliseconds;
+          },
+          signalGroup: () => undefined,
+          finishCooperative: async () => undefined,
+          reapEscalated: async () => undefined,
+          removeRoot: () => ({ kind: 'removed' }),
+          rootPathIsAbsent: () => true,
+        }),
+      );
+
+      await expect(testFinalize(owned, 100)).resolves.toEqual({ kind: 'clean' });
+      expect(fullGroupLookups).toBe(5);
+    }, { timeoutMs: 15_000 });
+
+    if (anchor === undefined) {
+      throw new Error('late-success stabilization anchor was not captured');
+    }
+    await expectStableOwnedAbsence(anchor, members);
+  },
+  15_000,
+);
+
+test(
   'rejects absence returned at the independent stabilization deadline',
   async () => {
     let anchor: ProcessIdentity | undefined;
@@ -2466,7 +2539,7 @@ test(
             if (excludedPids.size === 0) {
               fullGroupLookups += 1;
               if (fullGroupLookups === 3) {
-                clock = 500;
+                clock = 1_000;
               }
             }
             return { kind: 'absent' };
@@ -2486,7 +2559,7 @@ test(
       await expect(testFinalize(owned, 100)).resolves.toEqual({
         kind: 'failed',
         code: 70,
-        diagnostics: ['stabilization: absence observed at or after 500ms deadline'],
+        diagnostics: ['stabilization: absence observed at or after 1000ms deadline'],
       });
       expect(fullGroupLookups).toBe(3);
     }, { timeoutMs: 15_000 });

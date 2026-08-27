@@ -65,7 +65,7 @@ export type FinalizeTestActors = Readonly<{
 const maximumTimeoutMs = 2_147_483_647;
 const stabilizationObservations = 5;
 const stabilizationIntervalMs = 100;
-const stabilizationTimeoutMs = stabilizationObservations * stabilizationIntervalMs;
+const stabilizationTimeoutMs = stabilizationObservations * stabilizationIntervalMs * 2;
 const productionActors: FinalizeTestActors = {
   assertOwnedProcess: assertOwnedProcessAuthority,
   lookupProcess,
