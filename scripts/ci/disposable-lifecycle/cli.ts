@@ -27,6 +27,10 @@ export type CliDependencies = Readonly<{
   ) => Promise<number>;
 }>;
 
+export type RootOnlyScenarioTestActors = Readonly<{
+  removeRoot: typeof removeOwnedRoot;
+}>;
+
 type CliSignal = 'SIGHUP' | 'SIGINT' | 'SIGTERM';
 
 const scenarioNames = new Set<string>(['proc', 'root', 'process', 'cleanup', 'all-fast']);
@@ -45,6 +49,9 @@ const cleanupFailures = new WeakMap<
   }>
 >();
 const ownedProcessEvidencePrefix = 'owned-process-evidence:';
+const productionRootOnlyActors: RootOnlyScenarioTestActors = {
+  removeRoot: removeOwnedRoot,
+};
 
 class ScenarioInterrupted extends Error {}
 
@@ -215,6 +222,7 @@ function reportCleanupFailure(
 async function runDefaultFastScenario(
   scenario: FastScenario,
   root: OwnedRoot,
+  rootOnlyActors: RootOnlyScenarioTestActors = productionRootOnlyActors,
 ): Promise<number> {
   const interruption = activeInterruptions.get(root);
   if (interruption === undefined) {
@@ -231,8 +239,19 @@ async function runDefaultFastScenario(
     }
     finalization = (async () => {
       if (owned === undefined) {
-        const removal = removeOwnedRoot(root);
-        return removal.kind === 'removed' ? status : 70;
+        const removal = rootOnlyActors.removeRoot(root);
+        if (removal.kind === 'failed') {
+          cleanupFailures.set(root, {
+            cleanup: {
+              kind: 'failed',
+              code: 70,
+              diagnostics: [`owned root removal failed:${removal.reason}`],
+            },
+            childOutcome,
+          });
+          return 70;
+        }
+        return status;
       }
       const cleanup = await finalizeOwnedRun(owned, scenarioTimeoutMs);
       if (cleanup.kind === 'failed') {
@@ -281,6 +300,17 @@ export function runDefaultFastScenarioForTests(
     throw new LifecycleFailure(64, 'default CLI scenario test boundary requires NODE_ENV=test');
   }
   return runDefaultFastScenario(scenario, root);
+}
+
+export function runDefaultRootOnlyScenarioForTests(
+  scenario: 'proc' | 'root',
+  root: OwnedRoot,
+  actors: RootOnlyScenarioTestActors,
+): Promise<number> {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new LifecycleFailure(64, 'root-only CLI scenario test boundary requires NODE_ENV=test');
+  }
+  return runDefaultFastScenario(scenario, root, actors);
 }
 
 const defaultDependencies: CliDependencies = {
@@ -361,12 +391,15 @@ export async function runCli(
   } catch (error: unknown) {
     status = reportFailure(error);
   } finally {
-    status = await converge(status);
-    if (root !== undefined) {
-      activeInterruptions.delete(root);
-    }
-    for (const { signal, listener } of listeners) {
-      process.off(signal, listener);
+    try {
+      status = await converge(status);
+    } finally {
+      if (root !== undefined) {
+        activeInterruptions.delete(root);
+      }
+      for (const { signal, listener } of listeners) {
+        process.off(signal, listener);
+      }
     }
   }
   return status;

@@ -16,6 +16,7 @@ import { join, resolve } from 'node:path';
 
 import {
   runCli,
+  runDefaultRootOnlyScenarioForTests,
   type CliDependencies,
 } from '@/scripts/ci/disposable-lifecycle/cli';
 import { lookupProcess } from '@/scripts/ci/disposable-lifecycle/proc';
@@ -183,6 +184,15 @@ function sameIdentity(left: ProcessIdentity, right: ProcessIdentity): boolean {
   );
 }
 
+function sameStableIdentity(left: ProcessIdentity, right: ProcessIdentity): boolean {
+  return (
+    left.pid === right.pid &&
+    left.startTime === right.startTime &&
+    left.processGroupId === right.processGroupId &&
+    left.sessionId === right.sessionId
+  );
+}
+
 function inheritedEnvironment(overrides: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
   const environment: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(process.env)) {
@@ -283,10 +293,14 @@ function parseOwnedProcessEvidence(stdout: string): readonly ProcessIdentity[] {
     return evidence.ownedProcesses.map((identity) => {
       if (
         !Number.isSafeInteger(identity.pid) ||
-        !/^(?:0|[1-9][0-9]*)$/.test(identity.startTime) ||
+        identity.pid <= 0 ||
+        !/^[1-9][0-9]*$/.test(identity.startTime) ||
         !Number.isSafeInteger(identity.parentPid) ||
+        identity.parentPid <= 0 ||
         !Number.isSafeInteger(identity.processGroupId) ||
-        !Number.isSafeInteger(identity.sessionId)
+        identity.processGroupId <= 0 ||
+        !Number.isSafeInteger(identity.sessionId) ||
+        identity.sessionId <= 0
       ) {
         throw new Error('CLI fixture received malformed process identity evidence');
       }
@@ -310,7 +324,7 @@ async function proveExactOwnedEvidenceAbsent(identities: readonly ProcessIdentit
           `CLI inner PID ${identity.pid} absence lookup remained unknown:${lookup.reason}`,
         );
       }
-      if (lookup.kind === 'present' && sameIdentity(lookup.identity, identity)) {
+      if (lookup.kind === 'present' && sameStableIdentity(lookup.identity, identity)) {
         throw new Error(
           `CLI inner PID ${identity.pid}/${identity.startTime.toString(10)} remained present`,
         );
@@ -693,7 +707,135 @@ test(
 );
 
 test(
-  'read-only inner evidence rejects a live exact identity without signaling it',
+  'records root-only removal diagnostics and an unavailable concurrent outcome',
+  async () => {
+    const before = lifecycleInventory();
+    const root = createOwnedRoot();
+    const diagnostics: string[] = [];
+    const stderr = jest.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      diagnostics.push(String(chunk));
+      return true;
+    });
+    let removalCalls = 0;
+    let status: number | undefined;
+    let testFailure: unknown;
+    const dependencies: CliDependencies = {
+      createRoot: () => root,
+      runFastScenario: async (_scenario, ownedRoot) =>
+        runDefaultRootOnlyScenarioForTests('proc', ownedRoot, {
+          removeRoot: () => {
+            removalCalls += 1;
+            if (removalCalls !== 1) {
+              throw new Error('root-only removal actor was called more than once');
+            }
+            return { kind: 'failed', reason: 'filesystem-error' };
+          },
+        }),
+    };
+
+    try {
+      status = await runCli(['proc'], dependencies);
+    } catch (error: unknown) {
+      testFailure = error;
+    } finally {
+      stderr.mockRestore();
+      const removal = removeOwnedRoot(root);
+      if (removal.kind === 'failed') {
+        const cleanupFailure = new Error(`root-only fixture cleanup failed:${removal.reason}`);
+        if (testFailure !== undefined) {
+          throw new AggregateError([testFailure, cleanupFailure]);
+        }
+        throw cleanupFailure;
+      }
+    }
+
+    if (testFailure !== undefined) {
+      throw testFailure;
+    }
+    expect(status).toBe(70);
+    expect(removalCalls).toBe(1);
+    expect(diagnostics.join('')).toContain(
+      '"diagnostics":["owned root removal failed:filesystem-error"]',
+    );
+    expect(diagnostics.join('')).toContain('"concurrent":{"kind":"unavailable"}');
+    expect(lifecycleInventory()).toEqual(before);
+  },
+);
+
+test('restores CLI listeners and interruption state when cleanup reporting throws', async () => {
+  const beforeInventory = lifecycleInventory();
+  const root = createOwnedRoot();
+  const signals = ['SIGHUP', 'SIGINT', 'SIGTERM'] as const;
+  const listenerSnapshots = signals.map((signal) => ({
+    signal,
+    listeners: process.rawListeners(signal),
+  }));
+  const stderr = jest.spyOn(process.stderr, 'write').mockImplementation(() => {
+    throw new Error('injected cleanup report failure');
+  });
+  let runFailure: unknown;
+  let stateCleared = false;
+  let probeRemovalCalls = 0;
+  let listenersRestored = false;
+  let cleanupFailure: unknown;
+  const dependencies: CliDependencies = {
+    createRoot: () => root,
+    runFastScenario: async (_scenario, ownedRoot) =>
+      runDefaultRootOnlyScenarioForTests('proc', ownedRoot, {
+        removeRoot: () => ({ kind: 'failed', reason: 'filesystem-error' }),
+      }),
+  };
+
+  try {
+    await runCli(['proc'], dependencies);
+  } catch (error: unknown) {
+    runFailure = error;
+  } finally {
+    stderr.mockRestore();
+    listenersRestored = listenerSnapshots.every(
+      ({ signal, listeners }) =>
+        process.rawListeners(signal).length === listeners.length &&
+        process.rawListeners(signal).every((listener, index) => listener === listeners[index]),
+    );
+    try {
+      await runDefaultRootOnlyScenarioForTests('proc', root, {
+        removeRoot: () => {
+          probeRemovalCalls += 1;
+          return { kind: 'failed', reason: 'filesystem-error' };
+        },
+      });
+    } catch (error: unknown) {
+      stateCleared =
+        error instanceof Error && error.message === 'CLI interruption context is unavailable';
+    }
+    for (const { signal, listeners } of listenerSnapshots) {
+      for (const listener of process.rawListeners(signal)) {
+        if (!listeners.includes(listener)) {
+          process.off(signal, listener as () => void);
+        }
+      }
+    }
+    const removal = removeOwnedRoot(root);
+    if (removal.kind === 'failed') {
+      cleanupFailure = new Error(`report-throw fixture cleanup failed:${removal.reason}`);
+    }
+  }
+
+  if (cleanupFailure !== undefined) {
+    if (runFailure !== undefined) {
+      throw new AggregateError([runFailure, cleanupFailure]);
+    }
+    throw cleanupFailure;
+  }
+  expect(runFailure).toEqual(new Error('injected cleanup report failure'));
+  expect(listenersRestored).toBe(true);
+  expect(stateCleared).toBe(true);
+  expect(probeRemovalCalls).toBe(0);
+  expect(lifecycleInventory()).toEqual(beforeInventory);
+});
+
+test(
+  'read-only inner evidence rejects a live stable identity after diagnostic PPID changes',
   async () => {
     const gate = 'IFS= read -r token; [[ "$token" == release ]] || exit 70; exec "$@"';
     const leaked = spawn(
@@ -716,7 +858,13 @@ test(
       leaked.stdin?.end('release\n');
       const serialized = JSON.stringify({
         schemaVersion: 1,
-        ownedProcesses: [{ ...identity, startTime: identity.startTime.toString(10) }],
+        ownedProcesses: [
+          {
+            ...identity,
+            startTime: identity.startTime.toString(10),
+            parentPid: identity.parentPid + 1,
+          },
+        ],
       });
 
       await expect(
@@ -764,6 +912,39 @@ test(
     if (testFailure !== undefined) {
       throw testFailure;
     }
+  },
+  20_000,
+);
+
+test.each([
+  ['pid', 0],
+  ['startTime', 0],
+  ['parentPid', 0],
+  ['processGroupId', 0],
+  ['sessionId', 0],
+] as const)(
+  'rejects non-positive serialized owned-process evidence field %s',
+  async (field, value) => {
+    const serialized = JSON.stringify({
+      schemaVersion: 1,
+      ownedProcesses: [
+        {
+          pid: 1,
+          startTime: '1',
+          parentPid: 1,
+          processGroupId: 1,
+          sessionId: 1,
+          [field]: value,
+        },
+      ],
+    });
+
+    await expect(
+      executeOwnedCli(process.execPath, [
+        '-e',
+        `process.stdout.write(${JSON.stringify(`${ownedEvidencePrefix}${serialized}\n`)})`,
+      ]),
+    ).rejects.toThrow('CLI fixture received malformed process identity evidence');
   },
   20_000,
 );
