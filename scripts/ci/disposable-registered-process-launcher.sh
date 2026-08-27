@@ -23,10 +23,22 @@ write_ready_record() {
 
   [[ "$destination" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+/active-[0-9]+\.[a-z-]+$ ]] || return 1
   identity="$(casn_read_process_identity "$pid")" || return 1
-  pending="${destination}.tmp.$pid"
+  [[ ! -e "$destination" && ! -L "$destination" ]] || return 1
+  pending="$(mktemp "${destination}.tmp.XXXXXX")" || return 1
+  chmod 0600 "$pending" || {
+    rm -f -- "$pending"
+    return 1
+  }
   printf 'v1\t%s\t%s\t%s\t%s\n' \
-    "$CASN_REGRESSION_INVOCATION_ID" "$pid" "$identity" "$role" >"$pending"
-  mv -- "$pending" "$destination"
+    "$CASN_REGRESSION_INVOCATION_ID" "$pid" "$identity" "$role" >"$pending" || {
+      rm -f -- "$pending"
+      return 1
+    }
+  ln -- "$pending" "$destination" || {
+    rm -f -- "$pending"
+    return 1
+  }
+  rm -f -- "$pending"
 }
 
 case "$mode" in
