@@ -1178,9 +1178,16 @@ test('keeps the Bash entrypoint behaviorally compatible with the typed proc scen
   });
 });
 
-test(
-  'runs the nonempty gate environment through the repository-local tsx loader',
-  async () => {
+test.each([
+  { label: 'absent', environment: {}, expected: 'absent' },
+  {
+    label: 'explicit',
+    environment: { NODE_ENV: 'development' },
+    expected: 'development',
+  },
+] as const)(
+  'runs the nonempty gate environment with $label NODE_ENV through the repository-local tsx loader',
+  async ({ environment, expected }) => {
     const harness = `
       import { readFileSync } from 'node:fs';
       import { performance } from 'node:perf_hooks';
@@ -1212,7 +1219,7 @@ test(
               root,
               command: process.execPath,
               args: ['-e', "process.stdout.write('node-env=' + (process.env.NODE_ENV ?? 'absent') + '\\\\n'); setTimeout(() => undefined, 500)"],
-              env: {},
+              env: ${JSON.stringify(environment)},
             },
             {
               lookupProcess,
@@ -1233,7 +1240,10 @@ test(
                 }
                 observed = Object.freeze({ ...lookup.identity });
               },
-              gateEnvironment: { CASN_LIFECYCLE_TEST_GATE_MODE: '1' },
+              gateEnvironment: ${JSON.stringify({
+                ...environment,
+                CASN_LIFECYCLE_TEST_GATE_MODE: '1',
+              })},
               waitingTimeoutMs: 1000,
               unreleasedExitTimeoutMs: 3000,
             },
@@ -1276,7 +1286,7 @@ test(
           while (true) {
             targetOutput = readFileSync(owned.stdoutPath, 'utf8');
             const observedAt = performance.now();
-            if (targetOutput === 'node-env=absent\\n') {
+            if (targetOutput === ${JSON.stringify(`node-env=${expected}\n`)}) {
               if (observedAt >= outputDeadline) {
                 throw new Error('spawn boundary marker observed at or after deadline');
               }
@@ -1287,7 +1297,7 @@ test(
             }
             await new Promise((resolveWait) => setTimeout(resolveWait, 10));
           }
-          if (targetOutput !== 'node-env=absent\\n') {
+          if (targetOutput !== ${JSON.stringify(`node-env=${expected}\n`)}) {
             throw new Error(
               'spawn boundary injected ambient NODE_ENV:' + JSON.stringify(targetOutput) +
               ' outcome=' + JSON.stringify(outcome) +

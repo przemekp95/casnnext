@@ -213,6 +213,15 @@ function inheritedEnvironment(overrides: Readonly<Record<string, string>>): Read
   return { ...environment, ...overrides };
 }
 
+function nodeSpawnEnvironment(input: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = { NODE_ENV: 'production' };
+  Object.assign(environment, input);
+  if (!Object.hasOwn(input, 'NODE_ENV') && !Reflect.deleteProperty(environment, 'NODE_ENV')) {
+    throw new LifecycleFailure(70, 'unable to remove the temporary spawn NODE_ENV property');
+  }
+  return environment;
+}
+
 function writeBuffer(fd: number, buffer: Buffer): void {
   let offset = 0;
   while (offset < buffer.length) {
@@ -529,7 +538,7 @@ export async function spawnGatedProcess(
         cwd: repositoryRoot,
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-        env: inheritedEnvironment(dependencies.gateEnvironment) as NodeJS.ProcessEnv,
+        env: nodeSpawnEnvironment(inheritedEnvironment(dependencies.gateEnvironment)),
       });
     }
   } catch (error: unknown) {

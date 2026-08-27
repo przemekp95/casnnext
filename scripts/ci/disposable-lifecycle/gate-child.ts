@@ -71,6 +71,15 @@ function publishOutcome(outcome: ChildOutcome): void {
   send({ type: 'outcome', outcome });
 }
 
+function nodeSpawnEnvironment(input: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = { NODE_ENV: 'production' };
+  Object.assign(environment, input);
+  if (!Object.hasOwn(input, 'NODE_ENV') && !Reflect.deleteProperty(environment, 'NODE_ENV')) {
+    throw new Error('unable to remove the temporary spawn NODE_ENV property');
+  }
+  return environment;
+}
+
 const preReleaseExpiry = setTimeout(() => {
   const hangAfterExpiryMs = testDelay('CASN_LIFECYCLE_TEST_GATE_HANG_AFTER_EXPIRY_MS');
   if (hangAfterExpiryMs > 0) {
@@ -103,7 +112,7 @@ process.on('message', (message: unknown) => {
   clearTimeout(preReleaseExpiry);
 
   const target = spawn(message.command, [...message.args], {
-    env: { ...message.env } as NodeJS.ProcessEnv,
+    env: nodeSpawnEnvironment(message.env),
     stdio: ['ignore', 'inherit', 'inherit'],
   });
   if (target.pid !== undefined) {
