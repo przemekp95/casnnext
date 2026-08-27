@@ -56,6 +56,7 @@ export type OwnedProcessDependencies = Readonly<{
 }>;
 
 type OwnedProcessState = {
+  readonly child: ChildProcess;
   readonly command: string;
   readonly args: readonly string[];
   readonly env: Readonly<Record<string, string>>;
@@ -68,12 +69,15 @@ type OwnedProcessState = {
   childClosed: boolean;
   released: boolean;
   finished: boolean;
+  authorityRevoked: boolean;
 };
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const gateChildPath = resolve(dirname(fileURLToPath(import.meta.url)), 'gate-child.ts');
+const gateTestInvocationToken = '--casn-disposable-lifecycle-test-gate';
 const logLimitBytes = 1024 * 1024;
 const messageTimeoutMs = 1_000;
+const maximumTimeoutMs = 2_147_483_647;
 const processStates = new WeakMap<OwnedProcess, OwnedProcessState>();
 const defaultDependencies: OwnedProcessDependencies = {
   lookupProcess,
@@ -131,6 +135,19 @@ function isSignal(value: unknown): value is NodeJS.Signals {
   return typeof value === 'string' && signalNames.has(value);
 }
 
+function validateTimeout(name: string, timeoutMs: number): void {
+  if (
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs <= 0 ||
+    timeoutMs > maximumTimeoutMs
+  ) {
+    throw new LifecycleFailure(
+      64,
+      `${name} must be an integer from 1 through ${maximumTimeoutMs}ms`,
+    );
+  }
+}
+
 function isChildOutcome(value: unknown): value is ChildOutcome {
   if (!isRecord(value) || typeof value.kind !== 'string') {
     return false;
@@ -172,6 +189,17 @@ function sameIdentity(left: ProcessIdentity, right: ProcessIdentity): boolean {
 
 function isLive(child: ChildProcess): boolean {
   return child.exitCode === null && child.signalCode === null;
+}
+
+function isExpectedDetachedAnchor(child: ChildProcess, identity: ProcessIdentity): boolean {
+  return (
+    child.pid !== undefined &&
+    identity.pid === child.pid &&
+    isLive(child) &&
+    identity.parentPid === process.pid &&
+    identity.pid === identity.processGroupId &&
+    identity.pid === identity.sessionId
+  );
 }
 
 function inheritedEnvironment(overrides: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
@@ -283,7 +311,7 @@ async function waitForChildClose(
   timeoutMs: number,
 ): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
-  while (!state.childClosed) {
+  while (isLive(state.child) && !state.childClosed) {
     if (Date.now() >= deadline) {
       return false;
     }
@@ -293,7 +321,7 @@ async function waitForChildClose(
 }
 
 async function waitForLogStreams(state: OwnedProcessState, timeoutMs: number): Promise<void> {
-  if (!state.childClosed) {
+  if (isLive(state.child) && !state.childClosed) {
     throw new LifecycleFailure(70, 'log close: gated anchor handle is still live');
   }
   let timer: NodeJS.Timeout | undefined;
@@ -335,7 +363,11 @@ async function failBeforeRegistration(
   }
 
   const fresh = state.dependencies.lookupProcess(owned.anchor.pid);
-  if (fresh.kind === 'present' && sameIdentity(fresh.identity, owned.anchor)) {
+  if (
+    fresh.kind === 'present' &&
+    sameIdentity(fresh.identity, owned.anchor) &&
+    isExpectedDetachedAnchor(child, fresh.identity)
+  ) {
     try {
       state.dependencies.signal(owned.anchor.pid, 'SIGKILL');
     } catch (error: unknown) {
@@ -368,6 +400,31 @@ async function failBeforeRegistration(
   throw new LifecycleFailure(
     70,
     `${failure.message}; retained cleanup failure: ${authorityFailure}`,
+  );
+}
+
+async function failUnreleasedRelease(
+  state: OwnedProcessState,
+  failure: LifecycleFailure,
+): Promise<never> {
+  state.authorityRevoked = true;
+  if (!(await waitForChildClose(state, state.dependencies.unreleasedExitTimeoutMs))) {
+    throw new LifecycleFailure(
+      70,
+      `${failure.message}; retained cleanup failure: unreleased gate did not self-expire`,
+    );
+  }
+  try {
+    await waitForLogStreams(state, state.dependencies.unreleasedExitTimeoutMs);
+  } catch (error: unknown) {
+    throw new LifecycleFailure(
+      70,
+      `${failure.message}; retained cleanup failure: ${error instanceof Error ? error.message : 'log close failed'}`,
+    );
+  }
+  throw new LifecycleFailure(
+    failure.exitCode,
+    `${failure.message}; unreleased gate self-expired and was reaped`,
   );
 }
 
@@ -424,6 +481,8 @@ export async function spawnGatedProcess(
   input: SpawnGatedProcessInput,
   dependencies: OwnedProcessDependencies = defaultDependencies,
 ): Promise<OwnedProcess> {
+  validateTimeout('waitingTimeoutMs', dependencies.waitingTimeoutMs);
+  validateTimeout('unreleasedExitTimeoutMs', dependencies.unreleasedExitTimeoutMs);
   const stdout = createOwnedFile(input.root, 'stdout.log', 0o600);
   if (stdout.kind === 'failed') {
     throw new LifecycleFailure(70, `stdout capture creation failed: ${stdout.reason}`);
@@ -443,7 +502,12 @@ export async function spawnGatedProcess(
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       });
     } else {
-      child = spawn(process.execPath, ['--import', import.meta.resolve('tsx'), gateChildPath], {
+      child = spawn(process.execPath, [
+        '--import',
+        import.meta.resolve('tsx'),
+        gateChildPath,
+        gateTestInvocationToken,
+      ], {
         cwd: repositoryRoot,
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -458,6 +522,7 @@ export async function spawnGatedProcess(
 
   const diagnostics: string[] = [];
   const state: OwnedProcessState = {
+    child,
     command: input.command,
     args: [...input.args],
     env: inheritedEnvironment(input.env),
@@ -470,6 +535,7 @@ export async function spawnGatedProcess(
     childClosed: false,
     released: false,
     finished: false,
+    authorityRevoked: false,
   };
 
   child.on('message', (message: unknown) => {
@@ -490,7 +556,19 @@ export async function spawnGatedProcess(
     state.childClosed = true;
   });
 
-  dependencies.observeSpawn(child);
+  try {
+    dependencies.observeSpawn(child);
+  } catch (error: unknown) {
+    return failBeforeRegistration(
+      state,
+      child,
+      new LifecycleFailure(
+        71,
+        `spawn observation failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      ),
+      undefined,
+    );
+  }
 
   if (child.pid === undefined) {
     return failBeforeRegistration(
@@ -519,6 +597,14 @@ export async function spawnGatedProcess(
       undefined,
     );
   }
+  if (!isExpectedDetachedAnchor(child, anchor)) {
+    return failBeforeRegistration(
+      state,
+      child,
+      new LifecycleFailure(70, 'gate process did not become the expected detached anchor'),
+      undefined,
+    );
+  }
   const owned: OwnedProcess = Object.freeze({
     child,
     anchor,
@@ -527,19 +613,6 @@ export async function spawnGatedProcess(
     stderrPath: stderr.file.path,
   });
   processStates.set(owned, state);
-  if (
-    !isLive(child) ||
-    anchor.parentPid !== process.pid ||
-    anchor.pid !== anchor.processGroupId ||
-    anchor.pid !== anchor.sessionId
-  ) {
-    return failBeforeRegistration(
-      state,
-      child,
-      new LifecycleFailure(70, 'gate process did not become the expected detached anchor'),
-      owned,
-    );
-  }
 
   try {
     await waitForCondition(
@@ -564,24 +637,38 @@ export async function releaseGatedProcess(owned: OwnedProcess): Promise<void> {
   if (state.released) {
     throw new LifecycleFailure(70, 'gated process was already released');
   }
+  if (state.authorityRevoked) {
+    return failUnreleasedRelease(
+      state,
+      new LifecycleFailure(70, 'gated anchor signal authority was already revoked'),
+    );
+  }
   const lookup = state.dependencies.lookupProcess(owned.anchor.pid);
   if (
     lookup.kind !== 'present' ||
     !sameIdentity(lookup.identity, owned.anchor) ||
-    !isLive(owned.child) ||
-    lookup.identity.parentPid !== process.pid ||
-    lookup.identity.pid !== lookup.identity.processGroupId ||
-    lookup.identity.pid !== lookup.identity.sessionId
+    !isExpectedDetachedAnchor(owned.child, lookup.identity)
   ) {
-    throw new LifecycleFailure(70, 'gated anchor identity changed before release');
+    return failUnreleasedRelease(
+      state,
+      new LifecycleFailure(70, 'gated anchor identity changed before release'),
+    );
   }
 
-  await sendGateMessage(
-    state,
-    owned.child,
-    { type: 'release', command: state.command, args: state.args, env: state.env },
-    false,
-  );
+  try {
+    await sendGateMessage(
+      state,
+      owned.child,
+      { type: 'release', command: state.command, args: state.args, env: state.env },
+      false,
+    );
+  } catch (error: unknown) {
+    const failure =
+      error instanceof LifecycleFailure
+        ? error
+        : new LifecycleFailure(70, error instanceof Error ? error.message : 'release failed');
+    return failUnreleasedRelease(state, failure);
+  }
   state.released = true;
 }
 
@@ -589,6 +676,7 @@ export async function waitForOwnedOutcome(
   owned: OwnedProcess,
   timeoutMs: number,
 ): Promise<ChildOutcome> {
+  validateTimeout('timeoutMs', timeoutMs);
   const state = stateFor(owned);
   const deadline = Date.now() + timeoutMs;
   while (state.outcome === undefined) {
@@ -604,6 +692,7 @@ export async function waitForOwnedOutcome(
 }
 
 export async function finishGatedProcess(owned: OwnedProcess, timeoutMs: number): Promise<void> {
+  validateTimeout('timeoutMs', timeoutMs);
   const state = stateFor(owned);
   if (state.outcome === undefined) {
     throw new LifecycleFailure(70, 'cannot finish before target outcome');

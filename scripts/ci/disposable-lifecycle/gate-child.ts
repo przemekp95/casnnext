@@ -15,11 +15,13 @@ type GateChildMessage =
   | Readonly<{ type: 'outcome'; outcome: ChildOutcome }>;
 
 const preReleaseExpiryMs = 2_000;
+const testInvocationToken = '--casn-disposable-lifecycle-test-gate';
+const testInvocationEnabled = process.argv[2] === testInvocationToken;
 let released = false;
 let outcomePublished = false;
 
 function testDelay(name: string): number {
-  if (process.env.CASN_LIFECYCLE_TEST_GATE_MODE !== '1') {
+  if (!testInvocationEnabled || process.env.CASN_LIFECYCLE_TEST_GATE_MODE !== '1') {
     return 0;
   }
   const value = process.env[name];
