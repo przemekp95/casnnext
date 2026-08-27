@@ -18,6 +18,7 @@
     "runtime:policy": "bash scripts/ci/runtime-source-policy.sh . all",
     "runtime:policy:test": "bash scripts/ci/runtime-source-policy-test.sh",
     "type-check": "tsc --noEmit -p tsconfig.ci.json",
+    "disposable-lifecycle:type-check": "tsc -p tsconfig.disposable-lifecycle.json",
     "test": "jest",
     "test:ci": "jest --runInBand",
     "test:unit": "jest",
