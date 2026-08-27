@@ -125,6 +125,11 @@ const mockAuthorDetails: Record<string, AuthorDetail> = {
 const AUTHOR_LIST_CACHE_KEY = ["authors:list"];
 const AUTHOR_DETAIL_CACHE_KEY = ["authors:detail"];
 const AUTHOR_DETAIL_CACHE_TAGS = ["authors", "analyses", "articles"];
+
+function errorMessage(value: unknown): string {
+  return value instanceof Error ? value.message : String(value);
+}
+
 const isProductionBuildPhase = (): boolean =>
   process.env.NEXT_PHASE === "phase-production-build";
 
@@ -205,7 +210,7 @@ async function getAuthorsUncached(): Promise<AuthorRow[]> {
         .map(applyAuthorCanonicalOverrides);
     });
   } catch (error) {
-    console.warn('Database not available for getAuthors(), using mock data:', error);
+    console.warn('Database not available for getAuthors(), using mock data:', errorMessage(error));
     return mockAuthors.map(applyAuthorCanonicalOverrides);
   }
 }
@@ -241,16 +246,14 @@ async function getAuthorBySlugUncached(slug: string): Promise<AuthorDetail | nul
       });
 
       // Transform to UI-friendly format
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const authorEntity = author as any;
       const normalizedAuthor = applyAuthorCanonicalOverrides({
-        id: String(authorEntity.id),
-        slug: authorEntity.slug,
-        name: authorEntity.name,
-        displayName: authorEntity.displayName,
-        img: authorEntity.img || undefined,
-        bio: authorEntity.bio || undefined,
-        sourceHash: authorEntity.sourceHash || undefined,
+        id: String(author.id),
+        slug: author.slug,
+        name: author.name,
+        displayName: author.displayName,
+        img: author.img || undefined,
+        bio: author.bio || undefined,
+        sourceHash: author.sourceHash || undefined,
       });
       return {
         author: normalizedAuthor,
@@ -270,7 +273,7 @@ async function getAuthorBySlugUncached(slug: string): Promise<AuthorDetail | nul
       };
     });
   } catch (error) {
-    console.warn('Database not available for getAuthorBySlug(), using mock data:', error);
+    console.warn('Database not available for getAuthorBySlug(), using mock data:', errorMessage(error));
     const detail = mockAuthorDetails[slug];
     if (!detail) return null;
 

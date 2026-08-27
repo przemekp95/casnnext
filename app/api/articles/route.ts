@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -15,6 +14,55 @@ type ArticleRow = {
   author_name: string | null;
   author_slug: string | null;
 };
+
+type ArticleRawRow = {
+  id: string;
+  title: string;
+  slug: string;
+  authorId: string | null;
+  author_name: string | null;
+  author_slug: string | null;
+};
+
+function errorMessage(value: unknown): string {
+  return value instanceof Error ? value.message : String(value);
+}
+
+function isArticleIdentifier(value: unknown): value is number | string {
+  return typeof value === "number" || typeof value === "string";
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+export function toArticleResponse(value: unknown): ArticleRow {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid article record");
+  }
+
+  const row = value as Record<string, unknown>;
+  const { id, title, slug, authorId, author_name, author_slug } = row;
+  if (
+    !isArticleIdentifier(id) ||
+    typeof title !== "string" ||
+    typeof slug !== "string" ||
+    !isArticleIdentifier(authorId) ||
+    !isNullableString(author_name) ||
+    !isNullableString(author_slug)
+  ) {
+    throw new Error("Invalid article record");
+  }
+
+  return {
+    id,
+    title,
+    slug,
+    authorId,
+    author_name,
+    author_slug,
+  };
+}
 
 function responseWithCache(payload: unknown, status = 200) {
   return NextResponse.json(payload, {
@@ -63,18 +111,9 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
           ])
           .where("analysis.publishedAt IS NOT NULL")
           .orderBy("analysis.id", "DESC")
-          .getRawMany();
+          .getRawMany<ArticleRawRow>();
 
-        return data
-          .map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            slug: item.slug,
-            authorId: item.authorId as number,
-            author_name: item.author_name,
-            author_slug: item.author_slug,
-          }))
-          .map(normalizeArticleAuthor);
+        return data.map(toArticleResponse).map(normalizeArticleAuthor);
       },
       ["articles"],
       { revalidate: 300, tags: ["articles"] }
@@ -97,18 +136,9 @@ async function getLegacyArticles(): Promise<ArticleRow[]> {
     ])
     .where("analysis.publishedAt IS NOT NULL")
     .orderBy("analysis.id", "DESC")
-    .getRawMany();
+    .getRawMany<ArticleRawRow>();
 
-  return data
-    .map((item: any) => ({
-      id: item.id,
-      title: item.title,
-      slug: item.slug,
-      authorId: item.authorId as number,
-      author_name: item.author_name,
-      author_slug: item.author_slug,
-    }))
-    .map(normalizeArticleAuthor);
+  return data.map(toArticleResponse).map(normalizeArticleAuthor);
 }
 
 export async function GET() {
@@ -120,7 +150,7 @@ export async function GET() {
     const articles = await getLegacyArticles();
     return responseWithCache(articles);
   } catch (error) {
-    console.error("Articles API error:", error);
+    console.error("Articles API error:", errorMessage(error));
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

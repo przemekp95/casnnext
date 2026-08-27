@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,6 +10,11 @@ export const dynamicParams = true;
 
 const SITE_URL = "https://casn.pl";
 const DEFAULT_AUTHOR_IMAGE = "/images/placeholder.png";
+type PageProps = { params: Promise<{ slug: string }> };
+
+function errorMessage(value: unknown): string {
+  return value instanceof Error ? value.message : String(value);
+}
 
 function toAbsoluteUrl(value?: string | null): string {
   if (!value) return `${SITE_URL}${DEFAULT_AUTHOR_IMAGE}`;
@@ -33,13 +37,13 @@ export async function generateStaticParams() {
       slug: author.slug,
     }));
   } catch (error) {
-    console.warn("generateStaticParams for authors failed:", error);
+    console.warn("generateStaticParams for authors failed:", errorMessage(error));
     return [];
   }
 }
 
 // Generate metadata for each author page
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+export async function generateMetadata({ params }: PageProps) {
   try {
     const { slug } = await params;
     const result = await getAuthorBySlug(slug);
@@ -83,7 +87,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       },
     };
   } catch (error) {
-    console.warn('Error generating metadata for author:', error);
+    console.warn('Error generating metadata for author:', errorMessage(error));
     return {
       title: "Centrum Analiz Służby Niepodległej",
       description: "Analizy polityki i społeczeństwa",
@@ -91,9 +95,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 }
 
-// celowo: props:any – omijamy wadliwy constraint z .next/types
-export default async function AuthorPage(props: any) {
-  const { slug }: { slug: string } = await props.params;
+export default async function AuthorPage({ params }: PageProps) {
+  const { slug } = await params;
   if (!slug) return notFound();
 
   const result = await getAuthorBySlug(slug);
