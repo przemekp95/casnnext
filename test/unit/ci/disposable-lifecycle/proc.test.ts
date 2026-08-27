@@ -40,6 +40,13 @@ test.each(['', '7100 bad', '7100 (x) invalid 1 2 3'])(
     }),
 );
 
+test.each([0, -1, 1.5, Number.NaN])('rejects an impossible caller-supplied PID: %p', (pid) => {
+  expect(parseStatLine(pid, statLine(pid, 7100, 7100))).toEqual({
+    kind: 'unknown',
+    reason: 'malformed-stat',
+  });
+});
+
 test('returns unknown when a present stat cannot be read', () => {
   access.readStat.mockImplementation(() => {
     throw new Error('EACCES');

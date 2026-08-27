@@ -31,6 +31,10 @@ function isProcessId(value: number): boolean {
 }
 
 export function parseStatLine(pid: number, line: string): ProcessLookup {
+  if (!isProcessId(pid)) {
+    return { kind: 'unknown', reason: 'malformed-stat' };
+  }
+
   const delimiterIndex = line.lastIndexOf(') ');
   if (delimiterIndex === -1) {
     return { kind: 'unknown', reason: 'malformed-stat' };
