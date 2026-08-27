@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 
-import { finalizeOwnedRun, resolveExitStatus } from './finalize';
+import { finalizeOwnedRun, resolveExitStatus, type CleanupResult } from './finalize';
 import {
   createOwnedRoot,
   publishEvidence,
@@ -15,7 +15,7 @@ import {
   type OwnedProcess,
 } from './owned-process';
 import { lookupGroup, lookupProcess } from './proc';
-import { LifecycleFailure, type ChildOutcome } from './types';
+import { LifecycleFailure, type ChildOutcome, type ProcessIdentity } from './types';
 
 export type FastScenario = 'proc' | 'root' | 'process' | 'cleanup' | 'all-fast';
 
@@ -37,6 +37,14 @@ const signalStatuses: Readonly<Record<CliSignal, number>> = {
 };
 const scenarioTimeoutMs = 3_000;
 const activeInterruptions = new WeakMap<OwnedRoot, AbortSignal>();
+const cleanupFailures = new WeakMap<
+  OwnedRoot,
+  Readonly<{
+    cleanup: Extract<CleanupResult, Readonly<{ kind: 'failed' }>>;
+    childOutcome: ChildOutcome | undefined;
+  }>
+>();
+const ownedProcessEvidencePrefix = 'owned-process-evidence:';
 
 class ScenarioInterrupted extends Error {}
 
@@ -126,7 +134,10 @@ function verifyRootScenario(root: OwnedRoot): void {
   }
 }
 
-async function waitForTargetMember(owned: OwnedProcess, interruption: AbortSignal): Promise<void> {
+async function waitForTargetMember(
+  owned: OwnedProcess,
+  interruption: AbortSignal,
+): Promise<readonly ProcessIdentity[]> {
   const deadline = Date.now() + scenarioTimeoutMs;
   while (true) {
     requireActive(interruption);
@@ -140,7 +151,7 @@ async function waitForTargetMember(owned: OwnedProcess, interruption: AbortSigna
       throw new LifecycleFailure(70, `scenario group lookup unknown:${group.reason}`);
     }
     if (group.kind === 'present') {
-      return;
+      return group.members;
     }
     if (Date.now() >= deadline) {
       throw new LifecycleFailure(124, `scenario target did not start within ${scenarioTimeoutMs}ms`);
@@ -152,7 +163,7 @@ async function waitForTargetMember(owned: OwnedProcess, interruption: AbortSigna
 async function startScenarioProcess(root: OwnedRoot, cooperative: boolean): Promise<OwnedProcess> {
   const source = cooperative
     ? "process.on('SIGTERM', () => process.exit(0)); setInterval(() => undefined, 1000)"
-    : 'process.exitCode = 0';
+    : 'setTimeout(() => undefined, 500)';
   const owned = await spawnGatedProcess({
     root,
     command: process.execPath,
@@ -161,6 +172,44 @@ async function startScenarioProcess(root: OwnedRoot, cooperative: boolean): Prom
   });
   await releaseGatedProcess(owned);
   return owned;
+}
+
+function emitOwnedProcessEvidence(identities: readonly ProcessIdentity[]): void {
+  process.stdout.write(
+    `${ownedProcessEvidencePrefix}${JSON.stringify({
+      schemaVersion: 1,
+      ownedProcesses: identities.map((identity) => ({
+        ...identity,
+        startTime: identity.startTime.toString(10),
+      })),
+    })}\n`,
+  );
+}
+
+function reportCleanupFailure(
+  root: OwnedRoot,
+  requestedSignal: CliSignal | undefined,
+): void {
+  const failure = cleanupFailures.get(root);
+  if (failure === undefined) {
+    return;
+  }
+  cleanupFailures.delete(root);
+  const concurrent =
+    requestedSignal === undefined
+      ? failure.childOutcome
+      : {
+          kind: 'signal' as const,
+          signal: requestedSignal,
+          status: signalStatuses[requestedSignal],
+        };
+  process.stderr.write(
+    `cleanup-failure:${JSON.stringify({
+      status: failure.cleanup.code,
+      cleanup: failure.cleanup,
+      concurrent: concurrent ?? { kind: 'unavailable' },
+    })}\n`,
+  );
 }
 
 async function runDefaultFastScenario(
@@ -186,10 +235,14 @@ async function runDefaultFastScenario(
         return removal.kind === 'removed' ? status : 70;
       }
       const cleanup = await finalizeOwnedRun(owned, scenarioTimeoutMs);
+      if (cleanup.kind === 'failed') {
+        cleanupFailures.set(root, { cleanup, childOutcome });
+        return cleanup.code;
+      }
       if (childOutcome !== undefined) {
         return resolveExitStatus(childOutcome, cleanup);
       }
-      return cleanup.kind === 'clean' ? status : cleanup.code;
+      return status;
     })();
     return finalization;
   };
@@ -204,17 +257,30 @@ async function runDefaultFastScenario(
     }
     if (scenario === 'process') {
       owned = await startScenarioProcess(root, false);
+      const members = await waitForTargetMember(owned, interruption);
+      emitOwnedProcessEvidence([owned.anchor, ...members]);
       childOutcome = await waitForOwnedOutcome(owned, scenarioTimeoutMs);
     }
     if (scenario === 'cleanup' || scenario === 'all-fast') {
       owned = await startScenarioProcess(root, true);
-      await waitForTargetMember(owned, interruption);
+      const members = await waitForTargetMember(owned, interruption);
+      emitOwnedProcessEvidence([owned.anchor, ...members]);
     }
   } catch (error: unknown) {
     status = error instanceof ScenarioInterrupted ? 0 : reportFailure(error);
   } finally {
     return converge();
   }
+}
+
+export function runDefaultFastScenarioForTests(
+  scenario: FastScenario,
+  root: OwnedRoot,
+): Promise<number> {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new LifecycleFailure(64, 'default CLI scenario test boundary requires NODE_ENV=test');
+  }
+  return runDefaultFastScenario(scenario, root);
 }
 
 const defaultDependencies: CliDependencies = {
@@ -227,6 +293,7 @@ export async function runCli(
   dependencies: CliDependencies,
 ): Promise<number> {
   const controller = new AbortController();
+  let requestedSignal: CliSignal | undefined;
   let requestedSignalStatus: number | undefined;
   let scenarioRun: Promise<number> | undefined;
   let convergence: Promise<number> | undefined;
@@ -239,6 +306,9 @@ export async function runCli(
         return incomingStatus;
       }
       const scenarioStatus = await scenarioRun;
+      if (root !== undefined) {
+        reportCleanupFailure(root, requestedSignal);
+      }
       if (scenarioStatus === 70) {
         return scenarioStatus;
       }
@@ -256,6 +326,7 @@ export async function runCli(
         return;
       }
       requestedSignalStatus = signalStatuses[signal];
+      requestedSignal = signal;
       controller.abort(signal);
       resolveSignal(requestedSignalStatus);
     };

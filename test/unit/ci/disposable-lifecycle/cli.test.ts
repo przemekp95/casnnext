@@ -1,10 +1,29 @@
 /** @jest-environment node */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { lstatSync, readdirSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmdirSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { runCli, type CliDependencies } from '@/scripts/ci/disposable-lifecycle/cli';
+import {
+  runCli,
+  type CliDependencies,
+} from '@/scripts/ci/disposable-lifecycle/cli';
 import { lookupProcess } from '@/scripts/ci/disposable-lifecycle/proc';
+import {
+  createOwnedRoot,
+  removeOwnedRoot,
+  type OwnedRoot,
+} from '@/scripts/ci/disposable-lifecycle/owned-root';
 import { LifecycleFailure, type ProcessIdentity } from '@/scripts/ci/disposable-lifecycle/types';
 
 type CliResult = Readonly<{
@@ -15,6 +34,8 @@ type CliResult = Readonly<{
 
 type SpawnOptions = Readonly<{
   environment?: Readonly<Record<string, string>>;
+  requireOwnedEvidence?: boolean;
+  signalAfterOwnedEvidence?: 'SIGTERM';
   signalAfterRootCreation?: 'SIGTERM';
   signalAfterStdout?: Readonly<{
     marker: string;
@@ -22,11 +43,113 @@ type SpawnOptions = Readonly<{
   }>;
 }>;
 
+type SerializedProcessIdentity = Readonly<{
+  pid: number;
+  startTime: string;
+  parentPid: number;
+  processGroupId: number;
+  sessionId: number;
+}>;
+
+type OwnedProcessEvidence = Readonly<{
+  schemaVersion: 1;
+  ownedProcesses: readonly SerializedProcessIdentity[];
+}>;
+
 const repositoryRoot = resolve(__dirname, '../../../..');
 const tsxBin = join(repositoryRoot, 'node_modules/.bin/tsx');
 const cliPath = join(repositoryRoot, 'scripts/ci/disposable-lifecycle/cli.ts');
 const shellPath = join(repositoryRoot, 'scripts/ci/with-disposable-app-regression-test.sh');
 const outerDeadlineMs = 15_000;
+const ownedEvidencePrefix = 'owned-process-evidence:';
+
+type OwnedFixturePath = Readonly<{
+  path: string;
+  device: bigint;
+  inode: bigint;
+  type: bigint;
+}>;
+
+function captureFixturePath(path: string): OwnedFixturePath {
+  const stat = lstatSync(path, { bigint: true });
+  return {
+    path,
+    device: stat.dev,
+    inode: stat.ino,
+    type: stat.mode & BigInt(0o170000),
+  };
+}
+
+function sameFixturePath(path: OwnedFixturePath): boolean {
+  try {
+    const stat = lstatSync(path.path, { bigint: true });
+    return (
+      stat.dev === path.device &&
+      stat.ino === path.inode &&
+      (stat.mode & BigInt(0o170000)) === path.type
+    );
+  } catch {
+    return false;
+  }
+}
+
+function removeOwnedFixtureLayout(paths: readonly OwnedFixturePath[]): void {
+  for (const ownedPath of [...paths].reverse()) {
+    if (!sameFixturePath(ownedPath)) {
+      throw new Error(`shell fixture identity changed before cleanup:${ownedPath.path}`);
+    }
+    if (ownedPath.type === BigInt(0o040000)) {
+      rmdirSync(ownedPath.path);
+    } else {
+      unlinkSync(ownedPath.path);
+    }
+    try {
+      lstatSync(ownedPath.path);
+      throw new Error(`shell fixture path remained after cleanup:${ownedPath.path}`);
+    } catch (error: unknown) {
+      if (
+        typeof error !== 'object' ||
+        error === null ||
+        !('code' in error) ||
+        error.code !== 'ENOENT'
+      ) {
+        throw error;
+      }
+    }
+  }
+}
+
+function completeOwnedRootTeardown(root: OwnedRoot, restoreEnvironment: () => void): void {
+  let restorationFailure: unknown;
+  try {
+    restoreEnvironment();
+  } catch (error: unknown) {
+    restorationFailure = error;
+  }
+
+  let cleanupFailure: unknown;
+  try {
+    const removal = removeOwnedRoot(root);
+    if (removal.kind === 'failed') {
+      cleanupFailure = new Error(`owned root teardown failed:${removal.reason}`);
+    }
+  } catch (error: unknown) {
+    cleanupFailure = error;
+  }
+
+  if (restorationFailure !== undefined && cleanupFailure !== undefined) {
+    throw new AggregateError(
+      [restorationFailure, cleanupFailure],
+      'environment restoration and owned root teardown failed',
+    );
+  }
+  if (restorationFailure !== undefined) {
+    throw restorationFailure;
+  }
+  if (cleanupFailure !== undefined) {
+    throw cleanupFailure;
+  }
+}
 
 function lifecycleInventory(): readonly string[] {
   return readdirSync('/tmp')
@@ -136,6 +259,69 @@ async function waitForAbsence(pid: number, timeoutMs: number): Promise<void> {
   }
 }
 
+function parseOwnedProcessEvidence(stdout: string): readonly ProcessIdentity[] {
+  const lines = stdout.split('\n');
+  if (!stdout.endsWith('\n')) {
+    lines.pop();
+  }
+  return lines.flatMap((line) => {
+    if (!line.startsWith(ownedEvidencePrefix)) {
+      return [];
+    }
+    const parsed: unknown = JSON.parse(line.slice(ownedEvidencePrefix.length));
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('schemaVersion' in parsed) ||
+      parsed.schemaVersion !== 1 ||
+      !('ownedProcesses' in parsed) ||
+      !Array.isArray(parsed.ownedProcesses)
+    ) {
+      throw new Error('CLI fixture received malformed owned-process evidence');
+    }
+    const evidence = parsed as OwnedProcessEvidence;
+    return evidence.ownedProcesses.map((identity) => {
+      if (
+        !Number.isSafeInteger(identity.pid) ||
+        !/^(?:0|[1-9][0-9]*)$/.test(identity.startTime) ||
+        !Number.isSafeInteger(identity.parentPid) ||
+        !Number.isSafeInteger(identity.processGroupId) ||
+        !Number.isSafeInteger(identity.sessionId)
+      ) {
+        throw new Error('CLI fixture received malformed process identity evidence');
+      }
+      return {
+        pid: identity.pid,
+        startTime: BigInt(identity.startTime),
+        parentPid: identity.parentPid,
+        processGroupId: identity.processGroupId,
+        sessionId: identity.sessionId,
+      };
+    });
+  });
+}
+
+async function proveExactOwnedEvidenceAbsent(identities: readonly ProcessIdentity[]): Promise<void> {
+  for (let observation = 0; observation < 5; observation += 1) {
+    for (const identity of identities) {
+      const lookup = lookupProcess(identity.pid);
+      if (lookup.kind === 'unknown') {
+        throw new Error(
+          `CLI inner PID ${identity.pid} absence lookup remained unknown:${lookup.reason}`,
+        );
+      }
+      if (lookup.kind === 'present' && sameIdentity(lookup.identity, identity)) {
+        throw new Error(
+          `CLI inner PID ${identity.pid}/${identity.startTime.toString(10)} remained present`,
+        );
+      }
+    }
+    if (observation < 4) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+    }
+  }
+}
+
 async function executeOwnedCli(
   command: string,
   args: readonly string[],
@@ -155,6 +341,7 @@ async function executeOwnedCli(
   let requestedSignal = false;
   let rootIdentityCaptured = false;
   let rootPoll: NodeJS.Timeout | undefined;
+  let evidenceSignalPoll: NodeJS.Timeout | undefined;
   let executionFailure: unknown;
   let result: CliResult | undefined;
 
@@ -197,6 +384,21 @@ async function executeOwnedCli(
     });
 
     child.stdin?.end('release\n');
+    if (options.signalAfterOwnedEvidence !== undefined) {
+      evidenceSignalPoll = setInterval(() => {
+        if (parseOwnedProcessEvidence(stdout).length > 0) {
+          if (!rootIdentityCaptured) {
+            rootIdentityCaptured = lifecycleInventory().some(
+              (entry) =>
+                entry.startsWith('/tmp/casn-quality-regression-') && !before.includes(entry),
+            );
+          }
+          if (rootIdentityCaptured) {
+            requestOwnedSignal(options.signalAfterOwnedEvidence ?? 'SIGTERM');
+          }
+        }
+      }, 5);
+    }
     if (options.signalAfterRootCreation !== undefined) {
       rootPoll = setInterval(() => {
         const createdRoot = lifecycleInventory().find(
@@ -213,20 +415,34 @@ async function executeOwnedCli(
       throw executionFailure;
     }
     if (
-      (options.signalAfterStdout !== undefined || options.signalAfterRootCreation !== undefined) &&
+      (options.signalAfterStdout !== undefined ||
+        options.signalAfterRootCreation !== undefined ||
+        options.signalAfterOwnedEvidence !== undefined) &&
       !requestedSignal
     ) {
       throw new Error('CLI fixture never reached its requested signal boundary');
     }
-    if (options.signalAfterRootCreation !== undefined && !rootIdentityCaptured) {
+    if (
+      (options.signalAfterRootCreation !== undefined ||
+        options.signalAfterOwnedEvidence !== undefined) &&
+      !rootIdentityCaptured
+    ) {
       throw new Error('CLI fixture did not capture the created root identity before signaling');
     }
+    const ownedEvidence = parseOwnedProcessEvidence(stdout);
+    if (options.requireOwnedEvidence === true && ownedEvidence.length === 0) {
+      throw new Error('CLI fixture received no owned-process evidence');
+    }
+    await proveExactOwnedEvidenceAbsent(ownedEvidence);
     result = { status, stdout, stderr };
   } catch (error: unknown) {
     executionFailure = error;
   } finally {
     if (rootPoll !== undefined) {
       clearInterval(rootPoll);
+    }
+    if (evidenceSignalPoll !== undefined) {
+      clearInterval(evidenceSignalPoll);
     }
     let cleanupFailure: unknown;
     if (identity !== undefined) {
@@ -281,7 +497,14 @@ async function run(args: readonly string[], environment: Readonly<Record<string,
 test.each(['proc', 'root', 'process', 'cleanup', 'all-fast'] as const)(
   'runs the real typed %s scenario successfully',
   async (scenario) => {
-    await expect(run([scenario])).resolves.toMatchObject({ status: 0, stderr: '' });
+    const options =
+      scenario === 'process' || scenario === 'cleanup' || scenario === 'all-fast'
+        ? { requireOwnedEvidence: true }
+        : {};
+    await expect(executeOwnedCli(tsxBin, [cliPath, scenario], options)).resolves.toMatchObject({
+      status: 0,
+      stderr: '',
+    });
   },
   20_000,
 );
@@ -316,6 +539,71 @@ test('preserves a typed initialization status without creating a root', async ()
   }
 });
 
+test('runs original-root cleanup even when environment restoration fails', () => {
+  const before = lifecycleInventory();
+  const root = createOwnedRoot();
+  let rescued = false;
+  let failure: unknown;
+
+  try {
+    completeOwnedRootTeardown(root, () => {
+      throw new Error('injected environment restoration failure');
+    });
+  } catch (error: unknown) {
+    failure = error;
+  } finally {
+    if (existsSync(root.path)) {
+      rescued = true;
+      const rescue = removeOwnedRoot(root);
+      if (rescue.kind === 'failed') {
+        throw new Error(`teardown regression rescue failed:${rescue.reason}`);
+      }
+    }
+  }
+
+  expect(rescued).toBe(false);
+  expect(failure).toEqual(new Error('injected environment restoration failure'));
+  expect(lifecycleInventory()).toEqual(before);
+});
+
+test(
+  'rejects the default scenario test seam outside test mode before process mutation',
+  async () => {
+    const harness = `
+      import { runDefaultFastScenarioForTests } from './scripts/ci/disposable-lifecycle/cli.ts';
+      import { createOwnedRoot, removeOwnedRoot } from './scripts/ci/disposable-lifecycle/owned-root.ts';
+      import { LifecycleFailure } from './scripts/ci/disposable-lifecycle/types.ts';
+
+      void (async () => {
+        const root = createOwnedRoot();
+        let status = 70;
+        try {
+          status = await runDefaultFastScenarioForTests('process', root);
+        } catch (error: unknown) {
+          process.stderr.write((error instanceof Error ? error.message : 'unknown error') + '\\n');
+          status = error instanceof LifecycleFailure ? error.exitCode : 70;
+        } finally {
+          const removal = removeOwnedRoot(root);
+          if (removal.kind === 'failed') {
+            process.stderr.write('test seam root cleanup failed:' + removal.reason + '\\n');
+            status = 70;
+          }
+        }
+        process.exitCode = status;
+      })();
+    `;
+
+    await expect(
+      executeOwnedCli(tsxBin, ['-e', harness], { environment: { NODE_ENV: 'production' } }),
+    ).resolves.toEqual({
+      status: 64,
+      stdout: '',
+      stderr: 'default CLI scenario test boundary requires NODE_ENV=test\n',
+    });
+  },
+  20_000,
+);
+
 test(
   'preserves SIGTERM status before root creation after bootstrap readiness',
   async () => {
@@ -336,10 +624,146 @@ test(
   'preserves SIGTERM status after root creation when owned cleanup succeeds',
   async () => {
     const result = await executeOwnedCli(tsxBin, [cliPath, 'cleanup'], {
-      signalAfterRootCreation: 'SIGTERM',
+      requireOwnedEvidence: true,
+      signalAfterOwnedEvidence: 'SIGTERM',
     });
 
     expect(result).toMatchObject({ status: 143, stderr: '' });
+  },
+  20_000,
+);
+
+test(
+  'records cleanup diagnostics and concurrent SIGTERM while cleanup status 70 wins',
+  async () => {
+    const harness = `
+      import { runCli, runDefaultFastScenarioForTests } from './scripts/ci/disposable-lifecycle/cli.ts';
+      import { createOwnedRoot, removeOwnedRoot } from './scripts/ci/disposable-lifecycle/owned-root.ts';
+      import type { CliDependencies } from './scripts/ci/disposable-lifecycle/cli.ts';
+      import type { OwnedRoot } from './scripts/ci/disposable-lifecycle/owned-root.ts';
+
+      void (async () => {
+        let createdRoot: OwnedRoot | undefined;
+        const dependencies: CliDependencies = {
+          createRoot: () => {
+            createdRoot = createOwnedRoot();
+            return createdRoot;
+          },
+          runFastScenario: async (scenario, root) => {
+            const previous = process.env.NODE_OPTIONS;
+            process.env.NODE_OPTIONS = '--import=data:text/javascript,process.stdout.write(Buffer.alloc(1048577,120))';
+            try {
+              return await runDefaultFastScenarioForTests(scenario, root);
+            } finally {
+              if (previous === undefined) {
+                delete process.env.NODE_OPTIONS;
+              } else {
+                process.env.NODE_OPTIONS = previous;
+              }
+            }
+          },
+        };
+        let status = 70;
+        try {
+          status = await runCli(['cleanup'], dependencies);
+        } finally {
+          if (createdRoot !== undefined) {
+            const removal = removeOwnedRoot(createdRoot);
+            if (removal.kind === 'failed' && removal.reason !== 'root-closed') {
+              process.stderr.write('fixture root cleanup failed:' + removal.reason + '\\n');
+              status = 70;
+            }
+          }
+        }
+        process.exitCode = status;
+      })();
+    `;
+
+    const result = await executeOwnedCli(tsxBin, ['-e', harness], {
+      environment: { NODE_ENV: 'test' },
+      requireOwnedEvidence: true,
+      signalAfterOwnedEvidence: 'SIGTERM',
+    });
+
+    expect(result.status).toBe(70);
+    expect(result.stderr).toContain('stdout exceeded 1048576 byte capture limit');
+    expect(result.stderr).toContain('"kind":"signal","signal":"SIGTERM","status":143');
+  },
+  20_000,
+);
+
+test(
+  'read-only inner evidence rejects a live exact identity without signaling it',
+  async () => {
+    const gate = 'IFS= read -r token; [[ "$token" == release ]] || exit 70; exec "$@"';
+    const leaked = spawn(
+      'bash',
+      ['-c', gate, 'casn-inner-evidence-owner', process.execPath, '-e', 'setInterval(() => undefined, 1000)'],
+      { cwd: repositoryRoot, detached: true, stdio: ['pipe', 'ignore', 'ignore'] },
+    );
+    let identity: ProcessIdentity | undefined;
+    let testFailure: unknown;
+
+    try {
+      if (leaked.pid === undefined) {
+        throw new Error('inner evidence fixture spawn returned no PID');
+      }
+      const initial = lookupProcess(leaked.pid);
+      if (initial.kind !== 'present' || !expectedDirectChild(leaked, initial.identity)) {
+        throw new Error('inner evidence fixture identity capture failed');
+      }
+      identity = Object.freeze({ ...initial.identity });
+      leaked.stdin?.end('release\n');
+      const serialized = JSON.stringify({
+        schemaVersion: 1,
+        ownedProcesses: [{ ...identity, startTime: identity.startTime.toString(10) }],
+      });
+
+      await expect(
+        executeOwnedCli(process.execPath, [
+          '-e',
+          `process.stdout.write(${JSON.stringify(`${ownedEvidencePrefix}${serialized}\n`)})`,
+        ]),
+      ).rejects.toThrow(
+        `CLI inner PID ${identity.pid}/${identity.startTime.toString(10)} remained present`,
+      );
+
+      const afterEvidence = lookupProcess(identity.pid);
+      expect(afterEvidence.kind).toBe('present');
+      if (afterEvidence.kind === 'present') {
+        expect(sameIdentity(afterEvidence.identity, identity)).toBe(true);
+      }
+    } catch (error: unknown) {
+      testFailure = error;
+    } finally {
+      let cleanupFailure: unknown;
+      if (identity !== undefined) {
+        const fresh = lookupProcess(identity.pid);
+        if (
+          fresh.kind !== 'present' ||
+          !sameIdentity(fresh.identity, identity) ||
+          !expectedDirectChild(leaked, fresh.identity)
+        ) {
+          cleanupFailure = new Error('inner evidence fixture identity changed before cleanup');
+        } else {
+          process.kill(-identity.processGroupId, 'SIGKILL');
+          try {
+            await waitForAbsence(identity.pid, 2_000);
+          } catch (error: unknown) {
+            cleanupFailure = error;
+          }
+        }
+      }
+      if (cleanupFailure !== undefined) {
+        if (testFailure !== undefined) {
+          throw new AggregateError([testFailure, cleanupFailure]);
+        }
+        throw cleanupFailure;
+      }
+    }
+    if (testFailure !== undefined) {
+      throw testFailure;
+    }
   },
   20_000,
 );
@@ -364,3 +788,167 @@ test('keeps the Bash entrypoint behaviorally compatible with the typed proc scen
     stderr: '',
   });
 });
+
+test(
+  'runs the nonempty gate environment through the repository-local tsx loader',
+  async () => {
+    const harness = `
+      import { finalizeOwnedRun, resolveExitStatus } from './scripts/ci/disposable-lifecycle/finalize.ts';
+      import { createOwnedRoot, removeOwnedRoot } from './scripts/ci/disposable-lifecycle/owned-root.ts';
+      import { releaseGatedProcess, spawnGatedProcess, waitForOwnedOutcome } from './scripts/ci/disposable-lifecycle/owned-process.ts';
+      import { lookupGroup, lookupProcess } from './scripts/ci/disposable-lifecycle/proc.ts';
+      import type { OwnedRoot } from './scripts/ci/disposable-lifecycle/owned-root.ts';
+      import type { OwnedProcess } from './scripts/ci/disposable-lifecycle/owned-process.ts';
+      import type { ProcessIdentity } from './scripts/ci/disposable-lifecycle/types.ts';
+
+      const same = (left: ProcessIdentity, right: ProcessIdentity): boolean =>
+        left.pid === right.pid && left.startTime === right.startTime &&
+        left.parentPid === right.parentPid &&
+        left.processGroupId === right.processGroupId && left.sessionId === right.sessionId;
+
+      void (async () => {
+        let root: OwnedRoot | undefined;
+        let owned: OwnedProcess | undefined;
+        let observed: ProcessIdentity | undefined;
+        let finalized = false;
+        let status = 70;
+        try {
+          root = createOwnedRoot();
+          owned = await spawnGatedProcess(
+            {
+              root,
+              command: process.execPath,
+              args: ['-e', 'setTimeout(() => undefined, 500)'],
+              env: {},
+            },
+            {
+              lookupProcess,
+              lookupGroup: (processGroupId, sessionId, excludedPids) =>
+                lookupGroup(processGroupId, sessionId, undefined, excludedPids),
+              signal: (pid, signal) => process.kill(pid, signal),
+              observeSpawn: (child) => {
+                if (child.pid === undefined) {
+                  throw new Error('gate environment fixture spawn returned no PID');
+                }
+                const lookup = lookupProcess(child.pid);
+                if (
+                  lookup.kind !== 'present' || lookup.identity.parentPid !== process.pid ||
+                  lookup.identity.pid !== lookup.identity.processGroupId ||
+                  lookup.identity.pid !== lookup.identity.sessionId
+                ) {
+                  throw new Error('gate environment fixture identity capture failed');
+                }
+                observed = Object.freeze({ ...lookup.identity });
+              },
+              gateEnvironment: { CASN_LIFECYCLE_TEST_GATE_MODE: '1' },
+              waitingTimeoutMs: 1000,
+              unreleasedExitTimeoutMs: 3000,
+            },
+          );
+          if (observed === undefined || !same(observed, owned.anchor)) {
+            throw new Error('gate environment fixture returned a different owner identity');
+          }
+          await releaseGatedProcess(owned);
+          let members: readonly ProcessIdentity[] = [];
+          const deadline = Date.now() + 3000;
+          while (members.length === 0) {
+            const group = lookupGroup(
+              owned.anchor.processGroupId,
+              owned.anchor.sessionId,
+              undefined,
+              new Set([owned.anchor.pid]),
+            );
+            if (group.kind === 'unknown') {
+              throw new Error('gate environment fixture group lookup unknown:' + group.reason);
+            }
+            if (group.kind === 'present') {
+              members = group.members;
+              break;
+            }
+            if (Date.now() >= deadline) {
+              throw new Error('gate environment fixture target did not start');
+            }
+            await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+          }
+          process.stdout.write('${ownedEvidencePrefix}' + JSON.stringify({
+            schemaVersion: 1,
+            ownedProcesses: [owned.anchor, ...members].map((identity) => ({
+              ...identity,
+              startTime: identity.startTime.toString(10),
+            })),
+          }) + '\\n');
+          const outcome = await waitForOwnedOutcome(owned, 3000);
+          const cleanup = await finalizeOwnedRun(owned, 3000);
+          finalized = true;
+          status = resolveExitStatus(outcome, cleanup);
+        } finally {
+          if (owned !== undefined && !finalized) {
+            const cleanup = await finalizeOwnedRun(owned, 3000);
+            if (cleanup.kind === 'failed') {
+              process.stderr.write(cleanup.diagnostics.join('\\n') + '\\n');
+            }
+          } else if (owned === undefined && root !== undefined) {
+            const removal = removeOwnedRoot(root);
+            if (removal.kind === 'failed') {
+              process.stderr.write('gate environment root cleanup failed:' + removal.reason + '\\n');
+            }
+          }
+        }
+        process.exitCode = status;
+      })();
+    `;
+
+    await expect(
+      executeOwnedCli(tsxBin, ['-e', harness], { requireOwnedEvidence: true }),
+    ).resolves.toMatchObject({ status: 0, stderr: '' });
+  },
+  20_000,
+);
+
+test(
+  'returns status 69 and the exact message when the copied shell layout has no local tsx',
+  async () => {
+    const paths: OwnedFixturePath[] = [];
+    let testFailure: unknown;
+    try {
+      const root = mkdtempSync('/tmp/casn-shell-fixture-');
+      paths.push(captureFixturePath(root));
+      const scripts = join(root, 'scripts');
+      mkdirSync(scripts, { mode: 0o700 });
+      paths.push(captureFixturePath(scripts));
+      const ci = join(scripts, 'ci');
+      mkdirSync(ci, { mode: 0o700 });
+      paths.push(captureFixturePath(ci));
+      const copiedShell = join(ci, 'with-disposable-app-regression-test.sh');
+      writeFileSync(copiedShell, readFileSync(shellPath), { mode: 0o700 });
+      chmodSync(copiedShell, 0o700);
+      paths.push(captureFixturePath(copiedShell));
+
+      const result = await executeOwnedCli('bash', [copiedShell, 'proc']);
+      expect(result).toEqual({
+        status: 69,
+        stdout: '',
+        stderr: 'repository-local tsx is unavailable; run npm ci\n',
+      });
+    } catch (error: unknown) {
+      testFailure = error;
+    } finally {
+      let cleanupFailure: unknown;
+      try {
+        removeOwnedFixtureLayout(paths);
+      } catch (error: unknown) {
+        cleanupFailure = error;
+      }
+      if (cleanupFailure !== undefined) {
+        if (testFailure !== undefined) {
+          throw new AggregateError([testFailure, cleanupFailure]);
+        }
+        throw cleanupFailure;
+      }
+    }
+    if (testFailure !== undefined) {
+      throw testFailure;
+    }
+  },
+  20_000,
+);
