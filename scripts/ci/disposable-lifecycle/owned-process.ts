@@ -529,7 +529,7 @@ export async function spawnGatedProcess(
         cwd: repositoryRoot,
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-        env: inheritedEnvironment(dependencies.gateEnvironment),
+        env: inheritedEnvironment(dependencies.gateEnvironment) as NodeJS.ProcessEnv,
       });
     }
   } catch (error: unknown) {

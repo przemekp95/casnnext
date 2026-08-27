@@ -1182,6 +1182,8 @@ test(
   'runs the nonempty gate environment through the repository-local tsx loader',
   async () => {
     const harness = `
+      import { readFileSync } from 'node:fs';
+      import { performance } from 'node:perf_hooks';
       import { finalizeOwnedRun, resolveExitStatus } from './scripts/ci/disposable-lifecycle/finalize.ts';
       import { createOwnedRoot, removeOwnedRoot } from './scripts/ci/disposable-lifecycle/owned-root.ts';
       import { releaseGatedProcess, spawnGatedProcess, waitForOwnedOutcome } from './scripts/ci/disposable-lifecycle/owned-process.ts';
@@ -1196,6 +1198,8 @@ test(
         left.processGroupId === right.processGroupId && left.sessionId === right.sessionId;
 
       void (async () => {
+        const originalNodeEnv = process.env.NODE_ENV;
+        delete process.env.NODE_ENV;
         let root: OwnedRoot | undefined;
         let owned: OwnedProcess | undefined;
         let observed: ProcessIdentity | undefined;
@@ -1207,7 +1211,7 @@ test(
             {
               root,
               command: process.execPath,
-              args: ['-e', 'setTimeout(() => undefined, 500)'],
+              args: ['-e', "process.stdout.write('node-env=' + (process.env.NODE_ENV ?? 'absent') + '\\\\n'); setTimeout(() => undefined, 500)"],
               env: {},
             },
             {
@@ -1267,6 +1271,29 @@ test(
             })),
           }) + '\\n');
           const outcome = await waitForOwnedOutcome(owned, 3000);
+          const outputDeadline = performance.now() + 1000;
+          let targetOutput = '';
+          while (true) {
+            targetOutput = readFileSync(owned.stdoutPath, 'utf8');
+            const observedAt = performance.now();
+            if (targetOutput === 'node-env=absent\\n') {
+              if (observedAt >= outputDeadline) {
+                throw new Error('spawn boundary marker observed at or after deadline');
+              }
+              break;
+            }
+            if (targetOutput !== '' || observedAt >= outputDeadline) {
+              break;
+            }
+            await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+          }
+          if (targetOutput !== 'node-env=absent\\n') {
+            throw new Error(
+              'spawn boundary injected ambient NODE_ENV:' + JSON.stringify(targetOutput) +
+              ' outcome=' + JSON.stringify(outcome) +
+              ' stderr=' + JSON.stringify(readFileSync(owned.stderrPath, 'utf8'))
+            );
+          }
           const cleanup = await finalizeOwnedRun(owned, 3000);
           finalized = true;
           status = resolveExitStatus(outcome, cleanup);
@@ -1281,6 +1308,11 @@ test(
             if (removal.kind === 'failed') {
               process.stderr.write('gate environment root cleanup failed:' + removal.reason + '\\n');
             }
+          }
+          if (originalNodeEnv === undefined) {
+            delete process.env.NODE_ENV;
+          } else {
+            process.env.NODE_ENV = originalNodeEnv;
           }
         }
         process.exitCode = status;

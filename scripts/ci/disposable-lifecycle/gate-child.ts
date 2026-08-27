@@ -103,7 +103,7 @@ process.on('message', (message: unknown) => {
   clearTimeout(preReleaseExpiry);
 
   const target = spawn(message.command, [...message.args], {
-    env: { ...message.env },
+    env: { ...message.env } as NodeJS.ProcessEnv,
     stdio: ['ignore', 'inherit', 'inherit'],
   });
   if (target.pid !== undefined) {
