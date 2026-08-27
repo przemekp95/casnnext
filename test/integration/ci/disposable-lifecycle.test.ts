@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import type { ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import {
   existsSync,
@@ -14,6 +14,10 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
+import {
+  finalizeOwnedRun,
+  resolveExitStatus,
+} from '@/scripts/ci/disposable-lifecycle/finalize';
 import { lookupGroup, lookupProcess } from '@/scripts/ci/disposable-lifecycle/proc';
 import {
   createOwnedRoot,
@@ -134,6 +138,77 @@ async function waitForFixtureProcessAbsence(pid: number, timeoutMs: number): Pro
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
     lookup = lookupProcess(pid);
+  }
+}
+
+async function waitForFixtureFile(path: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!existsSync(path)) {
+    if (Date.now() >= deadline) {
+      throw new Error(`fixture file ${path} was not created within ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+async function captureOwnedGroupMembers(
+  anchor: ProcessIdentity,
+  timeoutMs: number,
+): Promise<readonly ProcessIdentity[]> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const group = lookupGroup(
+      anchor.processGroupId,
+      anchor.sessionId,
+      undefined,
+      new Set([anchor.pid]),
+    );
+    if (group.kind === 'unknown') {
+      throw new Error(`fixture group lookup was unknown: ${group.reason}`);
+    }
+    if (group.kind === 'present') {
+      return group.members.map((member) => Object.freeze({ ...member }));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`fixture group had no target member within ${timeoutMs}ms`);
+}
+
+async function waitForFixtureProcessState(
+  identity: ProcessIdentity,
+  expectedState: 'T',
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const lookup = lookupProcess(identity.pid);
+    if (lookup.kind === 'unknown') {
+      throw new Error(`fixture process lookup was unknown: ${lookup.reason}`);
+    }
+    if (
+      lookup.kind === 'present' &&
+      sameIdentity(lookup.identity, identity) &&
+      lookup.state === expectedState
+    ) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`fixture process ${identity.pid} did not reach state ${expectedState}`);
+}
+
+async function expectStableOwnedAbsence(
+  anchor: ProcessIdentity,
+  members: readonly ProcessIdentity[],
+): Promise<void> {
+  for (let observation = 0; observation < 5; observation += 1) {
+    for (const identity of [anchor, ...members]) {
+      expect(lookupProcess(identity.pid)).toEqual({ kind: 'absent' });
+    }
+    expect(lookupGroup(anchor.processGroupId, anchor.sessionId)).toEqual({ kind: 'absent' });
+    if (observation < 4) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }
 }
 
@@ -1475,6 +1550,349 @@ test(
 
     expect(fixtureGroupSignals).toEqual([]);
     expect(fixtureInventory()).toEqual(before);
+  },
+  15_000,
+);
+
+test(
+  'finalizes a cooperative target with group TERM and stable exact absence',
+  () =>
+    withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      const markerDirectory = fixture.createDirectory();
+      const marker = fixture.absentFile(markerDirectory, 'cooperative-ready');
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: [
+            '--input-type=module',
+            '-e',
+            "import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => process.exit(0)); writeFileSync(process.env.MARKER, 'ready'); setInterval(() => undefined, 1000)",
+          ],
+          env: { MARKER: marker },
+        },
+        fixtureDependencies(fixture),
+      );
+
+      await releaseGatedProcess(owned);
+      await waitForFixtureFile(marker, 2_000);
+      const members = await captureOwnedGroupMembers(owned.anchor, 2_000);
+
+      await expect(finalizeOwnedRun(owned, 1_000)).resolves.toEqual({ kind: 'clean' });
+      expect(existsSync(root.path)).toBe(false);
+      await expectStableOwnedAbsence(owned.anchor, members);
+    }, { timeoutMs: 15_000 }),
+  15_000,
+);
+
+test(
+  'escalates an ignored group TERM to bounded group KILL and stable exact absence',
+  () =>
+    withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      const markerDirectory = fixture.createDirectory();
+      const marker = fixture.absentFile(markerDirectory, 'ignored-term-ready');
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: [
+            '--input-type=module',
+            '-e',
+            "import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => undefined); writeFileSync(process.env.MARKER, 'ready'); setInterval(() => undefined, 1000)",
+          ],
+          env: { MARKER: marker },
+        },
+        fixtureDependencies(fixture),
+      );
+
+      await releaseGatedProcess(owned);
+      await waitForFixtureFile(marker, 2_000);
+      const members = await captureOwnedGroupMembers(owned.anchor, 2_000);
+
+      await expect(finalizeOwnedRun(owned, 250)).resolves.toEqual({ kind: 'clean' });
+      expect(existsSync(root.path)).toBe(false);
+      await expectStableOwnedAbsence(owned.anchor, members);
+    }, { timeoutMs: 15_000 }),
+  15_000,
+);
+
+test(
+  'kills a stopped target through the freshly authorized group and reaps it',
+  () =>
+    withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      const markerDirectory = fixture.createDirectory();
+      const marker = fixture.absentFile(markerDirectory, 'stopped-ready');
+      const signals: NodeJS.Signals[] = [];
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: [
+            '--input-type=module',
+            '-e',
+            "import { writeFileSync } from 'node:fs'; writeFileSync(process.env.MARKER, 'ready'); process.kill(process.pid, 'SIGSTOP'); setInterval(() => undefined, 1000)",
+          ],
+          env: { MARKER: marker },
+        },
+        fixtureDependencies(fixture),
+      );
+
+      await releaseGatedProcess(owned);
+      await waitForFixtureFile(marker, 2_000);
+      const members = await captureOwnedGroupMembers(owned.anchor, 2_000);
+      expect(members).toHaveLength(1);
+      const member = members[0];
+      if (member === undefined) {
+        throw new Error('fixture stopped target identity was not captured');
+      }
+      await waitForFixtureProcessState(member, 'T', 2_000);
+
+      await expect(
+        finalizeOwnedRun(owned, 250, {
+          signalGroup: (processGroupId, signal) => {
+            signals.push(signal);
+            process.kill(-processGroupId, signal);
+          },
+        }),
+      ).resolves.toEqual({ kind: 'clean' });
+      expect(signals).toEqual(['SIGTERM', 'SIGKILL']);
+      expect(existsSync(root.path)).toBe(false);
+      await expectStableOwnedAbsence(owned.anchor, members);
+    }, { timeoutMs: 15_000 }),
+  15_000,
+);
+
+test(
+  'finalizes a surviving same-group descendant after its target leader exits',
+  () =>
+    withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      const markerDirectory = fixture.createDirectory();
+      const marker = fixture.absentFile(markerDirectory, 'descendant-ready');
+      const signals: NodeJS.Signals[] = [];
+      const descendantSource =
+        "process.on('SIGTERM', () => process.exit(0)); setInterval(() => undefined, 1000)";
+      const targetSource = [
+        "import { spawn } from 'node:child_process'",
+        "import { writeFileSync } from 'node:fs'",
+        `const descendant = spawn(process.execPath, ['--input-type=module', '-e', ${JSON.stringify(descendantSource)}], { stdio: 'inherit' })`,
+        "writeFileSync(process.env.MARKER, String(descendant.pid))",
+        'descendant.unref()',
+        'process.exit(23)',
+      ].join('; ');
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: ['--input-type=module', '-e', targetSource],
+          env: { MARKER: marker },
+        },
+        fixtureDependencies(fixture),
+      );
+
+      await releaseGatedProcess(owned);
+      await waitForFixtureFile(marker, 2_000);
+      const child = await waitForOwnedOutcome(owned, 2_000);
+      expect(child).toEqual({ kind: 'exit', code: 23 });
+      const members = await captureOwnedGroupMembers(owned.anchor, 2_000);
+      expect(members).toHaveLength(1);
+
+      const cleanup = await finalizeOwnedRun(owned, 1_000, {
+        signalGroup: (processGroupId, signal) => {
+          signals.push(signal);
+          process.kill(-processGroupId, signal);
+        },
+      });
+      expect(cleanup).toEqual({ kind: 'clean' });
+      expect(resolveExitStatus(child, cleanup)).toBe(23);
+      expect(signals).toEqual(['SIGTERM']);
+      expect(existsSync(root.path)).toBe(false);
+      await expectStableOwnedAbsence(owned.anchor, members);
+    }, { timeoutMs: 15_000 }),
+  15_000,
+);
+
+test(
+  'fails closed on an unknown anchor lookup before sending any group signal',
+  async () => {
+    let anchor: ProcessIdentity | undefined;
+    let members: readonly ProcessIdentity[] = [];
+    const signals: NodeJS.Signals[] = [];
+
+    await withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      const markerDirectory = fixture.createDirectory();
+      const marker = fixture.absentFile(markerDirectory, 'unknown-ready');
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: [
+            '--input-type=module',
+            '-e',
+            "import { writeFileSync } from 'node:fs'; writeFileSync(process.env.MARKER, 'ready'); setInterval(() => undefined, 1000)",
+          ],
+          env: { MARKER: marker },
+        },
+        fixtureDependencies(fixture),
+      );
+
+      await releaseGatedProcess(owned);
+      await waitForFixtureFile(marker, 2_000);
+      anchor = owned.anchor;
+      members = await captureOwnedGroupMembers(owned.anchor, 2_000);
+
+      await expect(
+        finalizeOwnedRun(owned, 250, {
+          lookupProcess: () => ({ kind: 'unknown', reason: 'injected-unknown' }),
+          signalGroup: (_processGroupId, signal) => {
+            signals.push(signal);
+          },
+        }),
+      ).resolves.toEqual({
+        kind: 'failed',
+        code: 70,
+        diagnostics: ['TERM: anchor lookup unknown:injected-unknown'],
+      });
+      expect(signals).toEqual([]);
+      expect(existsSync(root.path)).toBe(true);
+      expect(lookupProcess(owned.anchor.pid).kind).toBe('present');
+    }, { timeoutMs: 15_000 });
+
+    if (anchor === undefined) {
+      throw new Error('fixture unknown-lookup anchor identity was not captured');
+    }
+    await expectStableOwnedAbsence(anchor, members);
+  },
+  15_000,
+);
+
+test(
+  'fails cleanup when a registered member appears during the stabilization window',
+  () =>
+    withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      const markerDirectory = fixture.createDirectory();
+      const marker = fixture.absentFile(markerDirectory, 'stabilization-ready');
+      const signals: NodeJS.Signals[] = [];
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: [
+            '--input-type=module',
+            '-e',
+            "import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => process.exit(0)); writeFileSync(process.env.MARKER, 'ready'); setInterval(() => undefined, 1000)",
+          ],
+          env: { MARKER: marker },
+        },
+        fixtureDependencies(fixture),
+      );
+
+      await releaseGatedProcess(owned);
+      await waitForFixtureFile(marker, 2_000);
+      const members = await captureOwnedGroupMembers(owned.anchor, 2_000);
+      const registered = members[0];
+      if (registered === undefined) {
+        throw new Error('fixture stabilization member identity was not captured');
+      }
+      let fullGroupObservations = 0;
+
+      await expect(
+        finalizeOwnedRun(owned, 1_000, {
+          lookupGroup: (processGroupId, sessionId, excludedPids) => {
+            if (excludedPids.size === 0) {
+              fullGroupObservations += 1;
+              if (fullGroupObservations === 3) {
+                return { kind: 'present', members: [registered] };
+              }
+            }
+            return lookupGroup(processGroupId, sessionId, undefined, excludedPids);
+          },
+          signalGroup: (processGroupId, signal) => {
+            signals.push(signal);
+            process.kill(-processGroupId, signal);
+          },
+        }),
+      ).resolves.toEqual({
+        kind: 'failed',
+        code: 70,
+        diagnostics: ['stabilization: owned group remained present'],
+      });
+      expect(fullGroupObservations).toBe(3);
+      expect(signals).toEqual(['SIGTERM']);
+      expect(existsSync(root.path)).toBe(false);
+      await expectStableOwnedAbsence(owned.anchor, members);
+    }, { timeoutMs: 15_000 }),
+  15_000,
+);
+
+test(
+  'leaves an unregistered fixture process alive until its separate owner cleans it',
+  async () => {
+    let unregisteredIdentity: ProcessIdentity | undefined;
+
+    await withOwnedFixture(async (separateOwner) => {
+      const unregisteredMarkerDirectory = separateOwner.createDirectory();
+      const unregisteredMarker = separateOwner.absentFile(
+        unregisteredMarkerDirectory,
+        'unregistered-ready',
+      );
+      const unregistered = spawn(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          "import { writeFileSync } from 'node:fs'; writeFileSync(process.env.MARKER, 'ready'); setInterval(() => undefined, 1000)",
+        ],
+        { detached: true, env: { ...process.env, MARKER: unregisteredMarker }, stdio: 'ignore' },
+      );
+      separateOwner.captureChild(unregistered);
+      await waitForFixtureFile(unregisteredMarker, 2_000);
+      const unregisteredAnchor = separateOwner.latestChild().identity;
+      unregisteredIdentity = unregisteredAnchor;
+
+      await withOwnedFixture(async (fixture) => {
+        const root = fixture.createRoot();
+        const markerDirectory = fixture.createDirectory();
+        const marker = fixture.absentFile(markerDirectory, 'registered-ready');
+        const owned = await spawnGatedProcess(
+          {
+            root,
+            command: process.execPath,
+            args: [
+              '--input-type=module',
+              '-e',
+              "import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => process.exit(0)); writeFileSync(process.env.MARKER, 'ready'); setInterval(() => undefined, 1000)",
+            ],
+            env: { MARKER: marker },
+          },
+          fixtureDependencies(fixture),
+        );
+
+        await releaseGatedProcess(owned);
+        await waitForFixtureFile(marker, 2_000);
+        const members = await captureOwnedGroupMembers(owned.anchor, 2_000);
+        await expect(finalizeOwnedRun(owned, 1_000)).resolves.toEqual({ kind: 'clean' });
+        await expectStableOwnedAbsence(owned.anchor, members);
+
+        const unregisteredLookup = lookupProcess(unregisteredAnchor.pid);
+        expect(unregisteredLookup.kind).toBe('present');
+        if (unregisteredLookup.kind === 'present') {
+          expect(sameIdentity(unregisteredLookup.identity, unregisteredAnchor)).toBe(true);
+        }
+      }, { timeoutMs: 15_000 });
+
+      expect(lookupProcess(unregisteredAnchor.pid).kind).toBe('present');
+    }, { timeoutMs: 15_000 });
+
+    if (unregisteredIdentity === undefined) {
+      throw new Error('separate fixture identity was not captured');
+    }
+    await expectStableOwnedAbsence(unregisteredIdentity, []);
   },
   15_000,
 );
