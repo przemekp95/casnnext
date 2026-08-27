@@ -1,16 +1,23 @@
 import { render, screen } from "@testing-library/react";
 import type { ComponentPropsWithoutRef, ComponentType } from "react";
+import Chart from "@/components/charts/Chart";
+import Map from "@/components/maps/Map";
 import MDXContent from "@/components/mdx/MDXContent";
 
 type MdxComponentMap = {
   img?: ComponentType<ComponentPropsWithoutRef<"img">>;
   Image?: ComponentType<ComponentPropsWithoutRef<"img">>;
   h1?: ComponentType<ComponentPropsWithoutRef<"h1">>;
+  Chart?: typeof Chart;
+  Map?: typeof Map;
 };
+
+let mockMdxComponents: MdxComponentMap | undefined;
 
 // Mock MDXRemote since it's hard to test directly
 jest.mock("next-mdx-remote/rsc", () => ({
   MDXRemote: ({ source, components }: { source: string; components?: MdxComponentMap }) => {
+    mockMdxComponents = components;
     const Image = components?.Image;
     const Img = components?.img;
     const Heading = components?.h1;
@@ -62,5 +69,12 @@ describe("MDXContent", () => {
     );
     expect(screen.getByRole("heading", { level: 2, name: "MDX heading" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 1, name: "MDX heading" })).not.toBeInTheDocument();
+  });
+
+  it("passes the production Chart and Map entries to MDX", () => {
+    render(<MDXContent source="Chart and map content" />);
+
+    expect(mockMdxComponents?.Chart).toBe(Chart);
+    expect(mockMdxComponents?.Map).toBe(Map);
   });
 });
