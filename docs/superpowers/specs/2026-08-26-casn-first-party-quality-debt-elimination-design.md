@@ -26,6 +26,16 @@ that boundary is green and addresses the remaining application, component,
 script, setup, and test debt. Keeping the plans separate prevents a CSS or test
 failure from obscuring the correctness of the production runtime artifact.
 
+## Task 6 lifecycle-driver addendum
+
+The original Bash regression-runner mechanics for Task 6 were rejected after
+implementation review exposed a new test-infrastructure debt boundary. The
+proposed replacement is specified in
+`docs/superpowers/specs/2026-08-27-casn-disposable-lifecycle-driver-design.md`.
+That addendum supersedes only Task 6 mechanics; it does not change this
+specification's application, quality, migration, deployment, or production
+boundaries.
+
 ## Verified starting inventory
 
 Running ESLint over the current first-party tree with inline configuration
