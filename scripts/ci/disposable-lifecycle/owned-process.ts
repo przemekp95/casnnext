@@ -320,14 +320,18 @@ async function waitForChildClose(
   state: OwnedProcessState,
   timeoutMs: number,
 ): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (isLive(state.child) && !state.childClosed) {
-    if (Date.now() >= deadline) {
+  const deadline = performance.now() + timeoutMs;
+  while (true) {
+    const childClosed = state.childClosed;
+    const observedAt = performance.now();
+    if (childClosed) {
+      return observedAt < deadline;
+    }
+    if (observedAt >= deadline) {
       return false;
     }
     await new Promise((resolveWait) => setTimeout(resolveWait, 10));
   }
-  return true;
 }
 
 async function waitForLogStreams(state: OwnedProcessState, timeoutMs: number): Promise<void> {

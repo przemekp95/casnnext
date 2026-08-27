@@ -29,6 +29,7 @@ import {
 import {
   assertOwnedProcessAuthority,
   finishGatedProcess,
+  reapEscalatedOwnedProcess,
   releaseGatedProcess,
   spawnGatedProcess,
   waitForOwnedOutcome,
@@ -848,7 +849,7 @@ test(
 );
 
 test(
-  'self-expires and reaps after a disconnected release channel without signaling',
+  'retains cleanup failure when a disconnected release channel prevents registered close',
   async () => {
     const fixtureGroupSignals: Array<
       Readonly<{ processGroupId: number; signal: NodeJS.Signals }>
@@ -878,7 +879,7 @@ test(
         throw new Error('release failure was not an Error');
       }
       expect(fixture.latestChild().child.exitCode).toBe(124);
-      expect(releaseFailure.message).toContain('self-expired and was reaped');
+      expect(releaseFailure.message).toContain('retained cleanup failure');
       expect(signals).toEqual([]);
     }, {
       groupSignal: (processGroupId, signal) => {
@@ -2609,5 +2610,67 @@ test(
       expect(existsSync(root.path)).toBe(true);
       await expectStableOwnedAbsence(owned.anchor, members);
     }, { timeoutMs: 15_000 }),
+  15_000,
+);
+
+test(
+  'rejects registered child close observed after the escalation reap deadline despite signalCode',
+  () =>
+    withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      let reapPhase = false;
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: ['-e', 'setInterval(() => undefined, 1000)'],
+          env: {},
+        },
+        fixtureDependencies(fixture, {
+          lookupProcess: (pid) => reapPhase ? { kind: 'absent' } : lookupProcess(pid),
+        }),
+      );
+      const stdout = owned.child.stdout;
+      const stderr = owned.child.stderr;
+      if (stdout === null || stderr === null) {
+        throw new Error('fixture gate capture streams were unavailable');
+      }
+      const stdoutClosed = new Promise<void>((resolve) => stdout.once('close', resolve));
+      const stderrClosed = new Promise<void>((resolve) => stderr.once('close', resolve));
+      stdout.destroy();
+      stderr.destroy();
+      await Promise.all([stdoutClosed, stderrClosed]);
+
+      Object.defineProperty(owned.child, 'signalCode', {
+        configurable: true,
+        enumerable: true,
+        value: 'SIGKILL',
+        writable: true,
+      });
+      reapPhase = true;
+      const lateClose = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          owned.child.emit('close', null, 'SIGKILL');
+          resolve();
+        }, 25);
+      });
+
+      try {
+        await expect(reapEscalatedOwnedProcess(owned, 10)).rejects.toMatchObject({
+          exitCode: 124,
+          message: 'escalated gate reap: timed out after 10ms',
+        });
+      } finally {
+        await lateClose;
+        Object.defineProperty(owned.child, 'signalCode', {
+          configurable: true,
+          enumerable: true,
+          value: null,
+          writable: true,
+        });
+      }
+
+      expect(existsSync(root.path)).toBe(true);
+    }),
   15_000,
 );
