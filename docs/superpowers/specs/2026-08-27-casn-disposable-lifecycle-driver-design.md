@@ -2,8 +2,7 @@
 
 **Date:** 2026-08-27
 
-**Status:** Proposed — architecture approved in chat; written specification
-awaiting review
+**Status:** Approved
 
 ## Purpose
 
@@ -128,9 +127,10 @@ repository convention requires it, but the responsibility boundaries must not
 be recombined into one large file.
 
 The shell entrypoint contains only `set -euo pipefail`, repository-root
-resolution, a check for the repository-local `tsx` executable, and `exec` of
-`cli.ts` with the original arguments. It contains no process parsing,
-signalling, cleanup, Docker handling, or suppression.
+resolution, a check for the repository-local `tsx` executable, a controlled
+`cd` to that root, and `exec` of `cli.ts` with the original arguments. It
+contains no process parsing, signalling, cleanup, Docker handling, or
+suppression.
 
 The driver runs through the repository-local `node_modules/.bin/tsx`; it does
 not use a network-resolving `npx` fallback.
@@ -165,8 +165,9 @@ The parser locates the final `) ` delimiter so process names containing spaces
 or parentheses remain valid. Process state must be one literal Linux state
 character accepted by the adapter; malformed text is `unknown`.
 
-A missing `stat` file is `absent` only after a second path check confirms that
-the entry remains absent. A still-present unreadable, malformed, dangling, or
+A missing `stat` file is `absent` only after two observations confirm the
+`/proc/<pid>` directory itself is absent. An unreadable PID directory, access or
+I/O error, still-present PID with missing `stat`, malformed, dangling, or
 inconsistent entry is `unknown`. Callers must exhaustively handle all three
 variants. `unknown` can never establish cleanup, readiness, ownership, or
 permission to signal.
@@ -183,17 +184,23 @@ identity before sending the release message. The child cannot start the target
 command before release.
 
 If identity capture is absent or unknown, the gate stays closed and the driver
-fails. Because the parent already owns the PID returned by `spawn`, it can
-revalidate that exact identity and perform bounded cleanup without discovering
-authority from the child.
+fails. The gate child has its own hard pre-release deadline and exits without
+launching a target when no release arrives. Because the parent owns the PID
+returned by `spawn`, it may perform bounded cleanup only after revalidating that
+exact identity; an unknown lookup never permits a parent signal. If both lookup
+and self-expiry proof fail, the invocation reports cleanup failure and retains
+diagnostics rather than expanding authority.
 
 The parent also requires the Node child handle to remain live, PPID to equal the
 parent, and PID, process group, and session to identify the new detached leader
 before releasing the gate. The gated child remains that stable driver-owned
-process-group/session anchor until its target exits and the group is proved
-empty. Every exact-PID or process-group TERM/KILL is preceded immediately by a
-fresh full anchor identity match. PID reuse, changed process group/session, or
-unexplained reparenting revokes authority and fails closed.
+process-group/session anchor until the target group is empty or the final
+whole-group KILL is issued. Every exact-PID or process-group TERM/KILL is
+preceded immediately by a fresh full anchor identity match. PID reuse, changed
+process group/session, or unexplained reparenting revokes authority and fails
+closed. A whole-group KILL intentionally includes the anchor; after it, no
+further signal is authorized and the parent only reaps its existing child handle
+and proves the group absent.
 
 The driver does not adopt descendants merely because they share a process
 group, argv, cwd, environment value, or name. Group scans are absence evidence,
@@ -212,15 +219,23 @@ The parent records only resources it creates directly:
 - evidence files created beneath that root.
 
 At root creation the driver records device, inode, owner, and mode from an open
-directory descriptor. Before traversal or removal it requires the path to be a
-non-symlink directory with the same identity. Replacement, disappearance at an
-unexpected phase, permission loss, or a dangling symlink is a cleanup failure.
+directory descriptor, plus device/inode/type for every child it creates.
+Cleanup reverifies and unlinks only those known children relative to the open
+descriptor, rejects unknown entries, and never recursively removes the root
+path. It finishes through an identity-checked private tombstone and
+non-recursive `rmdir`. Replacement, disappearance at an unexpected phase,
+permission loss, or a dangling symlink is a cleanup failure.
 
-Evidence is written as one schema-versioned JSON document to a mode-0600
+Evidence serializes process start time as a decimal string; JSON never receives
+a raw `bigint`. It is written as one schema-versioned JSON document to a mode-0600
 temporary file, `fsync`ed, and published with a no-clobber operation. The
 document is diagnostic state, not authority after the creating process exits.
 A later invocation never automatically signals or deletes resources named by a
 stale evidence document.
+
+Captured stdout and stderr each have a fixed byte limit. Overflow is drained to
+avoid pipe deadlock, recorded as cleanup failure, and never consumes unbounded
+disk.
 
 ### Unchanged harness resources
 
@@ -250,9 +265,12 @@ Initialization before root creation is a no-op cleanup; after creation, only
 the anchored root and parent-owned identities are eligible.
 
 Each wait has its own deadline and child-liveness condition. Cleanup first
-signals the target through the freshly verified driver-owned group anchor,
-proves the group empty, then reaps the gated anchor and removes the evidence
-root. Cleanup failure overrides an otherwise successful scenario. An incoming
+signals the target through the freshly verified driver-owned group anchor. If
+TERM leaves only the anchor, the parent sends `finish` and reaps it. If other
+members survive, the parent revalidates the anchor, KILLs the whole group, sends
+no later signal, reaps the child handle, and proves the group absent. It then
+removes the evidence root. Cleanup failure overrides an otherwise successful
+scenario. An incoming
 nonzero or signal-derived status is preserved unless cleanup itself also fails,
 in which case the report records both and returns the cleanup failure status.
 
