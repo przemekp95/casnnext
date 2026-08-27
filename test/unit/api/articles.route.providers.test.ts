@@ -58,6 +58,14 @@ describe("/api/articles DB-backed read contract", () => {
     expect(() => toArticleResponse(malformed)).toThrow("Invalid article record");
   });
 
+  it.each([
+    ["number", 7],
+    ["text", "article"],
+    ["null", null],
+  ])("rejects a %s value before reading article fields", (_kind, malformed: unknown) => {
+    expect(() => toArticleResponse(malformed)).toThrow("Invalid article record");
+  });
+
   it("GET returns the DB-backed article contract", async () => {
     const queryBuilder = makeReadQueryBuilder([
       {
