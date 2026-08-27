@@ -6,46 +6,476 @@ readonly repository_root
 readonly harness="$repository_root/scripts/ci/with-disposable-app.sh"
 readonly identity_library="$repository_root/scripts/ci/disposable-process-identity.sh"
 readonly process_supervisor="$repository_root/scripts/ci/disposable-process-supervisor.sh"
+readonly registry_library="$repository_root/scripts/ci/disposable-process-registry.sh"
 # shellcheck source=scripts/ci/disposable-process-identity.sh
 source "$identity_library"
+# shellcheck source=scripts/ci/disposable-process-registry.sh
+source "$registry_library"
 real_docker="$(command -v docker)"
 real_ss="$(command -v ss)"
 readonly real_docker real_ss
 test_root="$(mktemp -d '/tmp/casn-quality-regression.XXXXXX')"
 readonly test_root
 readonly fake_bin="$test_root/bin"
-mkdir -p "$fake_bin"
+invocation_id="$(openssl rand -hex 16)"
+readonly invocation_id
+readonly identity_registry="$test_root/registry.$invocation_id"
+readonly temp_registry="$test_root/temp-registry.$invocation_id"
+mkdir -m 0700 "$fake_bin" "$identity_registry" "$temp_registry"
 
 fail() {
   printf '[disposable-app-regression] ERROR: %s\n' "$1" >&2
   return 1
 }
 
+register_invocation_identity() {
+  local pid="$1"
+  local identity="$2"
+  local role="$3"
+
+  casn_registry_write_identity \
+    "$identity_registry" "$invocation_id" "$pid" "$identity" "$role" >/dev/null
+}
+
+register_invocation_temp_root() {
+  local root="$1"
+  local role="$2"
+  local pending
+  local entry
+  local line
+
+  [[ "$root" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+$ ]] || return 1
+  casn_registry_role_is_valid "$role" || return 1
+  [[ -d "$temp_registry" && ! -L "$temp_registry" ]] || return 1
+  pending="$(mktemp "$temp_registry/.pending.XXXXXX")" || return 1
+  chmod 0600 "$pending" || {
+    rm -f -- "$pending"
+    return 1
+  }
+  printf 'v1\t%s\t%s\t%s\n' "$invocation_id" "$root" "$role" >"$pending" || {
+    rm -f -- "$pending"
+    return 1
+  }
+  entry="$temp_registry/entry.${pending##*.}"
+  [[ ! -e "$entry" ]] || {
+    rm -f -- "$pending"
+    return 1
+  }
+  mv -- "$pending" "$entry" || {
+    rm -f -- "$pending"
+    return 1
+  }
+  IFS= read -r line <"$entry" || return 1
+  [[ "$line" == "v1"$'\t'"$invocation_id"$'\t'"$root"$'\t'"$role" \
+    && "$(wc -l <"$entry")" -eq 1 ]]
+}
+
+read_invocation_temp_entry() {
+  local entry="$1"
+  local line
+  local pattern
+
+  [[ "$entry" == "$temp_registry"/entry.* && -f "$entry" && ! -L "$entry" ]] || return 1
+  IFS= read -r line 2>/dev/null <"$entry" || return 1
+  [[ "$(wc -l <"$entry")" -eq 1 ]] || return 1
+  pattern=$'^v1\t([0-9a-f]{32})\t(/tmp/casn-quality\.[A-Za-z0-9]+)\t([a-z][a-z0-9-]{0,31})$'
+  [[ "$line" =~ $pattern && "${BASH_REMATCH[1]}" == "$invocation_id" ]] || return 1
+  printf '%s %s\n' "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
+}
+
+validate_invocation_registry() {
+  local entry
+  local record
+  local pid
+  local start_time
+  local parent_pid
+  local process_group
+  local session_id
+  local role
+  local key
+  local malformed=0
+  local -A seen=()
+
+  casn_registry_directory_is_valid "$identity_registry" "$invocation_id" || return 1
+  for entry in \
+    "$identity_registry"/* "$identity_registry"/.[!.]* "$identity_registry"/..?*; do
+    [[ -e "$entry" ]] || continue
+    if [[ "$entry" == "$identity_registry"/.pending.* ]]; then
+      malformed=1
+      continue
+    fi
+    if ! record="$(casn_registry_read_entry "$entry" "$identity_registry" "$invocation_id")"; then
+      malformed=1
+      continue
+    fi
+    read -r pid start_time parent_pid process_group session_id role <<<"$record"
+    key="$pid:$start_time:$parent_pid:$process_group:$session_id:$role"
+    if [[ -n "${seen[$key]:-}" ]]; then
+      malformed=1
+    else
+      seen[$key]=1
+    fi
+  done
+  ((malformed == 0))
+}
+
+registry_stable_identity_matches() {
+  local pid="$1"
+  local start_time="$2"
+  local process_group="$3"
+  local session_id="$4"
+  local current_identity
+  local current_start_time
+  local current_process_group
+  local current_session_id
+
+  current_identity="$(casn_read_process_identity "$pid")" || return 1
+  read -r current_start_time current_process_group _ current_session_id <<<"$current_identity"
+  [[ "$current_start_time" == "$start_time" \
+    && "$current_process_group" == "$process_group" \
+    && "$current_session_id" == "$session_id" ]]
+}
+
+registry_signal_identities() {
+  local signal_name="$1"
+  local excluded_pid="${2:-0}"
+  local selected_class="${3:-all}"
+  local entry
+  local record
+  local pid
+  local start_time
+  local parent_pid
+  local process_group
+  local session_id
+  local role
+  local state
+  local failed=0
+  local pass
+  local role_class
+
+  for pass in descendant command supervisor harness; do
+    [[ "$selected_class" == 'all' || "$selected_class" == "$pass" ]] || continue
+    for entry in "$identity_registry"/entry.*; do
+      [[ -e "$entry" ]] || continue
+      if ! record="$(casn_registry_read_entry "$entry" "$identity_registry" "$invocation_id")"; then
+        failed=1
+        continue
+      fi
+      read -r pid start_time parent_pid process_group session_id role <<<"$record"
+      [[ "$pid" != "$excluded_pid" && "$role" != *-observation ]] || continue
+      role_class='command'
+      [[ "$role" == *descendant* ]] && role_class=descendant
+      [[ "$role" == *supervisor* ]] && role_class=supervisor
+      [[ "$role" == *harness* ]] && role_class=harness
+      [[ "$pass" == "$role_class" ]] || continue
+      if casn_process_identity_matches \
+        "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id"; then
+        state="$(casn_read_process_state "$pid")" || {
+          failed=1
+          continue
+        }
+        [[ "$state" != 'Z' ]] || continue
+        if ! casn_process_identity_matches \
+          "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id"; then
+          registry_stable_identity_matches "$pid" "$start_time" "$process_group" "$session_id" \
+            && failed=1
+          continue
+        fi
+        if ! kill -"$signal_name" "$pid"; then
+          registry_stable_identity_matches "$pid" "$start_time" "$process_group" "$session_id" \
+            && failed=1
+        fi
+      elif registry_stable_identity_matches "$pid" "$start_time" "$process_group" "$session_id"; then
+        failed=1
+      fi
+    done
+  done
+  return "$failed"
+}
+
+reap_registered_children() {
+  local entry
+  local record
+  local pid
+  local start_time
+  local parent_pid
+  local process_group
+  local session_id
+  local role
+  local state
+
+  for entry in "$identity_registry"/entry.*; do
+    [[ -e "$entry" ]] || continue
+    record="$(casn_registry_read_entry "$entry" "$identity_registry" "$invocation_id")" \
+      || continue
+    read -r pid start_time parent_pid process_group session_id role <<<"$record"
+    [[ "$parent_pid" == "$$" ]] || continue
+    if casn_process_identity_matches \
+      "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id"; then
+      state="$(casn_read_process_state "$pid")" || continue
+      if [[ "$state" == 'Z' ]]; then
+        set +e
+        wait "$pid" 2>/dev/null
+        set -e
+      fi
+    fi
+  done
+}
+
+registered_identities_absent_once() {
+  local entry
+  local record
+  local pid
+  local start_time
+  local parent_pid
+  local process_group
+  local session_id
+  local role
+  local failed=0
+  local group_status
+  local group_key
+  local -A groups_checked=()
+
+  for entry in "$identity_registry"/.pending.*; do
+    [[ -e "$entry" ]] || continue
+    failed=1
+  done
+  for entry in "$identity_registry"/entry.*; do
+    [[ -e "$entry" ]] || continue
+    if ! record="$(casn_registry_read_entry "$entry" "$identity_registry" "$invocation_id")"; then
+      failed=1
+      continue
+    fi
+    read -r pid start_time parent_pid process_group session_id role <<<"$record"
+    if casn_process_identity_matches \
+      "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id" \
+      || registry_stable_identity_matches "$pid" "$start_time" "$process_group" "$session_id"; then
+      failed=1
+    fi
+    group_key="$process_group:$session_id"
+    if [[ -z "${groups_checked[$group_key]:-}" ]]; then
+      groups_checked[$group_key]=1
+      if casn_process_group_has_members "$process_group" "$session_id" 0; then
+        failed=1
+      else
+        group_status=$?
+        ((group_status == 1)) || failed=1
+      fi
+    fi
+  done
+  return "$failed"
+}
+
+remove_registered_temp_roots() {
+  local entry
+  local record
+  local root
+  local role
+  local failed=0
+
+  for entry in "$temp_registry"/* "$temp_registry"/.[!.]* "$temp_registry"/..?*; do
+    [[ -e "$entry" ]] || continue
+    if [[ "$entry" == "$temp_registry"/.pending.* ]]; then
+      failed=1
+      continue
+    fi
+    if ! record="$(read_invocation_temp_entry "$entry")"; then
+      failed=1
+      continue
+    fi
+    read -r root role <<<"$record"
+    if [[ -e "$root" ]]; then
+      rm -rf -- "$root" || failed=1
+    fi
+    [[ ! -e "$root" ]] || failed=1
+  done
+  return "$failed"
+}
+
+registered_temp_roots_absent_once() {
+  local entry
+  local record
+  local root
+  local role
+  local failed=0
+
+  for entry in "$temp_registry"/.pending.*; do
+    [[ -e "$entry" ]] || continue
+    failed=1
+  done
+  for entry in "$temp_registry"/entry.*; do
+    [[ -e "$entry" ]] || continue
+    if ! record="$(read_invocation_temp_entry "$entry")"; then
+      failed=1
+      continue
+    fi
+    read -r root role <<<"$record"
+    [[ ! -e "$root" ]] || failed=1
+  done
+  return "$failed"
+}
+
+registry_contains_identity_role() {
+  local expected_pid="$1"
+  local expected_identity="$2"
+  local expected_role="$3"
+  local expected_start_time
+  local expected_process_group
+  local expected_parent_pid
+  local expected_session_id
+  local entry
+  local record
+  local pid
+  local start_time
+  local parent_pid
+  local process_group
+  local session_id
+  local role
+
+  read -r expected_start_time expected_process_group expected_parent_pid expected_session_id \
+    <<<"$expected_identity"
+  for entry in "$identity_registry"/entry.*; do
+    [[ -e "$entry" ]] || continue
+    record="$(casn_registry_read_entry "$entry" "$identity_registry" "$invocation_id")" \
+      || continue
+    read -r pid start_time parent_pid process_group session_id role <<<"$record"
+    if [[ "$pid" == "$expected_pid" && "$start_time" == "$expected_start_time" \
+      && "$parent_pid" == "$expected_parent_pid" \
+      && "$process_group" == "$expected_process_group" \
+      && "$session_id" == "$expected_session_id" && "$role" == "$expected_role" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+promote_reparented_observations() {
+  local entry
+  local record
+  local pid
+  local start_time
+  local parent_pid
+  local process_group
+  local session_id
+  local role
+  local current_identity
+  local current_start_time
+  local current_process_group
+  local current_parent_pid
+  local current_session_id
+
+  for entry in "$identity_registry"/entry.*; do
+    [[ -e "$entry" ]] || continue
+    record="$(casn_registry_read_entry "$entry" "$identity_registry" "$invocation_id")" \
+      || return 1
+    read -r pid start_time parent_pid process_group session_id role <<<"$record"
+    [[ "$role" == 'reparent-observation' ]] || continue
+    current_identity="$(casn_read_process_identity "$pid")" || continue
+    read -r current_start_time current_process_group current_parent_pid current_session_id \
+      <<<"$current_identity"
+    [[ "$current_start_time" == "$start_time" \
+      && "$current_process_group" == "$process_group" \
+      && "$current_session_id" == "$session_id" ]] || return 1
+    if registry_contains_identity_role "$pid" "$current_identity" registered-descendant; then
+      continue
+    fi
+    if [[ "$current_parent_pid" == "$parent_pid" ]]; then
+      casn_process_identity_matches \
+        "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id" || return 1
+    fi
+    register_invocation_identity "$pid" "$current_identity" registered-descendant || return 1
+  done
+}
+
+prove_invocation_stably_absent() {
+  local attempts="${1:-5}"
+  local attempt
+  local observed=0
+
+  for ((attempt = 0; attempt < attempts; attempt += 1)); do
+    registered_identities_absent_once || observed=1
+    registered_temp_roots_absent_once || observed=1
+    sleep 0.1
+  done
+  ((observed == 0))
+}
+
+teardown_invocation_registry() {
+  local cleanup_failed=0
+  local attempt
+  local role_class
+
+  promote_reparented_observations || cleanup_failed=1
+  validate_invocation_registry || cleanup_failed=1
+  for role_class in descendant command supervisor harness; do
+    registry_signal_identities TERM 0 "$role_class" || cleanup_failed=1
+    for ((attempt = 0; attempt < 10; attempt += 1)); do
+      reap_registered_children
+      registered_authoritative_identities_absent_except 0 "$role_class" && break
+      sleep 0.1
+    done
+    registry_signal_identities KILL 0 "$role_class" || cleanup_failed=1
+    for ((attempt = 0; attempt < 50; attempt += 1)); do
+      reap_registered_children
+      registered_authoritative_identities_absent_except 0 "$role_class" && break
+      sleep 0.1
+    done
+    registered_authoritative_identities_absent_except 0 "$role_class" \
+      || cleanup_failed=1
+  done
+  remove_registered_temp_roots || cleanup_failed=1
+  prove_invocation_stably_absent 5 || cleanup_failed=1
+  if ((cleanup_failed == 0)); then
+    printf '[disposable-app-regression] invocation teardown verified invocation=%s registry=%s\n' \
+      "$invocation_id" "$identity_registry" >&2
+  fi
+  return "$cleanup_failed"
+}
+
 cleanup() {
+  local incoming_status=$?
   local log
   local container
   local harness_temp
+  local cleanup_failed=0
+  local final_status
 
+  trap - EXIT HUP INT TERM
   set +e
+  teardown_invocation_registry || cleanup_failed=1
   for log in "$test_root"/*.log; do
     [[ -f "$log" ]] || continue
 
     container="$(sed -n 's/^\[disposable-app\] resources container=\([^ ]*\) temp_dir=[^ ]*$/\1/p' "$log" | tail -n 1)"
     if [[ "$container" =~ ^casn-quality-[0-9]+-[0-9a-f]{12}-mysql$ ]]; then
-      "$real_docker" container rm --force "$container" >/dev/null 2>&1
+      "$real_docker" container rm --force "$container" >/dev/null 2>&1 || true
     fi
 
     harness_temp="$(sed -n 's/^\[disposable-app\] resources container=[^ ]* temp_dir=\([^ ]*\)$/\1/p' "$log" | tail -n 1)"
     if [[ "$harness_temp" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+$ && -d "$harness_temp" ]]; then
-      rm -rf -- "$harness_temp"
+      rm -rf -- "$harness_temp" || cleanup_failed=1
     fi
   done
 
-  if [[ "$test_root" =~ ^/tmp/casn-quality-regression\.[A-Za-z0-9]+$ && -d "$test_root" ]]; then
-    rm -rf -- "$test_root"
+  if ((cleanup_failed == 0)); then
+    if [[ "$test_root" =~ ^/tmp/casn-quality-regression\.[A-Za-z0-9]+$ && -d "$test_root" ]]; then
+      rm -rf -- "$test_root" || cleanup_failed=1
+    else
+      cleanup_failed=1
+    fi
+    [[ ! -e "$test_root" ]] || cleanup_failed=1
   fi
+
+  final_status="$incoming_status"
+  if ((incoming_status == 0 && cleanup_failed != 0)); then
+    final_status=1
+  fi
+  exit "$final_status"
 }
 trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 cat >"$fake_bin/docker" <<'SH'
 #!/usr/bin/env bash
@@ -241,14 +671,6 @@ test_stable_identity_matches() {
     && "$current_session_id" == "$expected_session_id" ]]
 }
 
-signal_stably_owned_test_process() {
-  local signal_name="$1"
-  local pid="$2"
-  local identity="$3"
-  test_identity_matches "$pid" "$identity" || return 1
-  kill -"$signal_name" "$pid"
-}
-
 wait_exact_process_absent() {
   local pid="$1"
   local identity="$2"
@@ -262,56 +684,57 @@ wait_exact_process_absent() {
   ! test_stable_identity_matches "$pid" "$identity"
 }
 
-cleanup_exact_test_process() {
-  local pid="$1"
-  local identity="$2"
-
-  if test_identity_matches "$pid" "$identity"; then
-    signal_owned_test_process KILL "$pid" "$identity" || return 1
-  elif test_stable_identity_matches "$pid" "$identity"; then
-    local current_identity
-    current_identity="$(casn_read_process_identity "$pid")" || return 1
-    signal_owned_test_process KILL "$pid" "$current_identity" || return 1
-  fi
-  wait_exact_process_absent "$pid" "$identity" 50
-}
-
-cleanup_exact_test_group() {
-  local pid="$1"
-  local identity="$2"
-  local current_identity
-  local process_group
-  local session_id
-
-  test_stable_identity_matches "$pid" "$identity" || return 0
-  current_identity="$(casn_read_process_identity "$pid")" || return 1
-  read -r _ process_group _ session_id <<<"$current_identity"
-  [[ "$process_group" == "$pid" && "$session_id" == "$pid" ]] || return 1
-  signal_owned_test_group KILL "$pid" "$current_identity" || return 1
-  wait_exact_process_absent "$pid" "$identity" 50
-}
-
 run_changed_ppid_signal_case() {
   local marker="$test_root/changed-ppid.ready"
+  local hold_fifo="$test_root/changed-ppid.hold"
+  local log="$test_root/changed-ppid.log"
+  local parent_pid
+  local parent_identity
   local pid
   local original_identity
   local current_identity
   local attempt
   local signal_status
 
-  IDENTITY_LIBRARY="$identity_library" CHANGED_PPID_MARKER="$marker" bash -c '
-    setsid bash -c '\''
+  mkfifo -- "$hold_fifo"
+  spawn_registered_session "$log" fixture-harness env \
+    CHANGED_PPID_MARKER="$marker" \
+    CHANGED_PPID_HOLD_FIFO="$hold_fifo" \
+    IDENTITY_LIBRARY="$identity_library" \
+    REGISTRY_LIBRARY="$registry_library" \
+    CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
+    bash -c '
+    exec 9<>"$CHANGED_PPID_HOLD_FIFO"
+    bash -c '\''
+      set -euo pipefail
+      trap "" TERM HUP INT
+      source "$IDENTITY_LIBRARY"
+      source "$REGISTRY_LIBRARY"
       owned_pid="$BASHPID"
-      identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
-      printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CHANGED_PPID_MARKER"
-      exec sleep 30
+      identity="$(casn_read_process_identity "$owned_pid")"
+      casn_registry_write_identity \
+        "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+        "$owned_pid" "$identity" reparent-observation >/dev/null
+      marker_temp="${CHANGED_PPID_MARKER}.tmp.$owned_pid"
+      printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$marker_temp"
+      mv -- "$marker_temp" "$CHANGED_PPID_MARKER"
+      while :; do read -r -t 1 _ <&9 || true; done
     '\'' &
     for _ in {1..500}; do
       [[ -s "$CHANGED_PPID_MARKER" ]] && exit 0
-      sleep 0.01
+      read -r -t 0.01 _ <&9 || true
     done
     exit 97
-  '
+  ' || fail 'unable to launch changed-PPID registered fixture'
+  parent_pid="$spawned_pid"
+  parent_identity="$spawned_identity"
+
+  for ((attempt = 0; attempt < 100; attempt += 1)); do
+    [[ -s "$marker" ]] && break
+    sleep 0.05
+  done
+  [[ -s "$marker" ]] || fail 'changed-PPID fixture did not publish its identity'
 
   pid="$(sed -n '1p' "$marker")"
   original_identity="$(sed -n '2p' "$marker")"
@@ -328,9 +751,11 @@ run_changed_ppid_signal_case() {
   done
   [[ -n "$current_identity" && "$current_identity" != "$original_identity" ]] \
     || fail 'changed-PPID fixture did not reparent within five seconds'
+  bounded_reap_test_job "$parent_pid" "$parent_identity" 50 \
+    || fail 'changed-PPID parent did not become reapable'
 
   set +e
-  signal_stably_owned_test_process TERM "$pid" "$original_identity"
+  signal_owned_test_process TERM "$pid" "$original_identity"
   signal_status=$?
   set -e
   if ((signal_status == 0)); then
@@ -338,8 +763,10 @@ run_changed_ppid_signal_case() {
     fail 'stable signal helper accepted a changed expected PPID'
   fi
 
-  cleanup_exact_test_process "$pid" "$current_identity" \
-    || fail 'changed-PPID exact cleanup failed'
+  promote_reparented_observations \
+    || fail 'changed-PPID observation could not be promoted to current full identity'
+  teardown_invocation_registry \
+    || fail 'changed-PPID exact registry cleanup failed'
   printf '[disposable-app-regression] changed-ppid-signal passed\n'
 }
 
@@ -363,21 +790,6 @@ signal_owned_test_process() {
 
   test_identity_matches "$pid" "$identity" || return 1
   kill -"$signal_name" "$pid"
-}
-
-signal_owned_test_group() {
-  local signal_name="$1"
-  local pid="$2"
-  local identity="$3"
-  local start_time
-  local process_group
-  local parent_pid
-  local session_id
-
-  read -r start_time process_group parent_pid session_id <<<"$identity"
-  [[ "$process_group" == "$pid" && "$session_id" == "$pid" ]] || return 1
-  casn_process_identity_matches "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id" || return 1
-  kill -"$signal_name" -- "-$process_group"
 }
 
 reaped_status=''
@@ -413,55 +825,6 @@ bounded_reap_test_job() {
 }
 
 owned_run_status=''
-owned_group_has_members() {
-  local supervisor_pid="$1"
-  local supervisor_identity="$2"
-  local start_time
-  local process_group
-  local parent_pid
-  local session_id
-
-  read -r start_time process_group parent_pid session_id <<<"$supervisor_identity"
-  casn_process_identity_matches \
-    "$supervisor_pid" "$start_time" "$process_group" "$parent_pid" "$session_id" \
-    || return 2
-  casn_process_group_has_members "$process_group" "$session_id" "$supervisor_pid"
-}
-
-wait_owned_group_empty() {
-  local supervisor_pid="$1"
-  local supervisor_identity="$2"
-  local max_attempts="$3"
-  local attempt
-  local group_status
-
-  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
-    if owned_group_has_members "$supervisor_pid" "$supervisor_identity"; then
-      :
-    else
-      group_status=$?
-      ((group_status == 1)) && return 0
-      return 2
-    fi
-    sleep 0.1
-  done
-  ! owned_group_has_members "$supervisor_pid" "$supervisor_identity"
-}
-
-wait_process_group_empty() {
-  local process_group="$1"
-  local session_id="$2"
-  local excluded_pid="$3"
-  local max_attempts="$4"
-  local attempt
-
-  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
-    casn_process_group_has_members "$process_group" "$session_id" "$excluded_pid" || return 0
-    sleep 0.1
-  done
-  ! casn_process_group_has_members "$process_group" "$session_id" "$excluded_pid"
-}
-
 stop_owned_supervisor() {
   local supervisor_pid="$1"
   local supervisor_identity="$2"
@@ -471,323 +834,36 @@ stop_owned_supervisor() {
   printf 'stop\n' >&"$control_fd"
 }
 
-terminate_owned_group() {
-  local supervisor_pid="$1"
-  local supervisor_identity="$2"
-  local control_fd="$3"
-  local process_group
-  local session_id
-
-  read -r _ process_group _ session_id <<<"$supervisor_identity"
-
-  if owned_group_has_members "$supervisor_pid" "$supervisor_identity"; then
-    signal_owned_test_group TERM "$supervisor_pid" "$supervisor_identity" || return 1
-    if ! wait_owned_group_empty "$supervisor_pid" "$supervisor_identity" 10; then
-      signal_owned_test_group KILL "$supervisor_pid" "$supervisor_identity" || return 1
-      wait_process_group_empty "$process_group" "$session_id" "$supervisor_pid" 50 || return 1
-      return 0
-    fi
-  fi
-
-  stop_owned_supervisor "$supervisor_pid" "$supervisor_identity" "$control_fd"
-}
-
-cleanup_failed_owned_run() {
-  local supervisor_pid="$1"
-  local supervisor_identity="$2"
-  local control_fd="$3"
-  local supervisor_root="$4"
-  local current_identity
-  local start_time
-  local process_group
-  local parent_pid
-  local session_id
-  local cleanup_failed=0
-
-  if [[ -z "$supervisor_identity" ]]; then
-    if current_identity="$(casn_read_process_identity "$supervisor_pid")"; then
-      read -r start_time process_group parent_pid session_id <<<"$current_identity"
-      if [[ "$parent_pid" == "$$" && "$process_group" == "$supervisor_pid" \
-        && "$session_id" == "$supervisor_pid" ]]; then
-        supervisor_identity="$current_identity"
-      else
-        cleanup_failed=1
-      fi
-    elif [[ -e "/proc/$supervisor_pid/stat" ]]; then
-      cleanup_failed=1
-    fi
-  fi
-
-  if [[ -n "$supervisor_identity" ]]; then
-    read -r _ process_group _ session_id <<<"$supervisor_identity"
-    if test_identity_matches "$supervisor_pid" "$supervisor_identity"; then
-      if ! signal_owned_test_group KILL "$supervisor_pid" "$supervisor_identity"; then
-        [[ ! -e "/proc/$supervisor_pid/stat" ]] || cleanup_failed=1
-      fi
-    elif test_stable_identity_matches "$supervisor_pid" "$supervisor_identity"; then
-      current_identity="$(casn_read_process_identity "$supervisor_pid")" || cleanup_failed=1
-      if [[ -n "$current_identity" ]]; then
-        read -r _ process_group _ session_id <<<"$current_identity"
-        if [[ "$process_group" == "$supervisor_pid" && "$session_id" == "$supervisor_pid" ]]; then
-          if ! signal_owned_test_group KILL "$supervisor_pid" "$current_identity"; then
-            [[ ! -e "/proc/$supervisor_pid/stat" ]] || cleanup_failed=1
-          fi
-        else
-          cleanup_failed=1
-        fi
-      fi
-    elif [[ -e "/proc/$supervisor_pid/stat" ]]; then
-      cleanup_failed=1
-    fi
-
-    if ! bounded_reap_test_job "$supervisor_pid" "$supervisor_identity" 50; then
-      [[ ! -e "/proc/$supervisor_pid/stat" ]] || cleanup_failed=1
-    fi
-    wait_process_group_empty "$process_group" "$session_id" "$supervisor_pid" 50 \
-      || cleanup_failed=1
-  fi
-
-  if [[ "$control_fd" =~ ^[0-9]+$ ]]; then
-    exec {control_fd}>&-
-  fi
-  [[ ! -e "/proc/$supervisor_pid/stat" ]] || cleanup_failed=1
-
-  if [[ "$supervisor_root" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+$ ]]; then
-    rm -rf -- "$supervisor_root"
-  else
-    cleanup_failed=1
-  fi
-  [[ ! -e "$supervisor_root" ]] || cleanup_failed=1
-
-  ((cleanup_failed == 0)) && \
-    printf '[disposable-app-regression] bounded error cleanup verified pid=%s temp_dir=%s\n' \
-      "$supervisor_pid" "$supervisor_root" >&2
-  return "$cleanup_failed"
-}
-
-run_owned_bounded() {
-  local log="$1"
-  local max_attempts="$2"
-  shift 2
-  local supervisor_root
-  local control_fifo
-  local status_file
-  local ready_file
-  local control_fd
-  local supervisor_pid=''
-  local supervisor_identity=''
-  local command_status
-  local attempt
-  local timed_out=1
-
-  supervisor_root="$(mktemp -d '/tmp/casn-quality.XXXXXX')"
-  control_fifo="$supervisor_root/active-1.control"
-  status_file="$supervisor_root/active-1.status"
-  ready_file="$supervisor_root/active-1.ready"
-  mkfifo -- "$control_fifo"
-  exec {control_fd}<>"$control_fifo"
-
-  setsid "$process_supervisor" "$control_fd" "$status_file" "$ready_file" "$@" >"$log" 2>&1 &
-  supervisor_pid=$!
-  if ! supervisor_identity="$(capture_test_process_identity "$supervisor_pid")"; then
-    if ! cleanup_failed_owned_run "$supervisor_pid" "$supervisor_identity" "$control_fd" "$supervisor_root"; then
-      fail "bounded-run identity-capture cleanup was not verified for PID $supervisor_pid"
-      return 1
-    fi
-    fail "unable to capture bounded-run supervisor identity for PID $supervisor_pid"
-    return 1
-  fi
-
-  if [[ "${CASN_REGRESSION_FORCE_READINESS_FAILURE:-0}" == '1' ]]; then
-    for ((attempt = 0; attempt < 500; attempt += 1)); do
-      [[ -f "$ready_file" ]] && break
-      sleep 0.01
-    done
-    rm -f -- "$ready_file"
-  fi
-
-  for ((attempt = 0; attempt < 500; attempt += 1)); do
-    [[ -f "$ready_file" ]] && break
-    test_identity_matches "$supervisor_pid" "$supervisor_identity" || break
-    sleep 0.01
-  done
-  [[ -f "$ready_file" ]] || {
-    if ! cleanup_failed_owned_run "$supervisor_pid" "$supervisor_identity" "$control_fd" "$supervisor_root"; then
-      fail "bounded-run readiness cleanup was not verified for PID $supervisor_pid"
-      return 1
-    fi
-    fail "bounded-run supervisor failed readiness for PID $supervisor_pid"
-    return 1
-  }
-
-  for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
-    if [[ -f "$status_file" ]]; then
-      timed_out=0
-      break
-    fi
-    test_identity_matches "$supervisor_pid" "$supervisor_identity" || break
-    sleep 0.1
-  done
-
-  if ! terminate_owned_group "$supervisor_pid" "$supervisor_identity" "$control_fd"; then
-    if ! cleanup_failed_owned_run "$supervisor_pid" "$supervisor_identity" "$control_fd" "$supervisor_root"; then
-      fail "bounded-run termination cleanup was not verified for PID $supervisor_pid"
-      return 1
-    fi
-    fail "bounded run could not terminate owned supervisor group $supervisor_pid"
-    return 1
-  fi
-  bounded_reap_test_job "$supervisor_pid" "$supervisor_identity" 50 \
-    || {
-      if ! cleanup_failed_owned_run "$supervisor_pid" "$supervisor_identity" "$control_fd" "$supervisor_root"; then
-        fail "bounded-run reap cleanup was not verified for PID $supervisor_pid"
-        return 1
-      fi
-      fail "bounded run could not reap owned supervisor PID $supervisor_pid"
-      return 1
-    }
-  exec {control_fd}>&-
-
-  if ((timed_out != 0)); then
-    if ! cleanup_failed_owned_run "$supervisor_pid" "$supervisor_identity" '' "$supervisor_root"; then
-      fail "bounded-run timeout cleanup was not verified for PID $supervisor_pid"
-      return 1
-    fi
-    fail "bounded run timed out for owned supervisor PID $supervisor_pid"
-    return 1
-  fi
-
-  command_status="$(<"$status_file")"
-  [[ "$command_status" =~ ^[0-9]+$ && "$command_status" -le 255 ]] || {
-    if ! cleanup_failed_owned_run "$supervisor_pid" "$supervisor_identity" '' "$supervisor_root"; then
-      fail "bounded-run status cleanup was not verified for PID $supervisor_pid"
-      return 1
-    fi
-    fail "bounded-run supervisor recorded invalid command status: $command_status"
-    return 1
-  }
-  owned_run_status="$command_status"
-  rm -rf -- "$supervisor_root"
-}
-
-run_bounded_error_cleanup_case() {
-  local stage="$1"
-  local log="$test_root/bounded-${stage}.log"
-  local marker="$test_root/bounded-${stage}.identity"
-  local original_capture_definition
-  local original_terminate_definition
-  local original_reap_definition
-  local run_status
-  local supervisor_pid=''
-  local supervisor_identity=''
-  local supervisor_root
-
-  original_capture_definition="$(declare -f capture_test_process_identity)"
-  original_capture_definition="${original_capture_definition/capture_test_process_identity ()/capture_test_process_identity_original ()}"
-  eval "$original_capture_definition"
-  capture_test_process_identity() {
-    local pid="$1"
-    local identity
-    local argument
-    local root=''
-    local attempt
-
-    for ((attempt = 0; attempt < 100; attempt += 1)); do
-      identity="$(casn_read_process_identity "$pid")" || return 1
-      root=''
-      while IFS= read -r -d '' argument; do
-        if [[ "$argument" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+/active-1\.status$ ]]; then
-          root="${argument%/*}"
-          break
-        fi
-      done <"/proc/$pid/cmdline"
-      [[ -n "$root" ]] && break
-      sleep 0.01
-    done
-    [[ "$root" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+$ ]] || return 1
-    printf '%s\n%s\n%s\n' "$pid" "$identity" "$root" >"$marker"
-    [[ "$stage" != 'identity-capture' ]] || return 1
-    printf '%s\n' "$identity"
-  }
-
-  if [[ "$stage" == 'termination' || "$stage" == 'readiness' ]]; then
-    original_terminate_definition="$(declare -f terminate_owned_group)"
-    original_terminate_definition="${original_terminate_definition/terminate_owned_group ()/terminate_owned_group_original ()}"
-    eval "$original_terminate_definition"
-    terminate_owned_group() {
-      eval "${original_terminate_definition/terminate_owned_group_original ()/terminate_owned_group ()}"
-      return 1
-    }
-  elif [[ "$stage" == 'reap' ]]; then
-    original_reap_definition="$(declare -f bounded_reap_test_job)"
-    original_reap_definition="${original_reap_definition/bounded_reap_test_job ()/bounded_reap_test_job_original ()}"
-    eval "$original_reap_definition"
-    bounded_reap_test_job() {
-      eval "${original_reap_definition/bounded_reap_test_job_original ()/bounded_reap_test_job ()}"
-      return 1
-    }
-  fi
-
-  if [[ "$stage" == 'readiness' ]]; then
-    if CASN_REGRESSION_FORCE_READINESS_FAILURE=1 \
-      run_owned_bounded "$log" 20 bash -c 'sleep 30'; then
-      run_status=0
-    else
-      run_status=$?
-    fi
-  else
-    if run_owned_bounded "$log" 20 bash -c 'exit 0'; then
-      run_status=0
-    else
-      run_status=$?
-    fi
-  fi
-
-  eval "${original_capture_definition/capture_test_process_identity_original ()/capture_test_process_identity ()}"
-  if [[ "$stage" == 'termination' || "$stage" == 'readiness' ]]; then
-    eval "${original_terminate_definition/terminate_owned_group_original ()/terminate_owned_group ()}"
-  elif [[ "$stage" == 'reap' ]]; then
-    eval "${original_reap_definition/bounded_reap_test_job_original ()/bounded_reap_test_job ()}"
-  fi
-
-  [[ "$run_status" -ne 0 ]] || fail "bounded-${stage} did not exercise its error branch"
-  supervisor_pid="$(sed -n '1p' "$marker")"
-  supervisor_identity="$(sed -n '2p' "$marker")"
-  supervisor_root="$(sed -n '3p' "$marker")"
-  [[ "$supervisor_pid" =~ ^[0-9]+$ && -n "$supervisor_identity" \
-    && "$supervisor_root" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+$ ]] \
-    || fail "bounded-${stage} did not record exact owned resources"
-
-  if test_stable_identity_matches "$supervisor_pid" "$supervisor_identity"; then
-    cleanup_exact_test_group "$supervisor_pid" "$supervisor_identity" || true
-    rm -rf -- "$supervisor_root"
-    fail "bounded-${stage} returned with its exact supervisor still present"
-  fi
-  if [[ -e "$supervisor_root" ]]; then
-    rm -rf -- "$supervisor_root"
-    fail "bounded-${stage} returned with its exact temporary directory present"
-  fi
-  printf '[disposable-app-regression] bounded-%s-cleanup passed\n' "$stage"
-}
-
 run_owned_group_anchor_case() {
   local log="$test_root/owned-group-anchor.log"
   local marker="$test_root/owned-group-anchor.ready"
+  local control_fifo="$test_root/owned-group-anchor.control"
   local descendant_pid
   local descendant_identity
   local status
   local attempt
 
+  mkfifo -- "$control_fifo"
   run_owned_bounded "$log" 20 env \
     CASN_ANCHOR_READY_FILE="$marker" \
+    CASN_ANCHOR_CONTROL_FIFO="$control_fifo" \
     IDENTITY_LIBRARY="$identity_library" \
+    REGISTRY_LIBRARY="$registry_library" \
+    CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
     bash -c '
       bash -c '\''
         trap "" TERM HUP INT
+        source "$IDENTITY_LIBRARY"
+        source "$REGISTRY_LIBRARY"
         owned_pid="$BASHPID"
-        identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
+        identity="$(casn_read_process_identity "$owned_pid")"
+        casn_registry_write_identity \
+          "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+          "$owned_pid" "$identity" reparent-observation >/dev/null
         printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CASN_ANCHOR_READY_FILE"
-        while :; do sleep 1; done
+        exec 9<>"$CASN_ANCHOR_CONTROL_FIFO"
+        while :; do read -r -t 1 _ <&9 || true; done
       '\'' &
       for _ in {1..500}; do
         [[ -s "$CASN_ANCHOR_READY_FILE" ]] && exit 23
@@ -803,7 +879,7 @@ run_owned_group_anchor_case() {
     || fail 'owned-group anchor descendant identity record is invalid'
 
   if test_stable_identity_matches "$descendant_pid" "$descendant_identity"; then
-    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
+    signal_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
     for ((attempt = 0; attempt < 50; attempt += 1)); do
       test_stable_identity_matches "$descendant_pid" "$descendant_identity" || break
       sleep 0.1
@@ -816,30 +892,32 @@ run_owned_group_anchor_case() {
 }
 
 run_stopped_reap_case() {
+  local log="$test_root/stopped-reap.log"
   local pid
   local identity
   local started_ms
   local elapsed_ms
 
-  setsid --wait sleep 30 >/dev/null 2>&1 &
-  pid=$!
-  identity="$(capture_test_process_identity "$pid")" \
-    || fail 'unable to capture stopped-job identity'
+  spawn_registered_session "$log" fixture-command sleep 30 \
+    || fail 'unable to launch registered stopped-job fixture'
+  pid="$spawned_pid"
+  identity="$spawned_identity"
   signal_owned_test_process STOP "$pid" "$identity" \
     || fail 'stopped-job identity changed before STOP'
 
   started_ms="$(date +%s%3N)"
   if bounded_reap_test_job "$pid" "$identity" 5; then
-    signal_owned_test_group KILL "$pid" "$identity" 2>/dev/null || true
     fail 'stopped job was incorrectly treated as reapable'
   fi
   elapsed_ms=$(($(date +%s%3N) - started_ms))
   ((elapsed_ms < 2000)) || fail "stopped-job reap bound took ${elapsed_ms}ms"
 
-  signal_owned_test_group KILL "$pid" "$identity" \
+  signal_owned_test_process KILL "$pid" "$identity" \
     || fail 'stopped-job identity changed before KILL cleanup'
   bounded_reap_test_job "$pid" "$identity" 50 \
     || fail 'stopped job did not become reapable after owned KILL'
+  teardown_invocation_registry \
+    || fail 'stopped-job registry teardown was not stably verified'
   printf '[disposable-app-regression] stopped-reap passed elapsed_ms=%s\n' "$elapsed_ms"
 }
 
@@ -912,122 +990,17 @@ run_child_status_case() {
   printf '[disposable-app-regression] child-status passed\n'
 }
 
-signal_exact_owned_group_members() {
-  local process_group="$1"
-  local session_id="$2"
-  local stat_path
-  local pid
-  local identity
-  local member_process_group
-  local member_session_id
-
-  [[ "$process_group" =~ ^[0-9]+$ && "$session_id" =~ ^[0-9]+$ ]] || return 1
-  for stat_path in /proc/[0-9]*/stat; do
-    [[ -r "$stat_path" ]] || continue
-    pid="${stat_path%/stat}"
-    pid="${pid##*/}"
-    identity="$(casn_read_process_identity "$pid")" || continue
-    read -r _ member_process_group _ member_session_id <<<"$identity"
-    if [[ "$member_process_group" == "$process_group" \
-      && "$member_session_id" == "$session_id" ]]; then
-      signal_owned_test_process KILL "$pid" "$identity" || return 1
-    fi
-  done
-}
-
-abort_term_run() {
-  local harness_pid="$1"
-  local harness_identity="$2"
-  local child_pid="$3"
-  local child_identity="$4"
-  local child_process_group=''
-  local child_session_id=''
-  local supervisor_pid=''
-  local supervisor_identity=''
-  local supervisor_process_group=''
-  local supervisor_session_id=''
-  local abort_failed=0
-  local authority_failed=0
-  local harness_reaped=0
-  local reap_result
-  local attempt
-
-  if test_identity_matches "$child_pid" "$child_identity"; then
-    read -r _ child_process_group _ child_session_id <<<"$child_identity"
-    supervisor_pid="$child_session_id"
-  else
-    authority_failed=1
-    if test_stable_identity_matches "$child_pid" "$child_identity"; then
-      read -r _ child_process_group _ child_session_id <<<"$child_identity"
-      supervisor_pid="$child_session_id"
-    fi
-  fi
-
-  if [[ "$supervisor_pid" =~ ^[0-9]+$ ]]; then
-    for ((attempt = 0; attempt < 2; attempt += 1)); do
-      if supervisor_identity="$(casn_read_process_identity "$supervisor_pid")"; then
-        read -r _ supervisor_process_group _ supervisor_session_id <<<"$supervisor_identity"
-        if [[ "$child_process_group" == "$supervisor_pid" \
-          && "$supervisor_process_group" == "$supervisor_pid" \
-          && "$supervisor_session_id" == "$supervisor_pid" ]]; then
-          break
-        fi
-      fi
-      supervisor_identity=''
-      authority_failed=1
-    done
-  else
-    authority_failed=1
-  fi
-
-  if [[ -n "$supervisor_identity" ]]; then
-    signal_owned_test_group KILL "$supervisor_pid" "$supervisor_identity" \
-      || abort_failed=1
-  elif [[ -n "$child_process_group" && -n "$child_session_id" ]]; then
-    signal_exact_owned_group_members "$child_process_group" "$child_session_id" \
-      || abort_failed=1
-  else
-    abort_failed=1
-  fi
-
-  if bounded_reap_test_job "$harness_pid" "$harness_identity" 10; then
-    harness_reaped=1
-  else
-    reap_result=$?
-    if ((reap_result == 1)); then
-      signal_owned_test_group KILL "$harness_pid" "$harness_identity" \
-        || abort_failed=1
-      if bounded_reap_test_job "$harness_pid" "$harness_identity" 50; then
-        harness_reaped=1
-      else
-        abort_failed=1
-      fi
-    else
-      abort_failed=1
-    fi
-  fi
-  ((harness_reaped == 1)) || abort_failed=1
-
-  if [[ -n "$child_process_group" && -n "$child_session_id" ]]; then
-    wait_process_group_empty "$child_process_group" "$child_session_id" 0 50 \
-      || abort_failed=1
-  fi
-  if [[ -n "$supervisor_identity" ]]; then
-    wait_exact_process_absent "$supervisor_pid" "$supervisor_identity" 50 \
-      || abort_failed=1
-  fi
-
-  ((authority_failed == 0)) || abort_failed=1
-  return "$abort_failed"
-}
-
 run_abort_supervisor_case() {
   local log="$test_root/abort-supervisor.log"
   local marker="$test_root/abort-supervisor.ready"
   local supervisor_root
   local control_fifo
+  local launch_fifo
   local status_file
   local ready_file
+  local hold_fifo
+  local launch_record
+  local command_record
   local harness_pid
   local harness_identity
   local supervisor_pid
@@ -1037,33 +1010,58 @@ run_abort_supervisor_case() {
   local attempt
 
   supervisor_root="$(mktemp -d '/tmp/casn-quality.XXXXXX')"
+  register_invocation_temp_root "$supervisor_root" abort-root \
+    || fail 'unable to register abort-supervisor temporary root'
   control_fifo="$supervisor_root/active-1.control"
+  launch_fifo="$supervisor_root/active-1.launch"
   status_file="$supervisor_root/active-1.status"
   ready_file="$supervisor_root/active-1.ready"
-  mkfifo -- "$control_fifo"
+  hold_fifo="$supervisor_root/active-1.hold"
+  launch_record="$supervisor_root/active-1.launch-ready"
+  command_record="$supervisor_root/active-1.command-ready"
+  mkfifo -- "$control_fifo" "$launch_fifo" "$hold_fifo"
 
-  CASN_ABORT_READY_FILE="$marker" \
+  spawn_registered_session "$log" fixture-harness env \
+    CASN_ABORT_READY_FILE="$marker" \
     CASN_ABORT_CONTROL_FIFO="$control_fifo" \
+    CASN_ABORT_LAUNCH_FIFO="$launch_fifo" \
+    CASN_ABORT_LAUNCH_RECORD="$launch_record" \
+    CASN_ABORT_COMMAND_RECORD="$command_record" \
     CASN_ABORT_STATUS_FILE="$status_file" \
     CASN_ABORT_SUPERVISOR_READY_FILE="$ready_file" \
-    PROCESS_SUPERVISOR="$process_supervisor" \
+    CASN_ABORT_HOLD_FIFO="$hold_fifo" \
+    REGISTERED_LAUNCHER="$repository_root/scripts/ci/disposable-registered-process-launcher.sh" \
     IDENTITY_LIBRARY="$identity_library" \
-    setsid --wait bash -c '
+    CASN_REGRESSION_IDENTITY_LIBRARY="$identity_library" \
+    CASN_REGRESSION_REGISTRY_LIBRARY="$registry_library" \
+    CASN_REGRESSION_PROCESS_SUPERVISOR="$process_supervisor" \
+    CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
+    bash -c '
       exec 9<>"$CASN_ABORT_CONTROL_FIFO"
-      setsid "$PROCESS_SUPERVISOR" \
-        9 "$CASN_ABORT_STATUS_FILE" "$CASN_ABORT_SUPERVISOR_READY_FILE" \
+      exec 8<>"$CASN_ABORT_LAUNCH_FIFO"
+      setsid bash "$REGISTERED_LAUNCHER" supervisor \
+        8 "$CASN_ABORT_LAUNCH_RECORD" 9 "$CASN_ABORT_STATUS_FILE" \
+        "$CASN_ABORT_SUPERVISOR_READY_FILE" "$CASN_ABORT_COMMAND_RECORD" \
         bash -c '\''
           trap "" TERM HUP INT
+          source "$IDENTITY_LIBRARY"
           owned_pid="$BASHPID"
-          identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
+          identity="$(casn_read_process_identity "$owned_pid")"
           printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CASN_ABORT_READY_FILE"
-          while :; do sleep 1; done
+          exec 10<>"$CASN_ABORT_HOLD_FIFO"
+          while :; do read -r -t 1 _ <&10 || true; done
       '\'' &
-      wait
-    ' >"$log" 2>&1 &
-  harness_pid=$!
-  harness_identity="$(capture_test_process_identity "$harness_pid")" \
-    || fail 'unable to capture abort-supervisor harness identity'
+      supervisor_job=$!
+      while [[ ! -s "$CASN_ABORT_LAUNCH_RECORD" ]]; do
+        read -r -t 0.01 _ <&8 || true
+      done
+      printf "launch\\n" >&8
+      exec 8>&-
+      wait "$supervisor_job"
+    ' || fail 'unable to launch registered abort-supervisor harness'
+  harness_pid="$spawned_pid"
+  harness_identity="$spawned_identity"
 
   for ((attempt = 0; attempt < 100; attempt += 1)); do
     [[ -s "$marker" ]] && break
@@ -1085,26 +1083,15 @@ run_abort_supervisor_case() {
   test_stable_identity_matches "$supervisor_pid" "$supervisor_identity" \
     || fail 'abort-supervisor identity changed before abort'
 
-  if ! abort_term_run "$harness_pid" "$harness_identity" "$child_pid" "$child_identity"; then
-    signal_owned_test_process KILL "$child_pid" "$child_identity" 2>/dev/null || true
-    signal_stably_owned_test_process KILL "$supervisor_pid" "$supervisor_identity" 2>/dev/null || true
-    signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
-    bounded_reap_test_job "$harness_pid" "$harness_identity" 50 || true
-    rm -rf -- "$supervisor_root"
+  if ! teardown_invocation_registry; then
     fail 'abort-supervisor cleanup did not prove exact process absence'
   fi
 
   if test_stable_identity_matches "$supervisor_pid" "$supervisor_identity"; then
-    signal_stably_owned_test_process KILL "$supervisor_pid" "$supervisor_identity" 2>/dev/null || true
-    for ((attempt = 0; attempt < 50; attempt += 1)); do
-      test_stable_identity_matches "$supervisor_pid" "$supervisor_identity" || break
-      sleep 0.1
-    done
-    rm -rf -- "$supervisor_root"
     fail 'abort cleanup left the separately sessioned supervisor alive'
   fi
 
-  rm -rf -- "$supervisor_root"
+  [[ ! -e "$supervisor_root" ]] || fail 'abort cleanup left its exact temporary root'
   printf '[disposable-app-regression] abort-supervisor passed\n'
 }
 
@@ -1113,8 +1100,13 @@ run_abort_lost_authority_case() {
   local marker="$test_root/abort-lost-authority.ready"
   local supervisor_root
   local control_fifo
+  local launch_fifo
   local status_file
   local ready_file
+  local hold_fifo
+  local sibling_record
+  local launch_record
+  local command_record
   local harness_pid
   local harness_identity
   local supervisor_pid
@@ -1129,54 +1121,86 @@ run_abort_lost_authority_case() {
   local original_read_definition
 
   supervisor_root="$(mktemp -d '/tmp/casn-quality.XXXXXX')"
+  register_invocation_temp_root "$supervisor_root" abort-root \
+    || fail 'unable to register lost-authority temporary root'
   control_fifo="$supervisor_root/active-1.control"
+  launch_fifo="$supervisor_root/active-1.launch"
   status_file="$supervisor_root/active-1.status"
   ready_file="$supervisor_root/active-1.ready"
-  mkfifo -- "$control_fifo"
+  hold_fifo="$supervisor_root/active-1.hold"
+  sibling_record="$supervisor_root/active-1.sibling-ready"
+  launch_record="$supervisor_root/active-1.launch-ready"
+  command_record="$supervisor_root/active-1.command-ready"
+  mkfifo -- "$control_fifo" "$launch_fifo" "$hold_fifo"
 
-  CASN_ABORT_READY_FILE="$marker" \
+  spawn_registered_session "$log" fixture-harness env \
+    CASN_ABORT_READY_FILE="$marker" \
     CASN_ABORT_CONTROL_FIFO="$control_fifo" \
+    CASN_ABORT_LAUNCH_FIFO="$launch_fifo" \
+    CASN_ABORT_LAUNCH_RECORD="$launch_record" \
+    CASN_ABORT_COMMAND_RECORD="$command_record" \
     CASN_ABORT_STATUS_FILE="$status_file" \
     CASN_ABORT_SUPERVISOR_READY_FILE="$ready_file" \
-    PROCESS_SUPERVISOR="$process_supervisor" \
+    CASN_ABORT_HOLD_FIFO="$hold_fifo" \
+    CASN_ABORT_SIBLING_RECORD="$sibling_record" \
+    REGISTERED_LAUNCHER="$repository_root/scripts/ci/disposable-registered-process-launcher.sh" \
     IDENTITY_LIBRARY="$identity_library" \
-    setsid --wait bash -c '
+    CASN_REGRESSION_IDENTITY_LIBRARY="$identity_library" \
+    CASN_REGRESSION_REGISTRY_LIBRARY="$registry_library" \
+    CASN_REGRESSION_PROCESS_SUPERVISOR="$process_supervisor" \
+    CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
+    bash -c '
       exec 9<>"$CASN_ABORT_CONTROL_FIFO"
-      setsid "$PROCESS_SUPERVISOR" \
-        9 "$CASN_ABORT_STATUS_FILE" "$CASN_ABORT_SUPERVISOR_READY_FILE" \
+      exec 8<>"$CASN_ABORT_LAUNCH_FIFO"
+      setsid bash "$REGISTERED_LAUNCHER" supervisor \
+        8 "$CASN_ABORT_LAUNCH_RECORD" 9 "$CASN_ABORT_STATUS_FILE" \
+        "$CASN_ABORT_SUPERVISOR_READY_FILE" "$CASN_ABORT_COMMAND_RECORD" \
         bash -c '\''
           trap "" TERM HUP INT
+          source "$IDENTITY_LIBRARY"
           child_pid="$BASHPID"
-          child_identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$child_pid")"
+          child_identity="$(casn_read_process_identity "$child_pid")"
           printf "%s\\n%s\\n" "$child_pid" "$child_identity" >"$CASN_ABORT_READY_FILE"
-          sleep 30 &
+          exec 10<>"$CASN_ABORT_HOLD_FIFO"
+          bash "$REGISTERED_LAUNCHER" hold \
+            "$CASN_ABORT_SIBLING_RECORD" "$CASN_ABORT_HOLD_FIFO" fixture-descendant &
           sibling_pid=$!
-          sibling_identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$sibling_pid")"
-          printf "%s\\n%s\\n" "$sibling_pid" "$sibling_identity" >>"$CASN_ABORT_READY_FILE"
-          while [[ "$(wc -l <"$CASN_ABORT_READY_FILE")" -lt 4 ]]; do sleep 0.01; done
-          while :; do sleep 1; done
+          while [[ ! -s "$CASN_ABORT_SIBLING_RECORD" ]]; do
+            read -r -t 0.01 _ <&10 || true
+          done
+          while :; do read -r -t 1 _ <&10 || true; done
       '\'' &
-      wait
-    ' >"$log" 2>&1 &
-  harness_pid=$!
-  harness_identity="$(capture_test_process_identity "$harness_pid")" \
-    || fail 'unable to capture lost-authority harness identity'
+      supervisor_job=$!
+      while [[ ! -s "$CASN_ABORT_LAUNCH_RECORD" ]]; do
+        read -r -t 0.01 _ <&8 || true
+      done
+      printf "launch\\n" >&8
+      exec 8>&-
+      wait "$supervisor_job"
+    ' || fail 'unable to launch registered lost-authority harness'
+  harness_pid="$spawned_pid"
+  harness_identity="$spawned_identity"
 
   for ((attempt = 0; attempt < 100; attempt += 1)); do
-    if [[ -f "$marker" && "$(wc -l <"$marker")" -ge 4 ]]; then
+    if [[ -s "$marker" && -s "$sibling_record" ]]; then
       break
     fi
     test_identity_matches "$harness_pid" "$harness_identity" \
       || fail 'lost-authority harness exited before readiness'
     sleep 0.05
   done
-  [[ -s "$marker" && "$(wc -l <"$marker")" -ge 4 ]] \
-    || fail 'lost-authority descendants did not become ready within five seconds'
+  if [[ ! -s "$marker" || ! -s "$sibling_record" ]]; then
+    tail -n 80 "$log" >&2
+    fail 'lost-authority descendants did not become ready within five seconds'
+    return 1
+  fi
 
   child_pid="$(sed -n '1p' "$marker")"
   child_identity="$(sed -n '2p' "$marker")"
-  sibling_pid="$(sed -n '3p' "$marker")"
-  sibling_identity="$(sed -n '4p' "$marker")"
+  sibling_pid="$(sed -n 's/^v1\t[0-9a-f]\{32\}\t\([0-9][0-9]*\)\t.*$/\1/p' "$sibling_record")"
+  sibling_identity="$(validate_launcher_record \
+    "$sibling_record" "$sibling_pid" fixture-descendant)"
   [[ "$child_pid" =~ ^[0-9]+$ && -n "$child_identity" \
     && "$sibling_pid" =~ ^[0-9]+$ && -n "$sibling_identity" ]] \
     || fail 'lost-authority identity records are invalid'
@@ -1210,7 +1234,7 @@ run_abort_lost_authority_case() {
     printf '%s\n' "$identity"
   }
 
-  if abort_term_run "$harness_pid" "$harness_identity" "$child_pid" "$child_identity"; then
+  if teardown_invocation_registry; then
     abort_status=0
   else
     abort_status=$?
@@ -1218,41 +1242,26 @@ run_abort_lost_authority_case() {
   eval "${original_read_definition/casn_read_process_identity_original ()/casn_read_process_identity ()}"
 
   if ((abort_status == 0)); then
-    cleanup_exact_test_process "$sibling_pid" "$sibling_identity" || true
-    cleanup_exact_test_process "$child_pid" "$child_identity" || true
-    cleanup_exact_test_group "$supervisor_pid" "$supervisor_identity" || true
-    signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
-    bounded_reap_test_job "$harness_pid" "$harness_identity" 50 || true
-    rm -rf -- "$supervisor_root"
     fail 'abort cleanup reported success after losing supervisor authority'
   fi
   if test_stable_identity_matches "$child_pid" "$child_identity" \
     || test_stable_identity_matches "$sibling_pid" "$sibling_identity"; then
-    cleanup_exact_test_process "$sibling_pid" "$sibling_identity" || true
-    cleanup_exact_test_process "$child_pid" "$child_identity" || true
-    cleanup_exact_test_group "$supervisor_pid" "$supervisor_identity" || true
-    signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
-    bounded_reap_test_job "$harness_pid" "$harness_identity" 50 || true
-    rm -rf -- "$supervisor_root"
     fail 'lost-authority abort did not clean both exact descendants'
   fi
   if test_stable_identity_matches "$supervisor_pid" "$supervisor_identity"; then
-    cleanup_exact_test_group "$supervisor_pid" "$supervisor_identity" || true
-    signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
-    bounded_reap_test_job "$harness_pid" "$harness_identity" 50 || true
-    rm -rf -- "$supervisor_root"
     fail 'lost-authority abort did not clean the exact supervisor'
   fi
   [[ ! -e "/proc/$harness_pid/stat" ]] \
     || fail 'lost-authority abort did not reap the outer harness'
 
-  rm -rf -- "$supervisor_root"
+  [[ ! -e "$supervisor_root" ]] || fail 'lost-authority cleanup left its exact temporary root'
   printf '[disposable-app-regression] abort-lost-authority passed\n'
 }
 
 run_term_case() {
   local log="$test_root/term.log"
   local marker="$test_root/term.ready"
+  local hold_fifo="$test_root/term.hold"
   local harness_pid
   local harness_identity
   local child_pid
@@ -1266,18 +1275,36 @@ run_term_case() {
   local max_term_ms=$((3 * 1000))
   local attempt
 
-  CASN_TERM_READY_FILE="$marker" \
+  mkfifo -- "$hold_fifo"
+  spawn_registered_session "$log" fixture-harness env \
+    CASN_TERM_READY_FILE="$marker" \
+    CASN_TERM_HOLD_FIFO="$hold_fifo" \
     IDENTITY_LIBRARY="$identity_library" \
-    setsid --wait bash "$harness" bash -c '
+    REGISTRY_LIBRARY="$registry_library" \
+    CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
+    bash "$harness" bash -c '
+      set -euo pipefail
       source "$IDENTITY_LIBRARY"
+      source "$REGISTRY_LIBRARY"
       owned_pid="$BASHPID"
       identity="$(casn_read_process_identity "$owned_pid")"
-      printf "%s\n%s\n" "$owned_pid" "$identity" >"$CASN_TERM_READY_FILE"
-      sleep 8
-    ' >"$log" 2>&1 &
-  harness_pid=$!
-  harness_identity="$(capture_test_process_identity "$harness_pid")" \
-    || fail 'unable to capture TERM harness identity'
+      read -r _ _ _ supervisor_pid <<<"$identity"
+      supervisor_identity="$(casn_read_process_identity "$supervisor_pid")"
+      casn_registry_write_identity \
+        "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+        "$supervisor_pid" "$supervisor_identity" fixture-supervisor >/dev/null
+      casn_registry_write_identity \
+        "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+        "$owned_pid" "$identity" reparent-observation >/dev/null
+      marker_temp="${CASN_TERM_READY_FILE}.tmp.$owned_pid"
+      printf "%s\n%s\n" "$owned_pid" "$identity" >"$marker_temp"
+      mv -- "$marker_temp" "$CASN_TERM_READY_FILE"
+      exec 9<>"$CASN_TERM_HOLD_FIFO"
+      while :; do read -r -t 1 _ <&9 || true; done
+    ' || fail 'unable to launch registered TERM harness fixture'
+  harness_pid="$spawned_pid"
+  harness_identity="$spawned_identity"
 
   for ((attempt = 0; attempt < 1200; attempt += 1)); do
     [[ -s "$marker" ]] && break
@@ -1290,11 +1317,7 @@ run_term_case() {
     sleep 0.2
   done
   [[ -s "$marker" ]] || {
-    signal_owned_test_process TERM "$harness_pid" "$harness_identity" 2>/dev/null || true
-    if ! bounded_reap_test_job "$harness_pid" "$harness_identity" 100; then
-      signal_owned_test_group KILL "$harness_pid" "$harness_identity" 2>/dev/null || true
-      bounded_reap_test_job "$harness_pid" "$harness_identity" 50 || true
-    fi
+    tail -n 80 "$log" >&2
     fail 'TERM child did not become ready within 240 seconds'
   }
 
@@ -1315,7 +1338,6 @@ run_term_case() {
     sleep 0.1
   done
   [[ "$signal_ms" =~ ^[0-9]+$ ]] || {
-    abort_term_run "$harness_pid" "$harness_identity" "$child_pid" "$child_identity"
     tail -n 80 "$log" >&2
     fail 'TERM active-command termination was not acknowledged within 3 seconds'
   }
@@ -1327,7 +1349,6 @@ run_term_case() {
     fi
   done
   if [[ -z "$reaped_status" ]]; then
-    abort_term_run "$harness_pid" "$harness_identity" "$child_pid" "$child_identity"
     fail 'TERM harness did not finish cleanup within 15 seconds'
   fi
 
@@ -1345,6 +1366,8 @@ run_term_case() {
   }
   grep -Fq 'verified=1' "$log" || fail 'TERM cleanup was not verified'
   assert_resources_absent "$log"
+  teardown_invocation_registry \
+    || fail 'TERM registry teardown and stabilized proof failed'
   printf '[disposable-app-regression] term passed signal_ms=%s cleanup_ms=%s\n' \
     "$signal_elapsed_ms" "$cleanup_elapsed_ms"
 }
@@ -1352,25 +1375,52 @@ run_term_case() {
 run_ignored_term_descendant_case() {
   local log="$test_root/term-descendant.log"
   local marker="$test_root/term-descendant.ready"
+  local hold_fifo="$test_root/term-descendant.hold"
   local descendant_pid
   local descendant_identity
   local status
-  local attempt
 
+  mkfifo -- "$hold_fifo"
   run_owned_bounded "$log" 2400 env \
     CASN_DESCENDANT_READY_FILE="$marker" \
+    CASN_DESCENDANT_HOLD_FIFO="$hold_fifo" \
     IDENTITY_LIBRARY="$identity_library" \
+    REGISTRY_LIBRARY="$registry_library" \
+    CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
     bash "$harness" bash -c '
+      set -euo pipefail
+      source "$IDENTITY_LIBRARY"
+      source "$REGISTRY_LIBRARY"
+      command_pid="$BASHPID"
+      command_identity="$(casn_read_process_identity "$command_pid")"
+      read -r _ _ _ supervisor_pid <<<"$command_identity"
+      supervisor_identity="$(casn_read_process_identity "$supervisor_pid")"
+      casn_registry_write_identity \
+        "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+        "$supervisor_pid" "$supervisor_identity" fixture-supervisor >/dev/null
+      casn_registry_write_identity \
+        "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+        "$command_pid" "$command_identity" fixture-command >/dev/null
+      exec 9<>"$CASN_DESCENDANT_HOLD_FIFO"
       bash -c '\''
+        set -euo pipefail
         trap "" TERM HUP INT
+        source "$IDENTITY_LIBRARY"
+        source "$REGISTRY_LIBRARY"
         owned_pid="$BASHPID"
-        identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
-        printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CASN_DESCENDANT_READY_FILE"
-        while :; do sleep 1; done
+        identity="$(casn_read_process_identity "$owned_pid")"
+        casn_registry_write_identity \
+          "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+          "$owned_pid" "$identity" reparent-observation >/dev/null
+        marker_temp="${CASN_DESCENDANT_READY_FILE}.tmp.$owned_pid"
+        printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$marker_temp"
+        mv -- "$marker_temp" "$CASN_DESCENDANT_READY_FILE"
+        while :; do read -r -t 1 _ <&9 || true; done
       '\'' &
       for _ in {1..500}; do
         [[ -s "$CASN_DESCENDANT_READY_FILE" ]] && exit 23
-        sleep 0.01
+        read -r -t 0.01 _ <&9 || true
       done
       exit 97
     '
@@ -1382,11 +1432,6 @@ run_ignored_term_descendant_case() {
     || fail 'ignored descendant identity record is invalid'
 
   if test_stable_identity_matches "$descendant_pid" "$descendant_identity"; then
-    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
-    for ((attempt = 0; attempt < 50; attempt += 1)); do
-      test_stable_identity_matches "$descendant_pid" "$descendant_identity" || break
-      sleep 0.1
-    done
     tail -n 80 "$log" >&2
     fail 'TERM left an ignored descendant alive after the owned group leader exited'
   fi
@@ -1402,6 +1447,7 @@ run_ignored_term_descendant_case() {
 run_ignored_term_signal_case() {
   local log="$test_root/term-descendant-signal.log"
   local marker="$test_root/term-descendant-signal.ready"
+  local hold_fifo="$test_root/term-descendant-signal.hold"
   local harness_pid
   local harness_identity
   local descendant_pid
@@ -1412,21 +1458,48 @@ run_ignored_term_signal_case() {
   local signal_elapsed_ms
   local attempt
 
-  CASN_DESCENDANT_READY_FILE="$marker" \
+  mkfifo -- "$hold_fifo"
+  spawn_registered_session "$log" fixture-harness env \
+    CASN_DESCENDANT_READY_FILE="$marker" \
+    CASN_DESCENDANT_HOLD_FIFO="$hold_fifo" \
     IDENTITY_LIBRARY="$identity_library" \
-    setsid --wait bash "$harness" bash -c '
+    REGISTRY_LIBRARY="$registry_library" \
+    CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
+    bash "$harness" bash -c '
+      set -euo pipefail
+      source "$IDENTITY_LIBRARY"
+      source "$REGISTRY_LIBRARY"
+      command_pid="$BASHPID"
+      command_identity="$(casn_read_process_identity "$command_pid")"
+      read -r _ _ _ supervisor_pid <<<"$command_identity"
+      supervisor_identity="$(casn_read_process_identity "$supervisor_pid")"
+      casn_registry_write_identity \
+        "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+        "$supervisor_pid" "$supervisor_identity" fixture-supervisor >/dev/null
+      casn_registry_write_identity \
+        "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+        "$command_pid" "$command_identity" fixture-command >/dev/null
+      exec 9<>"$CASN_DESCENDANT_HOLD_FIFO"
       bash -c '\''
+        set -euo pipefail
         trap "" TERM HUP INT
+        source "$IDENTITY_LIBRARY"
+        source "$REGISTRY_LIBRARY"
         owned_pid="$BASHPID"
-        identity="$(. "$IDENTITY_LIBRARY"; casn_read_process_identity "$owned_pid")"
-        printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$CASN_DESCENDANT_READY_FILE"
-        while :; do sleep 1; done
+        identity="$(casn_read_process_identity "$owned_pid")"
+        casn_registry_write_identity \
+          "$CASN_REGRESSION_IDENTITY_REGISTRY" "$CASN_REGRESSION_INVOCATION_ID" \
+          "$owned_pid" "$identity" reparent-observation >/dev/null
+        marker_temp="${CASN_DESCENDANT_READY_FILE}.tmp.$owned_pid"
+        printf "%s\\n%s\\n" "$owned_pid" "$identity" >"$marker_temp"
+        mv -- "$marker_temp" "$CASN_DESCENDANT_READY_FILE"
+        while :; do read -r -t 1 _ <&9 || true; done
       '\'' &
       wait
-    ' >"$log" 2>&1 &
-  harness_pid=$!
-  harness_identity="$(capture_test_process_identity "$harness_pid")" \
-    || fail 'unable to capture ignored-TERM signal harness identity'
+    ' || fail 'unable to launch registered ignored-TERM signal harness'
+  harness_pid="$spawned_pid"
+  harness_identity="$spawned_identity"
 
   for ((attempt = 0; attempt < 1200; attempt += 1)); do
     [[ -s "$marker" ]] && break
@@ -1454,8 +1527,6 @@ run_ignored_term_signal_case() {
   done
   [[ "$signal_ms" =~ ^[0-9]+$ ]] || {
     tail -n 100 "$log" >&2
-    abort_term_run "$harness_pid" "$harness_identity" "$descendant_pid" "$descendant_identity"
-    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
     fail 'ignored-TERM signal acknowledgement exceeded 3 seconds'
   }
   signal_elapsed_ms=$((signal_ms - started_ms))
@@ -1464,14 +1535,11 @@ run_ignored_term_signal_case() {
     bounded_reap_test_job "$harness_pid" "$harness_identity" 1 && break
   done
   if [[ -z "$reaped_status" ]]; then
-    abort_term_run "$harness_pid" "$harness_identity" "$descendant_pid" "$descendant_identity"
-    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
     fail 'ignored-TERM signal harness did not finish cleanup within 15 seconds'
   fi
   status="$reaped_status"
 
   if test_stable_identity_matches "$descendant_pid" "$descendant_identity"; then
-    signal_stably_owned_test_process KILL "$descendant_pid" "$descendant_identity" 2>/dev/null || true
     fail 'ignored-TERM signal left the descendant alive'
   fi
   [[ "$status" -eq 143 ]] || fail "ignored-TERM signal expected status 143, received $status"
@@ -1480,7 +1548,678 @@ run_ignored_term_signal_case() {
     || fail 'ignored-TERM signal did not exercise bounded KILL escalation'
   grep -Fq 'verified=1' "$log" || fail 'ignored-TERM signal cleanup was not verified'
   assert_resources_absent "$log"
+  teardown_invocation_registry \
+    || fail 'ignored-TERM signal registry teardown and stabilized proof failed'
   printf '[disposable-app-regression] ignored-term-signal passed signal_ms=%s\n' "$signal_elapsed_ms"
+}
+
+phase_name_is_valid() {
+  case "$1" in
+    identity-capture|readiness|timeout|termination|reap|status)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+phase_error_is_valid() {
+  [[ "$1" =~ ^[a-z][a-z0-9-]{0,47}$ ]]
+}
+
+emit_phase_result() {
+  local phase="$1"
+  local error_class="$2"
+  local result_dir="${CASN_REGRESSION_PHASE_RESULT_DIR:-}"
+  local pending
+  local result
+
+  phase_name_is_valid "$phase" || return 1
+  phase_error_is_valid "$error_class" || return 1
+  [[ "$result_dir" == "$test_root"/phase.* && -d "$result_dir" && ! -L "$result_dir" ]] \
+    || return 1
+  pending="$(mktemp "$result_dir/.pending.XXXXXX")" || return 1
+  chmod 0600 "$pending" || {
+    rm -f -- "$pending"
+    return 1
+  }
+  printf 'v1\t%s\t%s\t%s\n' "$invocation_id" "$phase" "$error_class" >"$pending" || {
+    rm -f -- "$pending"
+    return 1
+  }
+  result="$result_dir/result.$BASHPID.${pending##*.}"
+  mv -- "$pending" "$result"
+}
+
+record_run_failure() {
+  local phase="$1"
+  local error_class="$2"
+
+  if [[ -n "${CASN_REGRESSION_PHASE_RESULT_DIR:-}" ]]; then
+    emit_phase_result "$phase" "$error_class" || return 1
+  fi
+  printf '[disposable-app-regression] run failure phase=%s error=%s invocation=%s\n' \
+    "$phase" "$error_class" "$invocation_id" >&2
+}
+
+inject_run_phase_if_requested() {
+  local phase="$1"
+  local requested="${CASN_REGRESSION_INJECT_PHASE:-}"
+
+  [[ "$requested" == "$phase" ]] || return 1
+  record_run_failure "$phase" "injected-$phase" || return 2
+  return 0
+}
+
+validate_exact_phase_result() {
+  local result_dir="$1"
+  local expected_phase="$2"
+  local expected_error="$3"
+  local -a results=()
+  local candidate
+  local line
+  local pattern
+  local observed_phase
+  local observed_error
+  local -A seen_candidates=()
+
+  [[ "$result_dir" == "$test_root"/phase.* && -d "$result_dir" && ! -L "$result_dir" ]] \
+    || {
+      fail "phase result directory malformed expected=$expected_phase error=$expected_error"
+      return 1
+    }
+  for candidate in "$result_dir"/* "$result_dir"/.[!.]* "$result_dir"/..?*; do
+    [[ -e "$candidate" ]] || continue
+    [[ -z "${seen_candidates[$candidate]:-}" ]] || continue
+    seen_candidates[$candidate]=1
+    results+=("$candidate")
+  done
+  if ((${#results[@]} == 0)); then
+    fail "phase result missing expected=$expected_phase error=$expected_error"
+    return 1
+  fi
+  if ((${#results[@]} != 1)); then
+    fail "phase result duplicate expected=$expected_phase error=$expected_error count=${#results[@]}"
+    return 1
+  fi
+  candidate="${results[0]}"
+  [[ "$candidate" == "$result_dir"/result.* && -f "$candidate" && ! -L "$candidate" ]] || {
+    fail "phase result malformed expected=$expected_phase error=$expected_error"
+    return 1
+  }
+  IFS= read -r line 2>/dev/null <"$candidate" || {
+    fail "phase result malformed expected=$expected_phase error=$expected_error"
+    return 1
+  }
+  [[ "$(wc -l <"$candidate")" -eq 1 ]] || {
+    fail "phase result malformed expected=$expected_phase error=$expected_error"
+    return 1
+  }
+  pattern=$'^v1\t([0-9a-f]{32})\t([a-z][a-z0-9-]{0,31})\t([a-z][a-z0-9-]{0,47})$'
+  [[ "$line" =~ $pattern && "${BASH_REMATCH[1]}" == "$invocation_id" ]] || {
+    fail "phase result malformed expected=$expected_phase error=$expected_error"
+    return 1
+  }
+  observed_phase="${BASH_REMATCH[2]}"
+  observed_error="${BASH_REMATCH[3]}"
+  if [[ "$observed_phase" != "$expected_phase" || "$observed_error" != "$expected_error" ]]; then
+    fail "phase mismatch expected=$expected_phase observed=$observed_phase error=$observed_error expected_error=$expected_error"
+    return 1
+  fi
+}
+
+registered_authoritative_identities_absent_except() {
+  local excluded_pid="$1"
+  local selected_class="${2:-all}"
+  local entry
+  local record
+  local pid
+  local start_time
+  local parent_pid
+  local process_group
+  local session_id
+  local role
+  local role_class
+  local failed=0
+
+  for entry in "$identity_registry"/entry.*; do
+    [[ -e "$entry" ]] || continue
+    if ! record="$(casn_registry_read_entry "$entry" "$identity_registry" "$invocation_id")"; then
+      failed=1
+      continue
+    fi
+    read -r pid start_time parent_pid process_group session_id role <<<"$record"
+    [[ "$pid" != "$excluded_pid" && "$role" != *-observation ]] || continue
+    role_class='command'
+    [[ "$role" == *descendant* ]] && role_class=descendant
+    [[ "$role" == *supervisor* ]] && role_class=supervisor
+    [[ "$role" == *harness* ]] && role_class=harness
+    [[ "$selected_class" == 'all' || "$selected_class" == "$role_class" ]] || continue
+    if casn_process_identity_matches \
+      "$pid" "$start_time" "$process_group" "$parent_pid" "$session_id" \
+      || registry_stable_identity_matches "$pid" "$start_time" "$process_group" "$session_id"; then
+      failed=1
+    fi
+  done
+  return "$failed"
+}
+
+terminate_registered_run() {
+  local supervisor_pid="$1"
+  local supervisor_identity="$2"
+  local control_fd="$3"
+  local process_group
+  local session_id
+  local attempt
+  local failed=0
+  local group_status
+  local role_class
+
+  read -r _ process_group _ session_id <<<"$supervisor_identity"
+  for role_class in descendant command supervisor harness; do
+    registry_signal_identities TERM "$supervisor_pid" "$role_class" || failed=1
+    for ((attempt = 0; attempt < 10; attempt += 1)); do
+      registered_authoritative_identities_absent_except \
+        "$supervisor_pid" "$role_class" && break
+      sleep 0.1
+    done
+    registry_signal_identities KILL "$supervisor_pid" "$role_class" || failed=1
+    for ((attempt = 0; attempt < 50; attempt += 1)); do
+      reap_registered_children
+      registered_authoritative_identities_absent_except \
+        "$supervisor_pid" "$role_class" && break
+      sleep 0.1
+    done
+    registered_authoritative_identities_absent_except \
+      "$supervisor_pid" "$role_class" || failed=1
+  done
+  if casn_process_group_has_members "$process_group" "$session_id" "$supervisor_pid"; then
+    failed=1
+  else
+    group_status=$?
+    ((group_status == 1)) || failed=1
+  fi
+  if ((failed == 0)); then
+    stop_owned_supervisor "$supervisor_pid" "$supervisor_identity" "$control_fd" || failed=1
+  fi
+  return "$failed"
+}
+
+validate_launcher_record() {
+  local record_file="$1"
+  local expected_pid="$2"
+  local expected_role="$3"
+  local line
+  local pattern
+  local identity
+
+  [[ "$record_file" =~ ^/tmp/casn-quality\.[A-Za-z0-9]+/active-[0-9]+\.[a-z-]+$ \
+    && -f "$record_file" && ! -L "$record_file" ]] || return 1
+  IFS= read -r line 2>/dev/null <"$record_file" || return 1
+  [[ "$(wc -l <"$record_file")" -eq 1 ]] || return 1
+  pattern=$'^v1\t([0-9a-f]{32})\t([0-9]+)\t([0-9]+ [0-9]+ [0-9]+ [0-9]+)\t([a-z][a-z0-9-]{0,31})$'
+  [[ "$line" =~ $pattern && "${BASH_REMATCH[1]}" == "$invocation_id" \
+    && "${BASH_REMATCH[2]}" == "$expected_pid" \
+    && "${BASH_REMATCH[4]}" == "$expected_role" ]] || return 1
+  identity="${BASH_REMATCH[3]}"
+  printf '%s\n' "$identity"
+}
+
+spawned_pid=''
+spawned_identity=''
+spawn_registered_session() {
+  local log="$1"
+  local role="$2"
+  shift 2
+  local root
+  local launch_fifo
+  local launch_record
+  local launch_fd
+  local pid
+  local identity
+  local attempt
+
+  (($# > 0)) || return 64
+  casn_registry_role_is_valid "$role" || return 64
+  root="$(mktemp -d '/tmp/casn-quality.XXXXXX')"
+  register_invocation_temp_root "$root" fixture-root || {
+    rm -rf -- "$root"
+    return 1
+  }
+  launch_fifo="$root/active-1.launch"
+  launch_record="$root/active-1.launch-ready"
+  mkfifo -- "$launch_fifo"
+  exec {launch_fd}<>"$launch_fifo"
+  CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
+    CASN_REGRESSION_IDENTITY_LIBRARY="$identity_library" \
+    CASN_REGRESSION_REGISTRY_LIBRARY="$registry_library" \
+    setsid bash "$repository_root/scripts/ci/disposable-registered-process-launcher.sh" \
+      fixture "$launch_fd" "$launch_record" "$role" -- "$@" >"$log" 2>&1 &
+  pid=$!
+  for ((attempt = 0; attempt < 100; attempt += 1)); do
+    [[ -f "$launch_record" ]] && break
+    [[ -e "/proc/$pid/stat" ]] || break
+    sleep 0.01
+  done
+  identity="$(validate_launcher_record "$launch_record" "$pid" "$role")" || {
+    exec {launch_fd}>&-
+    teardown_invocation_registry || true
+    return 1
+  }
+  printf 'launch\n' >&"$launch_fd"
+  exec {launch_fd}>&-
+  spawned_pid="$pid"
+  spawned_identity="$identity"
+}
+
+owned_run_cleanup_verified=0
+run_owned_bounded() {
+  local log="$1"
+  local max_attempts="$2"
+  shift 2
+  local supervisor_root
+  local control_fifo
+  local launch_fifo
+  local status_file
+  local ready_file
+  local launch_record
+  local command_record
+  local control_fd
+  local launch_fd
+  local supervisor_pid=''
+  local supervisor_identity=''
+  local command_status=''
+  local attempt
+  local timed_out=1
+  local run_failed=0
+  local cleanup_failed=0
+  local injected_status
+
+  owned_run_status=''
+  owned_run_cleanup_verified=0
+  supervisor_root="$(mktemp -d '/tmp/casn-quality.XXXXXX')"
+  register_invocation_temp_root "$supervisor_root" bounded-root || {
+    rm -rf -- "$supervisor_root"
+    fail 'unable to register bounded-run temporary root'
+    return 1
+  }
+  control_fifo="$supervisor_root/active-1.control"
+  launch_fifo="$supervisor_root/active-1.launch"
+  status_file="$supervisor_root/active-1.status"
+  ready_file="$supervisor_root/active-1.ready"
+  launch_record="$supervisor_root/active-1.launch-ready"
+  command_record="$supervisor_root/active-1.command-ready"
+  mkfifo -- "$control_fifo" "$launch_fifo"
+  exec {control_fd}<>"$control_fifo"
+  exec {launch_fd}<>"$launch_fifo"
+
+  CASN_REGRESSION_IDENTITY_REGISTRY="$identity_registry" \
+    CASN_REGRESSION_INVOCATION_ID="$invocation_id" \
+    CASN_REGRESSION_IDENTITY_LIBRARY="$identity_library" \
+    CASN_REGRESSION_REGISTRY_LIBRARY="$registry_library" \
+    CASN_REGRESSION_PROCESS_SUPERVISOR="$process_supervisor" \
+    setsid bash "$repository_root/scripts/ci/disposable-registered-process-launcher.sh" \
+      supervisor "$launch_fd" "$launch_record" "$control_fd" "$status_file" \
+      "$ready_file" "$command_record" "$@" >"$log" 2>&1 &
+  supervisor_pid=$!
+
+  for ((attempt = 0; attempt < 100; attempt += 1)); do
+    [[ -f "$launch_record" ]] && break
+    [[ -e "/proc/$supervisor_pid/stat" ]] || break
+    sleep 0.01
+  done
+  if [[ -f "$launch_record" ]]; then
+    supervisor_identity="$(validate_launcher_record \
+      "$launch_record" "$supervisor_pid" bounded-supervisor)" || run_failed=1
+  else
+    run_failed=1
+  fi
+  if ((run_failed == 0)) && inject_run_phase_if_requested identity-capture; then
+    run_failed=1
+  else
+    injected_status=$?
+    if ((injected_status == 2)); then
+      run_failed=1
+    fi
+  fi
+  if ((run_failed != 0)) && [[ -n "${CASN_REGRESSION_PHASE_RESULT_DIR:-}" \
+    && "${CASN_REGRESSION_INJECT_PHASE:-}" != 'identity-capture' ]]; then
+    record_run_failure identity-capture identity-unavailable || true
+  fi
+
+  if ((run_failed == 0)); then
+    printf 'launch\n' >&"$launch_fd"
+    for ((attempt = 0; attempt < 500; attempt += 1)); do
+      [[ -f "$ready_file" && -f "$command_record" ]] && break
+      test_identity_matches "$supervisor_pid" "$supervisor_identity" || break
+      sleep 0.01
+    done
+    if [[ ! -f "$ready_file" || ! -f "$command_record" ]]; then
+      record_run_failure readiness readiness-missing || true
+      run_failed=1
+    elif ! validate_launcher_record "$command_record" \
+      "$(sed -n 's/^v1\t[0-9a-f]\{32\}\t\([0-9][0-9]*\)\t.*$/\1/p' "$command_record")" \
+      bounded-command >/dev/null; then
+      record_run_failure readiness command-registry-invalid || true
+      run_failed=1
+    elif inject_run_phase_if_requested readiness; then
+      run_failed=1
+    else
+      injected_status=$?
+      ((injected_status != 2)) || run_failed=1
+    fi
+  fi
+
+  if ((run_failed == 0)); then
+    for ((attempt = 0; attempt < max_attempts; attempt += 1)); do
+      if [[ -f "$status_file" ]]; then
+        timed_out=0
+        break
+      fi
+      test_identity_matches "$supervisor_pid" "$supervisor_identity" || break
+      sleep 0.1
+    done
+    if ((timed_out != 0)); then
+      record_run_failure timeout bounded-timeout || true
+      run_failed=1
+    fi
+  fi
+
+  if ((run_failed == 0)); then
+    command_status="$(<"$status_file")"
+    if [[ ! "$command_status" =~ ^[0-9]+$ || "$command_status" -gt 255 ]]; then
+      record_run_failure status malformed-status || true
+      run_failed=1
+    fi
+  fi
+
+  if ((run_failed == 0)) && ! promote_reparented_observations; then
+    record_run_failure termination authority-transition-failed || true
+    run_failed=1
+  fi
+
+  if ((run_failed == 0)); then
+    if inject_run_phase_if_requested termination; then
+      run_failed=1
+    else
+      injected_status=$?
+      if ((injected_status == 2)); then
+        run_failed=1
+      elif ! terminate_registered_run "$supervisor_pid" "$supervisor_identity" "$control_fd"; then
+        record_run_failure termination termination-failed || true
+        run_failed=1
+      fi
+    fi
+  fi
+
+  if ((run_failed == 0)); then
+    if inject_run_phase_if_requested reap; then
+      run_failed=1
+    else
+      injected_status=$?
+      if ((injected_status == 2)); then
+        run_failed=1
+      elif ! bounded_reap_test_job "$supervisor_pid" "$supervisor_identity" 50; then
+        record_run_failure reap reap-failed || true
+        run_failed=1
+      fi
+    fi
+  fi
+
+  exec {launch_fd}>&-
+  exec {control_fd}>&-
+  teardown_invocation_registry || cleanup_failed=1
+  if ((cleanup_failed == 0)); then
+    owned_run_cleanup_verified=1
+  fi
+  if ((run_failed != 0 || cleanup_failed != 0)); then
+    return 1
+  fi
+  owned_run_status="$command_status"
+}
+
+run_bounded_error_cleanup_case() {
+  local expected_phase="$1"
+  local expected_error="$2"
+  local actual_phase="${3:-$1}"
+  local log="$test_root/bounded-${expected_phase}-${actual_phase}.log"
+  local phase_dir="$test_root/phase.${expected_phase}.${actual_phase}.$RANDOM"
+  local run_status
+  local command='exit 0'
+
+  phase_name_is_valid "$expected_phase" || fail "invalid expected phase: $expected_phase"
+  phase_error_is_valid "$expected_error" || fail "invalid expected error: $expected_error"
+  phase_name_is_valid "$actual_phase" || fail "invalid actual phase: $actual_phase"
+  mkdir -m 0700 "$phase_dir"
+  [[ "$actual_phase" != 'readiness' ]] || command='sleep 30'
+
+  if CASN_REGRESSION_PHASE_RESULT_DIR="$phase_dir" \
+    CASN_REGRESSION_INJECT_PHASE="$actual_phase" \
+    run_owned_bounded "$log" 20 bash -c "$command"; then
+    run_status=0
+  else
+    run_status=$?
+  fi
+  [[ "$run_status" -ne 0 ]] || fail "bounded-$expected_phase did not exercise its error branch"
+  [[ "$owned_run_cleanup_verified" -eq 1 ]] \
+    || fail "bounded-$expected_phase cleanup was not verified"
+  validate_exact_phase_result "$phase_dir" "$expected_phase" "$expected_error" || return 1
+  printf '[disposable-app-regression] bounded-%s-cleanup passed phase=%s error=%s invocation=%s\n' \
+    "$expected_phase" "$expected_phase" "$expected_error" "$invocation_id"
+}
+
+run_reap_rejects_termination_case() {
+  local log="$test_root/phase-reap-rejects-termination.log"
+  local fixture_status
+
+  if run_bounded_error_cleanup_case reap injected-reap termination >"$log" 2>&1; then
+    fixture_status=0
+  else
+    fixture_status=$?
+  fi
+  printf '[disposable-app-regression] phase probe expected=reap observed=termination error=injected-termination status=%s invocation=%s\n' \
+    "$fixture_status" "$invocation_id" >&2
+
+  if ((fixture_status == 0)); then
+    fail 'reap expectation credited an injected termination failure'
+  fi
+  grep -Fq 'phase mismatch expected=reap observed=termination error=injected-termination' "$log" \
+    || fail 'reap/termination mismatch was not diagnosed exactly'
+  prove_invocation_stably_absent 5 \
+    || fail 'reap/termination mismatch cleanup was not stably absent'
+  printf '[disposable-app-regression] phase-reap-rejects-termination passed\n'
+}
+
+run_phase_protocol_validation_case() {
+  local missing_dir="$test_root/phase.validation.missing.$RANDOM"
+  local duplicate_dir="$test_root/phase.validation.duplicate.$RANDOM"
+  local malformed_dir="$test_root/phase.validation.malformed.$RANDOM"
+  local exact_dir="$test_root/phase.validation.exact.$RANDOM"
+  local log="$test_root/phase-validation.log"
+  local pending
+  local registry_pending="$identity_registry/.pending.validation"
+
+  mkdir -m 0700 "$missing_dir" "$duplicate_dir" "$malformed_dir" "$exact_dir"
+  if validate_exact_phase_result "$missing_dir" termination injected-termination >"$log" 2>&1; then
+    fail 'missing phase result was accepted'
+  fi
+  grep -Fq 'phase result missing expected=termination error=injected-termination' "$log" \
+    || fail 'missing phase result diagnostic was not exact'
+
+  CASN_REGRESSION_PHASE_RESULT_DIR="$duplicate_dir" \
+    emit_phase_result termination injected-termination
+  CASN_REGRESSION_PHASE_RESULT_DIR="$duplicate_dir" \
+    emit_phase_result termination injected-termination
+  if validate_exact_phase_result "$duplicate_dir" termination injected-termination >"$log" 2>&1; then
+    fail 'duplicate phase results were accepted'
+  fi
+  grep -Fq 'phase result duplicate expected=termination error=injected-termination count=2' "$log" \
+    || fail 'duplicate phase result diagnostic was not exact'
+
+  pending="$malformed_dir/.pending.fixture"
+  printf 'v1\t%s\ttermination\n' "$invocation_id" >"$pending"
+  mv -- "$pending" "$malformed_dir/result.fixture"
+  if validate_exact_phase_result "$malformed_dir" termination injected-termination >"$log" 2>&1; then
+    fail 'malformed phase result was accepted'
+  fi
+  grep -Fq 'phase result malformed expected=termination error=injected-termination' "$log" \
+    || fail 'malformed phase result diagnostic was not exact'
+
+  CASN_REGRESSION_PHASE_RESULT_DIR="$exact_dir" \
+    emit_phase_result termination injected-termination
+  validate_exact_phase_result "$exact_dir" termination injected-termination \
+    || fail 'exact phase result was rejected'
+
+  printf 'incomplete\n' >"$registry_pending"
+  if validate_invocation_registry; then
+    fail 'incomplete atomic registry write was accepted'
+  fi
+  rm -f -- "$registry_pending"
+  validate_invocation_registry || fail 'registry remained invalid after pending-write probe'
+  printf '[disposable-app-regression] phase-protocol-validation passed\n'
+}
+
+run_unexpected_phase_rejected_case() {
+  local log="$test_root/phase-unexpected-readiness.log"
+  local fixture_status
+
+  if run_bounded_error_cleanup_case \
+    termination injected-termination readiness >"$log" 2>&1; then
+    fixture_status=0
+  else
+    fixture_status=$?
+  fi
+  printf '[disposable-app-regression] phase probe expected=termination observed=readiness error=injected-readiness status=%s invocation=%s\n' \
+    "$fixture_status" "$invocation_id" >&2
+
+  if ((fixture_status == 0)); then
+    fail 'termination expectation accepted an unexpected readiness failure'
+  fi
+  grep -Fq 'phase mismatch expected=termination observed=readiness error=injected-readiness' "$log" \
+    || fail 'unexpected readiness phase was not diagnosed exactly'
+  prove_invocation_stably_absent 5 \
+    || fail 'unexpected readiness phase cleanup was not stably absent'
+  printf '[disposable-app-regression] phase-unexpected-rejected passed\n'
+}
+
+run_registered_survivor_proof_case() {
+  local log="$test_root/registered-survivor.log"
+  local supervisor_pid
+  local supervisor_identity
+  local status
+  local attempt
+  local survived=0
+
+  spawn_registered_session "$log" fixture-supervisor sleep 30 \
+    || fail 'unable to launch registered-survivor fixture'
+  supervisor_pid="$spawned_pid"
+  supervisor_identity="$spawned_identity"
+  run_owned_bounded "$test_root/registered-survivor-run.log" 20 bash -c 'exit 0'
+  status="$owned_run_status"
+
+  for ((attempt = 0; attempt < 5; attempt += 1)); do
+    if test_identity_matches "$supervisor_pid" "$supervisor_identity"; then
+      survived=1
+    else
+      survived=0
+      break
+    fi
+    sleep 0.1
+  done
+  printf '[disposable-app-regression] registered survivor probe invocation=%s pid=%s identity=%s role=supervisor status=%s stabilized_present=%s registry=%s\n' \
+    "$invocation_id" "$supervisor_pid" "$supervisor_identity" "$status" "$survived" "$identity_registry" >&2
+
+  if ((survived != 0)); then
+    teardown_invocation_registry || true
+    fail 'registered supervisor survived teardown and stabilized post-return proof'
+  fi
+  [[ "$status" -eq 0 ]] || fail "registered-survivor expected command status 0, received $status"
+  prove_invocation_stably_absent 5 \
+    || fail 'registered-survivor post-return proof was not stable'
+  printf '[disposable-app-regression] registered-survivor-proof passed\n'
+}
+
+run_unregistered_process_authority_case() {
+  local marker="$test_root/unregistered-authority.ready"
+  local unregistered_pid
+  local unregistered_identity
+  local child_pid
+  local child_identity
+  local harness_pid
+  local harness_identity
+  local abort_status
+  local attempt
+  local unregistered_present
+  local child_present
+
+  IDENTITY_LIBRARY="$identity_library" UNREGISTERED_MARKER="$marker" setsid bash -c '
+    set -euo pipefail
+    source "$IDENTITY_LIBRARY"
+    leader_pid="$BASHPID"
+    leader_identity="$(casn_read_process_identity "$leader_pid")"
+    sleep 30 &
+    child_pid=$!
+    child_identity="$(casn_read_process_identity "$child_pid")"
+    marker_temp="${UNREGISTERED_MARKER}.tmp.$BASHPID"
+    printf "%s\\n%s\\n%s\\n%s\\n" \
+      "$leader_pid" "$leader_identity" "$child_pid" "$child_identity" >"$marker_temp"
+    mv -- "$marker_temp" "$UNREGISTERED_MARKER"
+    wait
+  ' >/dev/null 2>&1 &
+  unregistered_pid=$!
+  unregistered_identity="$(capture_test_process_identity "$unregistered_pid")" \
+    || fail 'unable to capture unregistered session-leader identity'
+
+  for ((attempt = 0; attempt < 100; attempt += 1)); do
+    [[ -s "$marker" ]] && break
+    test_identity_matches "$unregistered_pid" "$unregistered_identity" \
+      || fail 'unregistered session leader exited before readiness'
+    sleep 0.01
+  done
+  [[ -s "$marker" ]] || fail 'unregistered authority fixture did not become ready'
+  [[ "$(sed -n '1p' "$marker")" == "$unregistered_pid" ]] \
+    || fail 'unregistered authority marker recorded a different leader'
+  child_pid="$(sed -n '3p' "$marker")"
+  child_identity="$(sed -n '4p' "$marker")"
+  test_identity_matches "$child_pid" "$child_identity" \
+    || fail 'unregistered authority child identity changed before probe'
+
+  spawn_registered_session "$test_root/unregistered-authority-harness.log" \
+    fixture-harness sleep 30 || fail 'unable to launch registered abort harness'
+  harness_pid="$spawned_pid"
+  harness_identity="$spawned_identity"
+  teardown_invocation_registry && abort_status=0 || abort_status=$?
+
+  test_stable_identity_matches "$unregistered_pid" "$unregistered_identity" \
+    && unregistered_present=1 || unregistered_present=0
+  test_stable_identity_matches "$child_pid" "$child_identity" \
+    && child_present=1 || child_present=0
+  printf '[disposable-app-regression] unregistered authority probe invocation=%s abort_status=%s leader_pid=%s leader_identity=%s leader_present=%s child_pid=%s child_identity=%s child_present=%s registry=%s\n' \
+    "$invocation_id" "$abort_status" "$unregistered_pid" "$unregistered_identity" \
+    "$unregistered_present" "$child_pid" "$child_identity" "$child_present" "$identity_registry" >&2
+
+  if ((unregistered_present == 0 || child_present == 0)); then
+    wait_exact_process_absent "$unregistered_pid" "$unregistered_identity" 50 || true
+    set +e
+    wait "$unregistered_pid" 2>/dev/null
+    set -e
+    fail 'unregistered process was signalled or adopted as cleanup authority'
+  fi
+  ((abort_status == 0)) || fail 'registered-only teardown failed during unregistered probe'
+  test_stable_identity_matches "$harness_pid" "$harness_identity" \
+    && fail 'registered abort harness survived registry teardown'
+
+  register_invocation_identity "$unregistered_pid" "$unregistered_identity" fixture-supervisor \
+    || fail 'unable to register proven-unrelated leader for fixture cleanup'
+  register_invocation_identity "$child_pid" "$child_identity" fixture-descendant \
+    || fail 'unable to register proven-unrelated child for fixture cleanup'
+  teardown_invocation_registry \
+    || fail 'registered unregistered-authority fixture cleanup failed'
+  prove_invocation_stably_absent 5 \
+    || fail 'unregistered-authority cleanup proof was not stable'
+  printf '[disposable-app-regression] unregistered-authority passed\n'
 }
 
 case "${1:-all}" in
@@ -1503,16 +2242,31 @@ case "${1:-all}" in
     run_changed_ppid_signal_case
     ;;
   bounded-error-cleanup)
-    run_bounded_error_cleanup_case identity-capture
-    run_bounded_error_cleanup_case readiness
-    run_bounded_error_cleanup_case termination
-    run_bounded_error_cleanup_case reap
+    run_bounded_error_cleanup_case identity-capture injected-identity-capture
+    run_bounded_error_cleanup_case readiness injected-readiness
+    run_bounded_error_cleanup_case termination injected-termination
+    run_bounded_error_cleanup_case reap injected-reap
     ;;
   bounded-termination-cleanup)
-    run_bounded_error_cleanup_case termination
+    run_bounded_error_cleanup_case termination injected-termination
     ;;
   bounded-reap-cleanup)
-    run_bounded_error_cleanup_case reap
+    run_bounded_error_cleanup_case reap injected-reap
+    ;;
+  phase-reap-rejects-termination)
+    run_reap_rejects_termination_case
+    ;;
+  phase-protocol-validation)
+    run_phase_protocol_validation_case
+    ;;
+  phase-unexpected-rejected)
+    run_unexpected_phase_rejected_case
+    ;;
+  registered-survivor-proof)
+    run_registered_survivor_proof_case
+    ;;
+  unregistered-authority)
+    run_unregistered_process_authority_case
     ;;
   docker-proof)
     run_cleanup_query_case docker-proof
@@ -1539,10 +2293,15 @@ case "${1:-all}" in
     run_abort_supervisor_case
     run_abort_lost_authority_case
     run_changed_ppid_signal_case
-    run_bounded_error_cleanup_case identity-capture
-    run_bounded_error_cleanup_case readiness
-    run_bounded_error_cleanup_case termination
-    run_bounded_error_cleanup_case reap
+    run_bounded_error_cleanup_case identity-capture injected-identity-capture
+    run_bounded_error_cleanup_case readiness injected-readiness
+    run_bounded_error_cleanup_case termination injected-termination
+    run_bounded_error_cleanup_case reap injected-reap
+    run_phase_protocol_validation_case
+    run_reap_rejects_termination_case
+    run_unexpected_phase_rejected_case
+    run_registered_survivor_proof_case
+    run_unregistered_process_authority_case
     run_cleanup_query_case docker-proof
     run_cleanup_query_case ss-proof
     run_child_status_case
@@ -1551,7 +2310,7 @@ case "${1:-all}" in
     run_ignored_term_signal_case
     ;;
   *)
-    printf 'Usage: %s [identity-mismatch|stopped-reap|owned-group-anchor|abort-supervisor|abort-lost-authority|changed-ppid-signal|bounded-error-cleanup|docker-proof|ss-proof|child-status|term|term-descendant|term-descendant-signal|all]\n' "$0" >&2
+    printf 'Usage: %s [identity-mismatch|stopped-reap|owned-group-anchor|abort-supervisor|abort-lost-authority|changed-ppid-signal|bounded-error-cleanup|bounded-termination-cleanup|bounded-reap-cleanup|phase-reap-rejects-termination|phase-protocol-validation|phase-unexpected-rejected|registered-survivor-proof|unregistered-authority|docker-proof|ss-proof|child-status|term|term-descendant|term-descendant-signal|all]\n' "$0" >&2
     exit 64
     ;;
 esac
