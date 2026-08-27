@@ -101,7 +101,7 @@ function inspectFilesystemPidEntry(pid: number): 'present' | 'absent' | 'unknown
 }
 
 function isErrnoWithCode(error: unknown, code: string): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error && error.code === code;
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
 }
 
 const filesystemProcAccess: ProcAccess = {

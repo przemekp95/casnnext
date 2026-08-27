@@ -1,4 +1,6 @@
 /** @jest-environment node */
+import { readFileSync } from 'node:fs';
+
 import { lookupGroup, lookupProcess, parseStatLine } from '@/scripts/ci/disposable-lifecycle/proc';
 
 const access = {
@@ -63,6 +65,12 @@ test('returns absent when a failed stat read confirms the PID is gone', () => {
   access.inspectPidEntry.mockReturnValue('absent');
 
   expect(lookupProcess(42, access)).toEqual({ kind: 'absent' });
+});
+
+test('returns absent for a real PID entry beyond the kernel allocation range under Jest', () => {
+  const pidBeyondKernelRange = Number(readFileSync('/proc/sys/kernel/pid_max', 'utf8').trim()) + 1;
+
+  expect(lookupProcess(pidBeyondKernelRange)).toEqual({ kind: 'absent' });
 });
 
 test('returns unknown when PID entry state cannot be inspected after a failed stat read', () => {

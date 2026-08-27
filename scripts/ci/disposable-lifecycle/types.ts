@@ -18,6 +18,12 @@ export type GroupLookup =
   | Readonly<{ kind: 'absent' }>
   | Readonly<{ kind: 'unknown'; reason: string }>;
 
+export type ChildOutcome =
+  | Readonly<{ kind: 'exit'; code: number }>
+  | Readonly<{ kind: 'signal'; signal: NodeJS.Signals }>
+  | Readonly<{ kind: 'spawn-error'; message: string }>
+  | Readonly<{ kind: 'timeout'; phase: string }>;
+
 export class LifecycleFailure extends Error {
   constructor(
     public readonly exitCode: number,
