@@ -3,6 +3,10 @@ import { pathToFileURL } from 'node:url';
 
 import { finalizeOwnedRun, resolveExitStatus, type CleanupResult } from './finalize';
 import {
+  runHarnessScenario as runHarnessBlackBoxScenario,
+  type HarnessScenario,
+} from './harness-scenarios';
+import {
   createOwnedRoot,
   publishEvidence,
   removeOwnedRoot,
@@ -24,11 +28,16 @@ import {
 } from './types';
 
 export type FastScenario = 'proc' | 'root' | 'process' | 'cleanup' | 'all-fast';
+export type DisposableLifecycleScenario = FastScenario | HarnessScenario;
 
 export type CliDependencies = Readonly<{
   createRoot: typeof createOwnedRoot;
   runFastScenario: (
     scenario: FastScenario,
+    root: OwnedRoot,
+  ) => Promise<number>;
+  runHarnessScenario?: (
+    scenario: HarnessScenario,
     root: OwnedRoot,
   ) => Promise<number>;
 }>;
@@ -55,7 +64,15 @@ type TargetReadinessIdentity = Readonly<{
 
 type CliSignal = 'SIGHUP' | 'SIGINT' | 'SIGTERM';
 
-const scenarioNames = new Set<string>(['proc', 'root', 'process', 'cleanup', 'all-fast']);
+const fastScenarioNames = new Set<string>(['proc', 'root', 'process', 'cleanup', 'all-fast']);
+const harnessScenarioNames = new Set<string>([
+  'harness-success',
+  'harness-status',
+  'harness-term',
+  'harness-descendant',
+  'harness-proof-failure',
+  'all-harness',
+]);
 const signalStatuses: Readonly<Record<CliSignal, number>> = {
   SIGHUP: 129,
   SIGINT: 130,
@@ -86,7 +103,11 @@ const productionTargetReadinessActors: TargetReadinessTestActors = {
 class ScenarioInterrupted extends Error {}
 
 function isFastScenario(value: string | undefined): value is FastScenario {
-  return value !== undefined && scenarioNames.has(value);
+  return value !== undefined && fastScenarioNames.has(value);
+}
+
+function isHarnessScenario(value: string | undefined): value is HarnessScenario {
+  return value !== undefined && harnessScenarioNames.has(value);
 }
 
 function errorMessage(error: unknown): string {
@@ -386,6 +407,13 @@ export function waitForTargetMemberForTests(
 const defaultDependencies: CliDependencies = {
   createRoot: createOwnedRoot,
   runFastScenario: runDefaultFastScenario,
+  runHarnessScenario: (scenario, root) => {
+    const interruption = activeInterruptions.get(root);
+    if (interruption === undefined) {
+      throw new LifecycleFailure(70, 'CLI interruption context is unavailable');
+    }
+    return runHarnessBlackBoxScenario(scenario, root, interruption);
+  },
 };
 
 export async function runCli(
@@ -438,11 +466,14 @@ export async function runCli(
   let status = 70;
   try {
     const [scenario, ...extraArgs] = args;
-    if (!isFastScenario(scenario) || extraArgs.length > 0) {
+    if ((!isFastScenario(scenario) && !isHarnessScenario(scenario)) || extraArgs.length > 0) {
       throw new LifecycleFailure(
         64,
         `unknown disposable lifecycle scenario: ${scenario ?? ''}`,
       );
+    }
+    if (isHarnessScenario(scenario) && dependencies.runHarnessScenario === undefined) {
+      throw new LifecycleFailure(70, `harness scenario is not implemented: ${scenario}`);
     }
     const delayMs = validateDelayEnvironment();
     await waitForDelay(delayMs, controller.signal);
@@ -451,7 +482,14 @@ export async function runCli(
     } else {
       root = dependencies.createRoot();
       activeInterruptions.set(root, controller.signal);
-      scenarioRun = dependencies.runFastScenario(scenario, root).catch(reportFailure);
+      scenarioRun = (
+        isFastScenario(scenario)
+          ? dependencies.runFastScenario(scenario, root)
+          : dependencies.runHarnessScenario?.(scenario, root) ??
+            Promise.reject(
+              new LifecycleFailure(70, `harness scenario is not implemented: ${scenario}`),
+            )
+      ).catch(reportFailure);
       const first = await Promise.race([
         scenarioRun.then((scenarioStatus) => ({ kind: 'scenario' as const, status: scenarioStatus })),
         signalStatus.then((signal) => ({ kind: 'signal' as const, status: signal })),
