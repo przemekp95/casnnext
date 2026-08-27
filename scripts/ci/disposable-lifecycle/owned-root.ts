@@ -100,12 +100,41 @@ export type OwnedRootBoundary =
   | 'before-child-unlink'
   | 'after-child-link'
   | 'after-child-unlink'
+  | 'before-final-child-unlink'
+  | 'before-helper-unlink'
+  | 'before-child-fchmod'
+  | 'before-child-final-fstat'
+  | 'before-child-registration'
   | 'before-root-rename'
-  | 'after-root-rename';
+  | 'before-final-root-rename'
+  | 'after-root-rename'
+  | 'before-root-restore'
+  | 'before-final-root-rmdir';
 
 export type OwnedRootBoundaryEvent =
-  | Readonly<{ kind: Exclude<OwnedRootBoundary, 'after-root-rename'>; basename?: string }>
-  | Readonly<{ kind: 'after-root-rename'; tombstonePath: string }>;
+  | Readonly<{
+      kind:
+        | 'before-evidence-link'
+        | 'after-evidence-link'
+        | 'before-child-unlink'
+        | 'after-child-link'
+        | 'after-child-unlink'
+        | 'before-final-child-unlink'
+        | 'before-helper-unlink'
+        | 'before-child-fchmod'
+        | 'before-child-final-fstat'
+        | 'before-child-registration';
+      basename: string;
+    }>
+  | Readonly<{ kind: 'before-root-rename' }>
+  | Readonly<{
+      kind:
+        | 'before-final-root-rename'
+        | 'after-root-rename'
+        | 'before-root-restore'
+        | 'before-final-root-rmdir';
+      tombstonePath: string;
+    }>;
 
 export type OwnedRootHooks = Readonly<{
   onBoundary?: (event: OwnedRootBoundaryEvent) => void;
@@ -120,6 +149,7 @@ type ChildIdentity = Readonly<{
 
 type RootState = {
   readonly children: Map<string, ChildIdentity>;
+  readonly pendingChildren: Map<string, number>;
   closed: boolean;
 };
 
@@ -258,7 +288,10 @@ function closeState(root: OwnedRoot, state: RootState): void {
     return;
   }
 
-  const childDescriptors = new Set([...state.children.values()].map((child) => child.authorityFd));
+  const childDescriptors = new Set([
+    ...[...state.children.values()].map((child) => child.authorityFd),
+    ...state.pendingChildren.values(),
+  ]);
   for (const fd of childDescriptors) {
     try {
       closeSync(fd);
@@ -311,6 +344,19 @@ function verifyChild(root: OwnedRoot, basename: string, child: ChildIdentity): O
 
 function verifyDirectoryEntries(root: OwnedRoot, state: RootState): OwnedRootVerification {
   try {
+    for (const [basename, fd] of state.pendingChildren) {
+      const child = childIdentityFromDescriptor(fd);
+      if (child === undefined) {
+        return { kind: 'failed', reason: 'filesystem-error' };
+      }
+      const path = lstatSync(descriptorPath(root.fd, basename), { bigint: true });
+      if (!sameChildIdentity(path, child)) {
+        return { kind: 'failed', reason: 'child-replaced' };
+      }
+      state.children.set(basename, child);
+      state.pendingChildren.delete(basename);
+    }
+
     const entries = readdirSync(descriptorPath(root.fd));
     if (entries.some((entry) => !state.children.has(entry))) {
       return { kind: 'failed', reason: 'unknown-entry' };
@@ -334,7 +380,7 @@ function verifyDirectoryEntries(root: OwnedRoot, state: RootState): OwnedRootVer
 function closeUnreferencedChildDescriptor(state: RootState, child: ChildIdentity): void {
   const stillReferenced = [...state.children.values()].some(
     (candidate) => candidate.authorityFd === child.authorityFd,
-  );
+  ) || [...state.pendingChildren.values()].some((fd) => fd === child.authorityFd);
   if (!stillReferenced) {
     try {
       closeSync(child.authorityFd);
@@ -344,14 +390,43 @@ function closeUnreferencedChildDescriptor(state: RootState, child: ChildIdentity
   }
 }
 
-function unlinkRegisteredName(root: OwnedRoot, state: RootState, basename: string): boolean {
-  const child = state.children.get(basename);
-  if (child === undefined || verifyChild(root, basename, child).kind === 'failed') {
+function unlinkCapturedName(
+  root: OwnedRoot,
+  basename: string,
+  child: ChildIdentity,
+  hooks: OwnedRootHooks | undefined,
+): boolean {
+  if (!invokeBoundary(hooks, { kind: 'before-helper-unlink', basename })) {
+    return false;
+  }
+
+  if (
+    verifyRootPath(root).kind === 'failed' ||
+    verifyChild(root, basename, child).kind === 'failed'
+  ) {
     return false;
   }
 
   try {
     unlinkSync(descriptorPath(root.fd, basename));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function unlinkRegisteredName(
+  root: OwnedRoot,
+  state: RootState,
+  basename: string,
+  hooks: OwnedRootHooks | undefined,
+): boolean {
+  const child = state.children.get(basename);
+  if (child === undefined || !unlinkCapturedName(root, basename, child, hooks)) {
+    return false;
+  }
+
+  try {
     state.children.delete(basename);
     closeUnreferencedChildDescriptor(state, child);
     return true;
@@ -360,7 +435,23 @@ function unlinkRegisteredName(root: OwnedRoot, state: RootState, basename: strin
   }
 }
 
-function createRegisteredFile(root: OwnedRoot, basename: string, mode: number): OwnedFileCreation {
+function closeCreatedDescriptor(fd: number | undefined): void {
+  if (fd === undefined) {
+    return;
+  }
+  try {
+    closeSync(fd);
+  } catch {
+    // The descriptor is never retained in state after this close attempt.
+  }
+}
+
+function createRegisteredFile(
+  root: OwnedRoot,
+  basename: string,
+  mode: number,
+  hooks: OwnedRootHooks | undefined,
+): OwnedFileCreation {
   const state = getState(root);
   if (state === undefined) {
     return { kind: 'failed', reason: 'unrecognized-root' };
@@ -398,30 +489,51 @@ function createRegisteredFile(root: OwnedRoot, basename: string, mode: number): 
     };
   }
 
+  state.pendingChildren.set(basename, writerFd);
+
   let authorityFd: number | undefined;
+  let writerIdentity: ChildIdentity | undefined;
+  let child: ChildIdentity | undefined;
   try {
     const createdStat = fstatSync(writerFd, { bigint: true });
     if (!createdStat.isFile()) {
-      closeSync(writerFd);
-      return { kind: 'failed', reason: 'child-replaced' };
+      throw new Error('The created child is not a regular file');
     }
+    writerIdentity = {
+      device: createdStat.dev,
+      inode: createdStat.ino,
+      type: createdStat.mode & fileTypeMask,
+      authorityFd: writerFd,
+    };
 
     authorityFd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-    const child = childIdentityFromDescriptor(authorityFd);
+    child = childIdentityFromDescriptor(authorityFd);
     if (
       child === undefined ||
       createdStat.dev !== child.device ||
       createdStat.ino !== child.inode ||
       (createdStat.mode & fileTypeMask) !== child.type
     ) {
-      closeSync(writerFd);
-      closeSync(authorityFd);
-      return { kind: 'failed', reason: 'child-replaced' };
+      throw new Error('The created child identity changed before capture');
+    }
+
+    if (!invokeBoundary(hooks, { kind: 'before-child-fchmod', basename })) {
+      throw new Error('Injected child mode failure');
+    }
+    fchmodSync(writerFd, mode);
+    if (!invokeBoundary(hooks, { kind: 'before-child-final-fstat', basename })) {
+      throw new Error('Injected child stat failure');
+    }
+    const writerStat = fstatSync(writerFd, { bigint: true });
+    if (!sameChildIdentity(writerStat, child) || (writerStat.mode & 0o777n) !== BigInt(mode)) {
+      throw new Error('The created child changed before registration');
+    }
+    if (!invokeBoundary(hooks, { kind: 'before-child-registration', basename })) {
+      throw new Error('Injected child registration failure');
     }
 
     state.children.set(basename, child);
-    fchmodSync(writerFd, mode);
-    const writerStat = fstatSync(writerFd, { bigint: true });
+    state.pendingChildren.delete(basename);
     return {
       kind: 'created',
       file: {
@@ -434,16 +546,21 @@ function createRegisteredFile(root: OwnedRoot, basename: string, mode: number): 
       },
     };
   } catch {
-    try {
-      closeSync(writerFd);
-    } catch {
-      // The creation failure remains typed below.
-    }
-    if (authorityFd !== undefined) {
-      try {
-        closeSync(authorityFd);
-      } catch {
-        // The creation failure remains typed below.
+    const rollbackIdentity = child ?? writerIdentity;
+    if (rollbackIdentity !== undefined && unlinkCapturedName(root, basename, rollbackIdentity, hooks)) {
+      state.pendingChildren.delete(basename);
+      closeCreatedDescriptor(authorityFd);
+      if (authorityFd !== writerFd) {
+        closeCreatedDescriptor(writerFd);
+      }
+    } else if (rollbackIdentity !== undefined) {
+      state.children.set(basename, rollbackIdentity);
+      state.pendingChildren.delete(basename);
+      if (authorityFd !== undefined && authorityFd !== rollbackIdentity.authorityFd) {
+        closeCreatedDescriptor(authorityFd);
+      }
+      if (writerFd !== rollbackIdentity.authorityFd) {
+        closeCreatedDescriptor(writerFd);
       }
     }
     return { kind: 'failed', reason: 'filesystem-error' };
@@ -489,7 +606,11 @@ export function createOwnedRoot(): OwnedRoot {
       uid: rootStat.uid,
       mode: rootStat.mode,
     });
-    rootStates.set(root, { children: new Map<string, ChildIdentity>(), closed: false });
+    rootStates.set(root, {
+      children: new Map<string, ChildIdentity>(),
+      pendingChildren: new Map<string, number>(),
+      closed: false,
+    });
     return root;
   } catch (error: unknown) {
     if (rootFd !== undefined) {
@@ -519,8 +640,13 @@ export function verifyOwnedRoot(root: OwnedRoot): OwnedRootVerification {
   return verifyRootPath(root);
 }
 
-export function createOwnedFile(root: OwnedRoot, basename: string, mode = 0o600): OwnedFileCreation {
-  return createRegisteredFile(root, basename, mode);
+export function createOwnedFile(
+  root: OwnedRoot,
+  basename: string,
+  mode = 0o600,
+  hooks?: OwnedRootHooks,
+): OwnedFileCreation {
+  return createRegisteredFile(root, basename, mode, hooks);
 }
 
 function toLifecycleEvidence(input: LifecycleEvidenceInput): LifecycleEvidence {
@@ -571,7 +697,7 @@ export function publishEvidence(
   }
 
   const temporaryBasename = randomChildBasename('evidence-tmp');
-  const temporary = createRegisteredFile(root, temporaryBasename, 0o600);
+  const temporary = createRegisteredFile(root, temporaryBasename, 0o600, hooks);
   if (temporary.kind === 'failed') {
     return temporary;
   }
@@ -595,7 +721,7 @@ export function publishEvidence(
     verifyRootPath(root).kind === 'failed' ||
     verifyChild(root, temporaryBasename, temporaryIdentityBeforeLink).kind === 'failed'
   ) {
-    unlinkRegisteredName(root, state, temporaryBasename);
+    unlinkRegisteredName(root, state, temporaryBasename, hooks);
     closeSync(temporary.file.fd);
     const rootVerification = verifyRootPath(root);
     return {
@@ -607,7 +733,7 @@ export function publishEvidence(
   try {
     linkSync(descriptorPath(root.fd, temporaryBasename), descriptorPath(root.fd, basename));
   } catch (error: unknown) {
-    unlinkRegisteredName(root, state, temporaryBasename);
+    unlinkRegisteredName(root, state, temporaryBasename, hooks);
     closeSync(temporary.file.fd);
     return {
       kind: 'failed',
@@ -633,7 +759,7 @@ export function publishEvidence(
   state.children.set(basename, temporaryIdentity);
 
   if (!invokeBoundary(hooks, { kind: 'after-evidence-link', basename })) {
-    unlinkRegisteredName(root, state, temporaryBasename);
+    unlinkRegisteredName(root, state, temporaryBasename, hooks);
     closeSync(temporary.file.fd);
     return { kind: 'failed', reason: 'filesystem-error' };
   }
@@ -641,17 +767,17 @@ export function publishEvidence(
   const rootAfterLink = verifyRootPath(root);
   const finalVerification = verifyChild(root, basename, temporaryIdentity);
   if (rootAfterLink.kind === 'failed') {
-    unlinkRegisteredName(root, state, temporaryBasename);
+    unlinkRegisteredName(root, state, temporaryBasename, hooks);
     closeSync(temporary.file.fd);
     return rootAfterLink;
   }
   if (finalVerification.kind === 'failed') {
-    unlinkRegisteredName(root, state, temporaryBasename);
+    unlinkRegisteredName(root, state, temporaryBasename, hooks);
     closeSync(temporary.file.fd);
     return finalVerification;
   }
 
-  if (!unlinkRegisteredName(root, state, temporaryBasename)) {
+  if (!unlinkRegisteredName(root, state, temporaryBasename, hooks)) {
     closeSync(temporary.file.fd);
     return { kind: 'failed', reason: 'child-replaced' };
   }
@@ -696,7 +822,7 @@ function removeRegisteredChild(
   }
 
   if (!invokeBoundary(hooks, { kind: 'after-child-link', basename })) {
-    unlinkRegisteredName(root, state, tombstoneBasename);
+    unlinkRegisteredName(root, state, tombstoneBasename, hooks);
     return { kind: 'failed', reason: 'filesystem-error' };
   }
 
@@ -708,9 +834,28 @@ function removeRegisteredChild(
     afterLinkChild.kind === 'failed' ||
     afterLinkTombstone.kind === 'failed'
   ) {
-    unlinkRegisteredName(root, state, tombstoneBasename);
+    unlinkRegisteredName(root, state, tombstoneBasename, hooks);
     if (afterLinkRoot.kind === 'failed') {
       return afterLinkRoot;
+    }
+    return { kind: 'failed', reason: 'child-replaced' };
+  }
+
+  if (!invokeBoundary(hooks, { kind: 'before-final-child-unlink', basename })) {
+    unlinkRegisteredName(root, state, tombstoneBasename, hooks);
+    return { kind: 'failed', reason: 'filesystem-error' };
+  }
+  const finalRootVerification = verifyRootPath(root);
+  const finalTombstoneVerification = verifyChild(root, tombstoneBasename, child);
+  const finalChildVerification = verifyChild(root, basename, child);
+  if (
+    finalRootVerification.kind === 'failed' ||
+    finalChildVerification.kind === 'failed' ||
+    finalTombstoneVerification.kind === 'failed'
+  ) {
+    unlinkRegisteredName(root, state, tombstoneBasename, hooks);
+    if (finalRootVerification.kind === 'failed') {
+      return finalRootVerification;
     }
     return { kind: 'failed', reason: 'child-replaced' };
   }
@@ -719,48 +864,91 @@ function removeRegisteredChild(
     unlinkSync(descriptorPath(root.fd, basename));
     state.children.delete(basename);
   } catch {
-    unlinkRegisteredName(root, state, tombstoneBasename);
+    unlinkRegisteredName(root, state, tombstoneBasename, hooks);
     return { kind: 'failed', reason: 'filesystem-error' };
   }
 
   if (!invokeBoundary(hooks, { kind: 'after-child-unlink', basename })) {
-    unlinkRegisteredName(root, state, tombstoneBasename);
+    unlinkRegisteredName(root, state, tombstoneBasename, hooks);
     return { kind: 'failed', reason: 'filesystem-error' };
   }
 
   const afterUnlinkRoot = verifyRootPath(root);
   if (afterUnlinkRoot.kind === 'failed') {
-    unlinkRegisteredName(root, state, tombstoneBasename);
+    unlinkRegisteredName(root, state, tombstoneBasename, hooks);
     return afterUnlinkRoot;
   }
   const entries = verifyDirectoryEntries(root, state);
   if (entries.kind === 'failed') {
-    unlinkRegisteredName(root, state, tombstoneBasename);
+    unlinkRegisteredName(root, state, tombstoneBasename, hooks);
     return entries;
   }
-  if (!unlinkRegisteredName(root, state, tombstoneBasename)) {
+  if (!unlinkRegisteredName(root, state, tombstoneBasename, hooks)) {
     return { kind: 'failed', reason: 'child-replaced' };
   }
 
   return { kind: 'valid' };
 }
 
-function restoreUnexpectedTombstone(root: OwnedRoot, tombstoneBasename: string): void {
+function verifyOwnedTombstone(root: OwnedRoot, tombstoneBasename: string): OwnedRootVerification {
+  const parentVerification = verifyParent(root);
+  if (parentVerification.kind === 'failed') {
+    return parentVerification;
+  }
+  const descriptorVerification = verifyRootDescriptor(root);
+  if (descriptorVerification.kind === 'failed') {
+    return descriptorVerification;
+  }
+
+  try {
+    const tombstone = lstatSync(descriptorPath(root.parentFd, tombstoneBasename), {
+      bigint: true,
+    });
+    if (
+      !tombstone.isDirectory() ||
+      tombstone.isSymbolicLink() ||
+      !sameObjectIdentity(tombstone, root) ||
+      tombstone.uid !== root.uid ||
+      tombstone.mode !== root.mode
+    ) {
+      return { kind: 'failed', reason: 'root-replaced' };
+    }
+  } catch {
+    return { kind: 'failed', reason: 'root-replaced' };
+  }
+
+  return { kind: 'valid' };
+}
+
+function pathIsAbsent(path: string): boolean {
+  try {
+    lstatSync(path, { bigint: true });
+    return false;
+  } catch (error: unknown) {
+    return isErrnoWithCode(error, 'ENOENT');
+  }
+}
+
+function restoreOwnedTombstone(
+  root: OwnedRoot,
+  tombstoneBasename: string,
+  hooks: OwnedRootHooks | undefined,
+): boolean {
   const source = descriptorPath(root.parentFd, root.basename);
   const tombstone = descriptorPath(root.parentFd, tombstoneBasename);
-  try {
-    lstatSync(source, { bigint: true });
-    return;
-  } catch (error: unknown) {
-    if (!isErrnoWithCode(error, 'ENOENT')) {
-      return;
-    }
+  const tombstonePath = join(rootParent, tombstoneBasename);
+  if (!invokeBoundary(hooks, { kind: 'before-root-restore', tombstonePath })) {
+    return false;
+  }
+  if (!pathIsAbsent(source) || verifyOwnedTombstone(root, tombstoneBasename).kind === 'failed') {
+    return false;
   }
 
   try {
     renameSync(tombstone, source);
+    return true;
   } catch {
-    // Leave both names intact when restoration cannot be proven safe.
+    return false;
   }
 }
 
@@ -815,9 +1003,15 @@ export function removeOwnedRoot(root: OwnedRoot, hooks?: OwnedRootHooks): OwnedR
     }
     rmdirSync(descriptorPath(root.parentFd, tombstoneBasename));
 
+    if (!invokeBoundary(hooks, { kind: 'before-final-root-rename', tombstonePath })) {
+      return removalFailure(root, state, 'filesystem-error');
+    }
     const finalVerification = verifyRootPath(root);
     if (finalVerification.kind === 'failed') {
       return removalFailure(root, state, finalVerification.reason);
+    }
+    if (!pathIsAbsent(descriptorPath(root.parentFd, tombstoneBasename))) {
+      return removalFailure(root, state, 'destination-exists');
     }
     renameSync(
       descriptorPath(root.parentFd, root.basename),
@@ -828,29 +1022,28 @@ export function removeOwnedRoot(root: OwnedRoot, hooks?: OwnedRootHooks): OwnedR
   }
 
   if (!invokeBoundary(hooks, { kind: 'after-root-rename', tombstonePath })) {
-    restoreUnexpectedTombstone(root, tombstoneBasename);
+    restoreOwnedTombstone(root, tombstoneBasename, hooks);
     return removalFailure(root, state, 'filesystem-error');
   }
 
+  const tombstoneVerification = verifyOwnedTombstone(root, tombstoneBasename);
+  if (tombstoneVerification.kind === 'failed') {
+    restoreOwnedTombstone(root, tombstoneBasename, hooks);
+    return removalFailure(root, state, tombstoneVerification.reason);
+  }
+  if (!invokeBoundary(hooks, { kind: 'before-final-root-rmdir', tombstonePath })) {
+    restoreOwnedTombstone(root, tombstoneBasename, hooks);
+    return removalFailure(root, state, 'filesystem-error');
+  }
+  const finalTombstoneVerification = verifyOwnedTombstone(root, tombstoneBasename);
+  if (finalTombstoneVerification.kind === 'failed') {
+    restoreOwnedTombstone(root, tombstoneBasename, hooks);
+    return removalFailure(root, state, finalTombstoneVerification.reason);
+  }
   try {
-    const parentVerification = verifyParent(root);
-    const descriptorVerification = verifyRootDescriptor(root);
-    const tombstone = lstatSync(descriptorPath(root.parentFd, tombstoneBasename), { bigint: true });
-    if (
-      parentVerification.kind === 'failed' ||
-      descriptorVerification.kind === 'failed' ||
-      !tombstone.isDirectory() ||
-      tombstone.isSymbolicLink() ||
-      !sameObjectIdentity(tombstone, root) ||
-      tombstone.uid !== root.uid ||
-      tombstone.mode !== root.mode
-    ) {
-      restoreUnexpectedTombstone(root, tombstoneBasename);
-      return removalFailure(root, state, 'root-replaced');
-    }
     rmdirSync(descriptorPath(root.parentFd, tombstoneBasename));
   } catch {
-    restoreUnexpectedTombstone(root, tombstoneBasename);
+    restoreOwnedTombstone(root, tombstoneBasename, hooks);
     return removalFailure(root, state, 'filesystem-error');
   }
 

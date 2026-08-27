@@ -2,9 +2,13 @@
 import {
   chmodSync,
   closeSync,
+  constants,
+  existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -15,6 +19,7 @@ import {
   writeSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { EventEmitter } from 'node:events';
 
 import {
   createOwnedFile,
@@ -29,6 +34,7 @@ import {
 class TestFixture {
   private readonly roots: OwnedRoot[] = [];
   private readonly paths = new Set<string>();
+  private cleaned = false;
 
   ownRoot(root: OwnedRoot): OwnedRoot {
     this.roots.push(root);
@@ -51,6 +57,11 @@ class TestFixture {
   }
 
   cleanup(): void {
+    if (this.cleaned) {
+      return;
+    }
+    this.cleaned = true;
+
     for (const root of this.roots) {
       try {
         const current = lstatSync(root.path);
@@ -94,6 +105,36 @@ function withFixture<T>(run: (fixture: TestFixture) => T): T {
   try {
     return run(fixture);
   } finally {
+    fixture.cleanup();
+  }
+}
+
+async function withInterruptibleFixture<T>(
+  run: (fixture: TestFixture) => Promise<T>,
+  timeoutMs: number,
+  signalSource: Readonly<{
+    once(event: 'SIGTERM', listener: () => void): void;
+    off(event: 'SIGTERM', listener: () => void): void;
+  }> = process,
+): Promise<T> {
+  const fixture = new TestFixture();
+  let rejectInterruption: (error: Error) => void = () => undefined;
+  const interruption = new Promise<never>((_resolve, reject) => {
+    rejectInterruption = reject;
+  });
+  const interrupt = (reason: string): void => {
+    fixture.cleanup();
+    rejectInterruption(new Error(reason));
+  };
+  const onTerm = (): void => interrupt('fixture-signal:SIGTERM');
+  const timeout = setTimeout(() => interrupt('fixture-timeout'), timeoutMs);
+  signalSource.once('SIGTERM', onTerm);
+
+  try {
+    return await Promise.race([run(fixture), interruption]);
+  } finally {
+    clearTimeout(timeout);
+    signalSource.off('SIGTERM', onTerm);
     fixture.cleanup();
   }
 }
@@ -378,6 +419,229 @@ test.each<OwnedRootBoundary>([
     expect(result.kind).toBe('failed');
     expect(readFileSync(victim.sentinel, 'utf8')).toBe('keep');
   }));
+
+test('rechecks the selected child after the final unlink boundary and preserves a last-link victim', () =>
+  withFixture((fixture) => {
+    const root = fixture.ownRoot(createOwnedRoot());
+    const victim = createVictim(fixture);
+    const created = createOwnedFile(root, 'owned.log');
+    expect(created.kind).toBe('created');
+    if (created.kind !== 'created') {
+      return;
+    }
+    writeSync(created.file.fd, 'owned');
+    closeSync(created.file.fd);
+    fixture.ownPath(created.file.path);
+
+    const result = removeOwnedRoot(root, {
+      onBoundary(event) {
+        if (event.kind !== 'before-final-child-unlink') {
+          return;
+        }
+        const backup = fixture.ownPath(`${created.file.path}.captured`);
+        renameSync(created.file.path, backup);
+        renameSync(victim.sentinel, created.file.path);
+      },
+    });
+
+    expect(result).toEqual({ kind: 'failed', reason: 'child-replaced' });
+    expect(readFileSync(created.file.path, 'utf8')).toBe('keep');
+  }));
+
+test('rechecks a helper unlink after its final boundary and preserves a last-link victim', () =>
+  withFixture((fixture) => {
+    const root = fixture.ownRoot(createOwnedRoot());
+    const victim = createVictim(fixture);
+    let replacementPath: string | undefined;
+
+    const result = publishEvidence(root, 'evidence.json', evidenceInput, {
+      onBoundary(event) {
+        if (event.kind !== 'before-helper-unlink' || event.basename === 'evidence.json') {
+          return;
+        }
+        replacementPath = fixture.ownPath(join(root.path, event.basename));
+        const backup = fixture.ownPath(`${replacementPath}.captured`);
+        renameSync(replacementPath, backup);
+        renameSync(victim.sentinel, replacementPath);
+      },
+    });
+
+    expect(result).toEqual({ kind: 'failed', reason: 'child-replaced' });
+    expect(replacementPath).toBeDefined();
+    if (replacementPath !== undefined) {
+      expect(readFileSync(replacementPath, 'utf8')).toBe('keep');
+    }
+  }));
+
+test('rechecks the empty tombstone destination after the final root rename boundary', () =>
+  withFixture((fixture) => {
+    const root = fixture.ownRoot(createOwnedRoot());
+    let victimPath: string | undefined;
+
+    const result = removeOwnedRoot(root, {
+      onBoundary(event) {
+        if (event.kind !== 'before-final-root-rename') {
+          return;
+        }
+        victimPath = fixture.ownPath(event.tombstonePath);
+        mkdirSync(victimPath, 0o700);
+      },
+    });
+
+    expect(result.kind).toBe('failed');
+    expect(victimPath).toBeDefined();
+    if (victimPath !== undefined) {
+      expect(lstatSync(victimPath).isDirectory()).toBe(true);
+    }
+  }));
+
+test('does not overwrite either empty-directory victim at the final restore boundary', () =>
+  withFixture((fixture) => {
+    const root = fixture.ownRoot(createOwnedRoot());
+    let tombstoneVictim: string | undefined;
+    let sourceVictim: string | undefined;
+
+    const result = removeOwnedRoot(root, {
+      onBoundary(event) {
+        if (event.kind === 'after-root-rename') {
+          const moved = fixture.ownPath(`${event.tombstonePath}.captured`);
+          renameSync(event.tombstonePath, moved);
+          tombstoneVictim = fixture.ownPath(event.tombstonePath);
+          mkdirSync(tombstoneVictim, 0o700);
+          return;
+        }
+        if (event.kind === 'before-root-restore') {
+          sourceVictim = fixture.ownPath(root.path);
+          mkdirSync(sourceVictim, 0o700);
+        }
+      },
+    });
+
+    expect(result.kind).toBe('failed');
+    expect(tombstoneVictim).toBeDefined();
+    expect(sourceVictim).toBeDefined();
+    if (tombstoneVictim !== undefined && sourceVictim !== undefined) {
+      expect(lstatSync(tombstoneVictim).isDirectory()).toBe(true);
+      expect(lstatSync(sourceVictim).isDirectory()).toBe(true);
+    }
+  }));
+
+test('rechecks the tombstone after the final rmdir boundary and preserves an empty victim', () =>
+  withFixture((fixture) => {
+    const root = fixture.ownRoot(createOwnedRoot());
+    let victimPath: string | undefined;
+
+    const result = removeOwnedRoot(root, {
+      onBoundary(event) {
+        if (event.kind !== 'before-final-root-rmdir') {
+          return;
+        }
+        const moved = fixture.ownPath(`${event.tombstonePath}.captured`);
+        renameSync(event.tombstonePath, moved);
+        victimPath = fixture.ownPath(event.tombstonePath);
+        mkdirSync(victimPath, 0o700);
+      },
+    });
+
+    expect(result.kind).toBe('failed');
+    expect(victimPath).toBeDefined();
+    if (victimPath !== undefined) {
+      expect(lstatSync(victimPath).isDirectory()).toBe(true);
+    }
+  }));
+
+test.each<OwnedRootBoundary>([
+  'before-child-fchmod',
+  'before-child-final-fstat',
+  'before-child-registration',
+])('rolls back a created child with live authority when %s fails', (boundary) =>
+  withFixture((fixture) => {
+    const root = fixture.ownRoot(createOwnedRoot());
+    const result = createOwnedFile(root, 'fault.log', 0o600, {
+      onBoundary(event) {
+        if (event.kind === boundary) {
+          throw new Error(`injected:${boundary}`);
+        }
+      },
+    });
+
+    if (result.kind === 'created') {
+      closeSync(result.file.fd);
+    }
+    expect(result).toEqual({ kind: 'failed', reason: 'filesystem-error' });
+    expect(readdirSync(root.path)).toEqual([]);
+    expect(removeOwnedRoot(root)).toEqual({ kind: 'removed' });
+  }));
+
+test('never lets a failed registration close subsequently reused unrelated descriptors', () =>
+  withFixture((fixture) => {
+    const root = fixture.ownRoot(createOwnedRoot());
+    const result = createOwnedFile(root, 'fault.log', 0o600, {
+      onBoundary(event) {
+        if (event.kind === 'before-child-registration') {
+          throw new Error('injected:registration');
+        }
+      },
+    });
+    if (result.kind === 'created') {
+      closeSync(result.file.fd);
+    }
+    expect(result.kind).toBe('failed');
+
+    const unrelatedPath = fixture.file(join(fixture.directory(), 'unrelated'), 'safe');
+    const unrelatedFds = Array.from({ length: 4 }, () =>
+      openSync(unrelatedPath, constants.O_RDWR | constants.O_NOFOLLOW),
+    );
+    try {
+      expect(removeOwnedRoot(root)).toEqual({ kind: 'removed' });
+      for (const fd of unrelatedFds) {
+        expect(fstatSync(fd).isFile()).toBe(true);
+        writeSync(fd, 'still-open');
+      }
+    } finally {
+      for (const fd of unrelatedFds) {
+        closeSync(fd);
+      }
+    }
+  }));
+
+test('independent fixture ownership removes a retained root on timeout', async () => {
+  let rootPath: string | undefined;
+
+  await expect(
+    withInterruptibleFixture(async (fixture) => {
+      const root = fixture.ownRoot(createOwnedRoot());
+      rootPath = root.path;
+      fixture.file(join(root.path, 'unknown'), 'retained');
+      await new Promise<never>(() => undefined);
+    }, 25),
+  ).rejects.toThrow('fixture-timeout');
+
+  expect(rootPath).toBeDefined();
+  if (rootPath !== undefined) {
+    expect(existsSync(rootPath)).toBe(false);
+  }
+});
+
+test('independent fixture ownership removes a retained root on signal', async () => {
+  let rootPath: string | undefined;
+  const signals = new EventEmitter();
+
+  await expect(
+    withInterruptibleFixture(async (fixture) => {
+      const root = fixture.ownRoot(createOwnedRoot());
+      rootPath = root.path;
+      fixture.file(join(root.path, 'unknown'), 'retained');
+      queueMicrotask(() => signals.emit('SIGTERM'));
+      await new Promise<never>(() => undefined);
+    }, 1_000, signals),
+  ).rejects.toThrow('fixture-signal:SIGTERM');
+
+  expect(rootPath).toBeDefined();
+  if (rootPath !== undefined) {
+    expect(existsSync(rootPath)).toBe(false);
+  }
+});
 
 test('keeps every created path beneath the captured root basename', () =>
   withFixture((fixture) => {

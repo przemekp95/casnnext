@@ -23,6 +23,8 @@
 - The unopened gate has its own hard self-expiry; if identity lookup is unknown, the parent sends no signal and requires self-expiry or reports a retained cleanup failure.
 - Every wait has a local deadline and liveness condition. Cleanup failure overrides a would-be pass.
 - Driver temporary deletion requires the original non-symlink directory's device, inode, owner, and mode; replacement fails closed.
+- The driver is the sole cooperative mutator of its mode-0700 owned root. At every explicit synchronous replacement injection boundary it performs a fresh exact identity check immediately before the next destructive filesystem syscall and fails closed on disagreement.
+- Root-cleanup acceptance does not claim protection against a malicious same-UID actor rebinding a pathname after that final synchronous check but before kernel pathname resolution. Physical cleanup is required only under the approved single-owner actor model, and reports must state this limitation honestly.
 - The unchanged shell harness remains sole owner of its MySQL container, application process, internal supervisor, and `casn-quality.*` root.
 - Do not add npm dependencies, `any`, TypeScript suppressions, inline ESLint directives, skipped suites, broad ESLint overrides, CommonJS `require()`, or warning downgrades.
 - Preserve PID `2329714` and every pre-existing Docker resource untouched.
@@ -320,6 +322,14 @@ possible and fail without deleting it. Close descriptors only after verified
 removal or after returning a typed failure which leaves diagnostics. Tests race
 path replacement at every injected boundary and require that no replacement or
 victim content is deleted.
+
+For Task 2, "immediately" means no driver-controlled asynchronous work or
+additional injected callback occurs between the final exact identity check and
+the destructive syscall. Tests include the final child unlink/helper unlink,
+root rename, restoration, and root `rmdir` boundaries and require a fresh check
+after each hook. This is an observed-boundary fail-closed contract under the
+cooperative single-owner model, not a claim of kernel-level conditional unlink
+or protection from an excluded malicious same-UID final-window race.
 
 - [ ] **Step 4: Implement no-clobber evidence publication**
 
@@ -976,3 +986,8 @@ No task authorizes production, remote, push, PR, merge, or deployment actions.
 CSRF/browser sessions, public HTTP transport, messaging/jobs/webhooks, CQRS,
 ports-and-adapters, DDD, migrations, rollback, and Directus behavior remain
 unchanged and outside implementation scope.
+
+Task 2 acceptance and all downstream reports must preserve the approved
+single-owner limitation: explicit synchronous replacement boundaries are
+tested fail-closed, while a malicious same-UID rebind in the final
+identity-check-to-syscall window is outside the claimed guarantee.

@@ -226,6 +226,17 @@ path. It finishes through an identity-checked private tombstone and
 non-recursive `rmdir`. Replacement, disappearance at an unexpected phase,
 permission loss, or a dangling symlink is a cleanup failure.
 
+The driver is the sole cooperative mutator of its mode-0700 owned root. Tests
+may replace entries only at explicit synchronous injection boundaries; after
+each such boundary the driver freshly checks the exact captured identity
+immediately before the next destructive filesystem syscall and fails closed on
+disagreement. This observed-boundary guarantee does not claim protection
+against a malicious same-UID process rebinding a pathname after that final
+synchronous check but before the kernel resolves the syscall. Physical cleanup
+is accepted only under this single-owner actor model, and every acceptance or
+review report states this limitation rather than describing pathname removal
+as adversary-atomic.
+
 Evidence serializes process start time as a decimal string; JSON never receives
 a raw `bigint`. It is written as one schema-versioned JSON document to a mode-0600
 temporary file, `fsync`ed, and published with a no-clobber operation. The
@@ -290,6 +301,8 @@ Fake `/proc` trees and temporary roots cover:
 - PID reuse and changed PPID/PGID/session;
 - symlink, inode replacement, permission, duplicate publication, and stale
   evidence behavior;
+- exact fail-closed checks after every explicit synchronous root/child
+  replacement boundary, immediately before destructive filesystem calls;
 - exact status precedence and timeout classification;
 - evidence never granting destructive authority.
 
@@ -379,6 +392,12 @@ final exact commit:
 Failures retain diagnostic evidence when safe and report exact limitations.
 They are never converted to GREEN by retry alone; a rerun is supplementary
 evidence after the root cause is identified.
+
+Acceptance of root cleanup proves the documented cooperative single-owner
+model and every explicit synchronous replacement boundary. It does not prove
+resistance to an uncooperative same-UID actor racing the final
+identity-check-to-syscall interval; reports must preserve that evidence
+boundary explicitly.
 
 ## Methodology and architectural applicability
 
