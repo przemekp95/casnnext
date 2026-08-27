@@ -1,8 +1,15 @@
 import { lstatSync } from 'node:fs';
 import { constants } from 'node:os';
+import { performance } from 'node:perf_hooks';
 
-import { finishGatedProcess, waitForOwnedOutcome, type OwnedProcess } from './owned-process';
-import { removeOwnedRoot } from './owned-root';
+import {
+  assertOwnedProcessAuthority,
+  finishGatedProcess,
+  reapEscalatedOwnedProcess,
+  waitForOwnedOutcome,
+  type OwnedProcess,
+} from './owned-process';
+import { removeOwnedRoot, type OwnedRoot, type OwnedRootRemoval } from './owned-root';
 import { lookupGroup, lookupProcess } from './proc';
 import {
   LifecycleFailure,
@@ -38,31 +45,46 @@ export function resolveExitStatus(child: ChildOutcome, cleanup: CleanupResult): 
   return 128 + signalNumber;
 }
 
-type FinalizeDependencies = Readonly<{
+export type FinalizeTestActors = Readonly<{
+  assertOwnedProcess: (owned: OwnedProcess) => void;
   lookupProcess: (pid: number) => ProcessLookup;
   lookupGroup: (
     processGroupId: number,
     sessionId: number,
     excludedPids: ReadonlySet<number>,
   ) => GroupLookup;
+  now: () => number;
+  wait: (milliseconds: number) => Promise<void>;
   signalGroup: (processGroupId: number, signal: NodeJS.Signals) => void;
-}>;
-
-type ChildCloseWait = Readonly<{
-  promise: Promise<void>;
-  cancel: () => void;
+  finishCooperative: (owned: OwnedProcess, timeoutMs: number) => Promise<void>;
+  reapEscalated: (owned: OwnedProcess, timeoutMs: number) => Promise<void>;
+  removeRoot: (root: OwnedRoot) => OwnedRootRemoval;
+  rootPathIsAbsent: (path: string) => boolean;
 }>;
 
 const maximumTimeoutMs = 2_147_483_647;
 const stabilizationObservations = 5;
 const stabilizationIntervalMs = 100;
-const defaultDependencies: FinalizeDependencies = {
+const stabilizationTimeoutMs = stabilizationObservations * stabilizationIntervalMs;
+const productionActors: FinalizeTestActors = {
+  assertOwnedProcess: assertOwnedProcessAuthority,
   lookupProcess,
   lookupGroup: (processGroupId, sessionId, excludedPids) =>
     lookupGroup(processGroupId, sessionId, undefined, excludedPids),
+  now: performance.now.bind(performance),
+  wait: async (milliseconds) => {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds));
+  },
   signalGroup: (processGroupId, signal) => {
     process.kill(-processGroupId, signal);
   },
+  finishCooperative: async (owned, timeoutMs) => {
+    await waitForOwnedOutcome(owned, timeoutMs);
+    await finishGatedProcess(owned, timeoutMs);
+  },
+  reapEscalated: reapEscalatedOwnedProcess,
+  removeRoot: removeOwnedRoot,
+  rootPathIsAbsent,
 };
 
 function sameIdentity(left: ProcessIdentity, right: ProcessIdentity): boolean {
@@ -85,10 +107,12 @@ function isLiveAnchor(owned: OwnedProcess): boolean {
 
 function exactDetachedAnchor(
   owned: OwnedProcess,
-  dependencies: FinalizeDependencies,
+  actors: FinalizeTestActors,
   phase: string,
+  timeoutMs: number,
 ): ProcessIdentity {
-  const lookup = dependencies.lookupProcess(owned.anchor.pid);
+  const deadline = actors.now() + timeoutMs;
+  const lookup = actors.lookupProcess(owned.anchor.pid);
   if (lookup.kind === 'unknown') {
     throw new LifecycleFailure(70, `${phase}: anchor lookup unknown:${lookup.reason}`);
   }
@@ -101,6 +125,12 @@ function exactDetachedAnchor(
     lookup.identity.pid !== lookup.identity.sessionId
   ) {
     throw new LifecycleFailure(70, `${phase}: detached anchor identity or topology changed`);
+  }
+  if (actors.now() >= deadline) {
+    throw new LifecycleFailure(
+      70,
+      `${phase}: identity observed at or after ${timeoutMs}ms deadline`,
+    );
   }
   return lookup.identity;
 }
@@ -116,15 +146,15 @@ function validateTimeout(timeoutMs: number): void {
 
 async function waitForOnlyAnchor(
   owned: OwnedProcess,
-  dependencies: FinalizeDependencies,
+  actors: FinalizeTestActors,
   timeoutMs: number,
 ): Promise<'only-anchor' | 'members-present'> {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = actors.now() + timeoutMs;
   while (true) {
     if (!isLiveAnchor(owned)) {
       throw new LifecycleFailure(70, 'TERM wait: gated anchor handle is not live');
     }
-    const group = dependencies.lookupGroup(
+    const group = actors.lookupGroup(
       owned.anchor.processGroupId,
       owned.anchor.sessionId,
       new Set([owned.anchor.pid]),
@@ -133,64 +163,39 @@ async function waitForOnlyAnchor(
       throw new LifecycleFailure(70, `TERM wait: group lookup unknown:${group.reason}`);
     }
     if (group.kind === 'absent') {
+      if (actors.now() >= deadline) {
+        throw new LifecycleFailure(
+          70,
+          `TERM wait: absence observed at or after ${timeoutMs}ms deadline`,
+        );
+      }
       return 'only-anchor';
     }
-    if (Date.now() >= deadline) {
+    if (actors.now() >= deadline) {
       return 'members-present';
     }
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await actors.wait(10);
   }
-}
-
-function beginChildCloseWait(owned: OwnedProcess, timeoutMs: number): ChildCloseWait {
-  if (!isLiveAnchor(owned)) {
-    throw new LifecycleFailure(70, 'KILL reap: gated anchor handle is not live');
-  }
-
-  let cancel = (): void => undefined;
-  const promise = new Promise<void>((resolve, reject) => {
-    let settled = false;
-    const clear = (): boolean => {
-      if (settled) {
-        return false;
-      }
-      settled = true;
-      clearTimeout(timer);
-      owned.child.off('close', onClose);
-      return true;
-    };
-    const onClose = (): void => {
-      if (clear()) {
-        resolve();
-      }
-    };
-    cancel = () => {
-      if (clear()) {
-        resolve();
-      }
-    };
-    const timer = setTimeout(() => {
-      if (clear()) {
-        reject(new LifecycleFailure(70, `KILL reap: timed out after ${timeoutMs}ms`));
-      }
-    }, timeoutMs);
-    owned.child.once('close', onClose);
-  });
-  return { promise, cancel };
 }
 
 async function waitForCompleteGroupAbsence(
   owned: OwnedProcess,
-  dependencies: FinalizeDependencies,
+  actors: FinalizeTestActors,
   timeoutMs: number,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = actors.now() + timeoutMs;
   while (true) {
-    const anchor = dependencies.lookupProcess(owned.anchor.pid);
+    const anchor = actors.lookupProcess(owned.anchor.pid);
     if (anchor.kind === 'unknown') {
       throw new LifecycleFailure(70, `KILL absence: anchor lookup unknown:${anchor.reason}`);
     }
-    const group = dependencies.lookupGroup(
+    if (anchor.kind === 'absent' && actors.now() >= deadline) {
+      throw new LifecycleFailure(
+        70,
+        `KILL absence: absence observed at or after ${timeoutMs}ms deadline`,
+      );
+    }
+    const group = actors.lookupGroup(
       owned.anchor.processGroupId,
       owned.anchor.sessionId,
       new Set(),
@@ -199,12 +204,18 @@ async function waitForCompleteGroupAbsence(
       throw new LifecycleFailure(70, `KILL absence: group lookup unknown:${group.reason}`);
     }
     if (anchor.kind === 'absent' && group.kind === 'absent') {
+      if (actors.now() >= deadline) {
+        throw new LifecycleFailure(
+          70,
+          `KILL absence: absence observed at or after ${timeoutMs}ms deadline`,
+        );
+      }
       return;
     }
-    if (Date.now() >= deadline) {
+    if (actors.now() >= deadline) {
       throw new LifecycleFailure(70, 'KILL absence: owned group remained present');
     }
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await actors.wait(10);
   }
 }
 
@@ -222,17 +233,25 @@ function rootPathIsAbsent(path: string): boolean {
 
 async function stabilizeAbsence(
   owned: OwnedProcess,
-  dependencies: FinalizeDependencies,
+  actors: FinalizeTestActors,
 ): Promise<void> {
+  validateTimeout(stabilizationTimeoutMs);
+  const deadline = actors.now() + stabilizationTimeoutMs;
   for (let observation = 0; observation < stabilizationObservations; observation += 1) {
-    const anchor = dependencies.lookupProcess(owned.anchor.pid);
+    const anchor = actors.lookupProcess(owned.anchor.pid);
     if (anchor.kind === 'unknown') {
       throw new LifecycleFailure(70, `stabilization: anchor lookup unknown:${anchor.reason}`);
     }
     if (anchor.kind !== 'absent') {
       throw new LifecycleFailure(70, 'stabilization: anchor remained present');
     }
-    const group = dependencies.lookupGroup(
+    if (actors.now() >= deadline) {
+      throw new LifecycleFailure(
+        70,
+        `stabilization: absence observed at or after ${stabilizationTimeoutMs}ms deadline`,
+      );
+    }
+    const group = actors.lookupGroup(
       owned.anchor.processGroupId,
       owned.anchor.sessionId,
       new Set(),
@@ -243,11 +262,23 @@ async function stabilizeAbsence(
     if (group.kind !== 'absent') {
       throw new LifecycleFailure(70, 'stabilization: owned group remained present');
     }
-    if (!rootPathIsAbsent(owned.root.path)) {
+    if (actors.now() >= deadline) {
+      throw new LifecycleFailure(
+        70,
+        `stabilization: absence observed at or after ${stabilizationTimeoutMs}ms deadline`,
+      );
+    }
+    if (!actors.rootPathIsAbsent(owned.root.path)) {
       throw new LifecycleFailure(70, 'stabilization: owned root path remained present');
     }
+    if (actors.now() >= deadline) {
+      throw new LifecycleFailure(
+        70,
+        `stabilization: absence observed at or after ${stabilizationTimeoutMs}ms deadline`,
+      );
+    }
     if (observation + 1 < stabilizationObservations) {
-      await new Promise((resolve) => setTimeout(resolve, stabilizationIntervalMs));
+      await actors.wait(stabilizationIntervalMs);
     }
   }
 }
@@ -263,41 +294,48 @@ function cleanupFailure(error: unknown): CleanupResult {
   return { kind: 'failed', code: 70, diagnostics: [message] };
 }
 
-export async function finalizeOwnedRun(
+async function finalizeWithActors(
   owned: OwnedProcess,
   timeoutMs: number,
-  overrides: Partial<FinalizeDependencies> = {},
+  actors: FinalizeTestActors,
 ): Promise<CleanupResult> {
   try {
     validateTimeout(timeoutMs);
-    const dependencies: FinalizeDependencies = { ...defaultDependencies, ...overrides };
-    const termAnchor = exactDetachedAnchor(owned, dependencies, 'TERM');
-    dependencies.signalGroup(termAnchor.processGroupId, 'SIGTERM');
-    const termResult = await waitForOnlyAnchor(owned, dependencies, timeoutMs);
+    actors.assertOwnedProcess(owned);
+    const termAnchor = exactDetachedAnchor(owned, actors, 'TERM', timeoutMs);
+    actors.signalGroup(termAnchor.processGroupId, 'SIGTERM');
+    const termResult = await waitForOnlyAnchor(owned, actors, timeoutMs);
 
     if (termResult === 'only-anchor') {
-      await waitForOwnedOutcome(owned, timeoutMs);
-      await finishGatedProcess(owned, timeoutMs);
+      await actors.finishCooperative(owned, timeoutMs);
     } else {
-      const childClose = beginChildCloseWait(owned, timeoutMs);
-      try {
-        const killAnchor = exactDetachedAnchor(owned, dependencies, 'KILL');
-        dependencies.signalGroup(killAnchor.processGroupId, 'SIGKILL');
-      } catch (error: unknown) {
-        childClose.cancel();
-        throw error;
-      }
-      await childClose.promise;
-      await waitForCompleteGroupAbsence(owned, dependencies, timeoutMs);
+      actors.assertOwnedProcess(owned);
+      const killAnchor = exactDetachedAnchor(owned, actors, 'KILL', timeoutMs);
+      actors.signalGroup(killAnchor.processGroupId, 'SIGKILL');
+      await actors.reapEscalated(owned, timeoutMs);
+      await waitForCompleteGroupAbsence(owned, actors, timeoutMs);
     }
 
-    const removal = removeOwnedRoot(owned.root);
+    const removal = actors.removeRoot(owned.root);
     if (removal.kind === 'failed') {
       throw new LifecycleFailure(70, `owned root removal failed:${removal.reason}`);
     }
-    await stabilizeAbsence(owned, dependencies);
+    await stabilizeAbsence(owned, actors);
     return { kind: 'clean' };
   } catch (error: unknown) {
     return cleanupFailure(error);
   }
+}
+
+export function finalizeOwnedRun(
+  owned: OwnedProcess,
+  timeoutMs: number,
+): Promise<CleanupResult> {
+  return finalizeWithActors(owned, timeoutMs, productionActors);
+}
+
+export function createFinalizeOwnedRunForTests(
+  actors: FinalizeTestActors,
+): (owned: OwnedProcess, timeoutMs: number) => Promise<CleanupResult> {
+  return (owned, timeoutMs) => finalizeWithActors(owned, timeoutMs, actors);
 }

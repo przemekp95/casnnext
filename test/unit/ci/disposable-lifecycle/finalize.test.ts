@@ -1,5 +1,22 @@
 import { resolveExitStatus } from '@/scripts/ci/disposable-lifecycle/finalize';
+import type { finalizeOwnedRun } from '@/scripts/ci/disposable-lifecycle/finalize';
+import type { OwnedProcess } from '@/scripts/ci/disposable-lifecycle/owned-process';
 import { LifecycleFailure, type ChildOutcome } from '@/scripts/ci/disposable-lifecycle/types';
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends
+  (<Value>() => Value extends Right ? 1 : 2)
+    ? true
+    : false;
+
+const productionParametersAreExact: Equal<
+  Parameters<typeof finalizeOwnedRun>,
+  [owned: OwnedProcess, timeoutMs: number]
+> = true;
+
+test('production finalization accepts only the owned process and timeout', () => {
+  expect(productionParametersAreExact).toBe(true);
+});
 
 test.each([
   [{ kind: 'exit', code: 0 }, { kind: 'clean' }, 0],

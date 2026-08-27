@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { closeSync, writeSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
 import { createOwnedFile, type OwnedRoot } from './owned-root';
@@ -291,18 +292,27 @@ async function waitForProcessAbsence(
   pid: number,
   timeoutMs: number,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let lookup = state.dependencies.lookupProcess(pid);
-  while (lookup.kind !== 'absent') {
+  const deadline = performance.now() + timeoutMs;
+  while (true) {
+    const lookup = state.dependencies.lookupProcess(pid);
+    const observedAt = performance.now();
+    if (lookup.kind === 'absent') {
+      if (observedAt >= deadline) {
+        throw new LifecycleFailure(
+          70,
+          `gate absence: absence observed at or after ${timeoutMs}ms deadline`,
+        );
+      }
+      return;
+    }
     if (!state.childClosed) {
       throw new LifecycleFailure(70, 'gate absence: child handle was not reaped');
     }
-    if (Date.now() >= deadline) {
+    if (observedAt >= deadline) {
       const detail = lookup.kind === 'unknown' ? `unknown:${lookup.reason}` : lookup.kind;
       throw new LifecycleFailure(70, `gated anchor absence proof failed: ${detail}`);
     }
     await new Promise((resolveWait) => setTimeout(resolveWait, 10));
-    lookup = state.dependencies.lookupProcess(pid);
   }
 }
 
@@ -475,6 +485,10 @@ function stateFor(owned: OwnedProcess): OwnedProcessState {
     throw new LifecycleFailure(70, 'unrecognized owned process');
   }
   return state;
+}
+
+export function assertOwnedProcessAuthority(owned: OwnedProcess): void {
+  stateFor(owned);
 }
 
 export async function spawnGatedProcess(
@@ -701,17 +715,27 @@ export async function finishGatedProcess(owned: OwnedProcess, timeoutMs: number)
     throw new LifecycleFailure(70, 'gated process was already finished');
   }
 
-  const groupDeadline = Date.now() + timeoutMs;
-  let group = state.dependencies.lookupGroup(
-    owned.anchor.processGroupId,
-    owned.anchor.sessionId,
-    new Set([owned.anchor.pid]),
-  );
-  while (group.kind !== 'absent') {
+  const groupDeadline = performance.now() + timeoutMs;
+  while (true) {
+    const group = state.dependencies.lookupGroup(
+      owned.anchor.processGroupId,
+      owned.anchor.sessionId,
+      new Set([owned.anchor.pid]),
+    );
+    const observedAt = performance.now();
+    if (group.kind === 'absent') {
+      if (observedAt >= groupDeadline) {
+        throw new LifecycleFailure(
+          70,
+          `group absence: absence observed at or after ${timeoutMs}ms deadline`,
+        );
+      }
+      break;
+    }
     if (!isLive(owned.child) || state.childClosed) {
       throw new LifecycleFailure(70, 'group absence: gated anchor exited before completion');
     }
-    if (Date.now() >= groupDeadline) {
+    if (observedAt >= groupDeadline) {
       const detail =
         group.kind === 'present'
           ? `present:${group.members.map((member) => `${member.pid}/${member.startTime.toString(10)}`).join(',')}`
@@ -719,15 +743,16 @@ export async function finishGatedProcess(owned: OwnedProcess, timeoutMs: number)
       throw new LifecycleFailure(70, `cannot finish while owned group is ${detail}`);
     }
     await new Promise((resolveWait) => setTimeout(resolveWait, 10));
-    group = state.dependencies.lookupGroup(
-      owned.anchor.processGroupId,
-      owned.anchor.sessionId,
-      new Set([owned.anchor.pid]),
-    );
   }
   const anchor = state.dependencies.lookupProcess(owned.anchor.pid);
   if (anchor.kind !== 'present' || !sameIdentity(anchor.identity, owned.anchor)) {
     throw new LifecycleFailure(70, 'gated anchor identity changed before finish');
+  }
+  if (performance.now() >= groupDeadline) {
+    throw new LifecycleFailure(
+      70,
+      `group absence: anchor identity observed at or after ${timeoutMs}ms deadline`,
+    );
   }
 
   state.finished = true;
@@ -737,6 +762,22 @@ export async function finishGatedProcess(owned: OwnedProcess, timeoutMs: number)
   }
   await waitForLogStreams(state, timeoutMs);
 
+  await waitForProcessAbsence(state, owned.anchor.pid, timeoutMs);
+  if (state.diagnostics.length > 0) {
+    throw new LifecycleFailure(70, state.diagnostics.join('; '));
+  }
+}
+
+export async function reapEscalatedOwnedProcess(
+  owned: OwnedProcess,
+  timeoutMs: number,
+): Promise<void> {
+  validateTimeout('timeoutMs', timeoutMs);
+  const state = stateFor(owned);
+  if (!(await waitForChildClose(state, timeoutMs))) {
+    throw new LifecycleFailure(124, `escalated gate reap: timed out after ${timeoutMs}ms`);
+  }
+  await waitForLogStreams(state, timeoutMs);
   await waitForProcessAbsence(state, owned.anchor.pid, timeoutMs);
   if (state.diagnostics.length > 0) {
     throw new LifecycleFailure(70, state.diagnostics.join('; '));
