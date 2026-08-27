@@ -13,6 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { performance } from 'node:perf_hooks';
 
 import {
   createFinalizeOwnedRunForTests,
@@ -2668,6 +2669,61 @@ test(
           value: null,
           writable: true,
         });
+      }
+
+      expect(existsSync(root.path)).toBe(true);
+    }),
+  15_000,
+);
+
+test(
+  'rejects registered child close observed exactly at the escalation reap deadline',
+  () =>
+    withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      let reapPhase = false;
+      const owned = await spawnGatedProcess(
+        {
+          root,
+          command: process.execPath,
+          args: ['-e', 'setInterval(() => undefined, 1000)'],
+          env: {},
+        },
+        fixtureDependencies(fixture, {
+          lookupProcess: (pid) => reapPhase ? { kind: 'absent' } : lookupProcess(pid),
+        }),
+      );
+      const stdout = owned.child.stdout;
+      const stderr = owned.child.stderr;
+      if (stdout === null || stderr === null) {
+        throw new Error('fixture gate capture streams were unavailable');
+      }
+      const stdoutClosed = new Promise<void>((resolve) => stdout.once('close', resolve));
+      const stderrClosed = new Promise<void>((resolve) => stderr.once('close', resolve));
+      stdout.destroy();
+      stderr.destroy();
+      await Promise.all([stdoutClosed, stderrClosed]);
+
+      reapPhase = true;
+      jest.useFakeTimers();
+      const clock = jest
+        .spyOn(performance, 'now')
+        .mockReturnValueOnce(0)
+        .mockReturnValueOnce(0)
+        .mockReturnValue(10);
+      try {
+        setTimeout(() => owned.child.emit('close', null, 'SIGKILL'), 10);
+        const reap = reapEscalatedOwnedProcess(owned, 10);
+        const expectation = expect(reap).rejects.toMatchObject({
+          exitCode: 124,
+          message: 'escalated gate reap: timed out after 10ms',
+        });
+
+        await jest.advanceTimersByTimeAsync(10);
+        await expectation;
+      } finally {
+        clock.mockRestore();
+        jest.useRealTimers();
       }
 
       expect(existsSync(root.path)).toBe(true);
