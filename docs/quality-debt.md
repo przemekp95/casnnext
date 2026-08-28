@@ -1,10 +1,10 @@
 # CASN quality-debt register
 
-This register contains finite follow-up work discovered while closing the
-remaining hardening exceptions on 2026-08-26. It is not a waiver: each item has
-an explicit exit condition. The current increment removed broad `lib/` and
-`migrations/` lint exclusions, all four unconditional Cypress skips, the custom
-server suppression, and all lint warnings.
+This register records the finite follow-up work discovered while closing the
+remaining hardening exceptions on 2026-08-26. It is not a waiver: every active
+item has an explicit exit condition. The quality-debt elimination increment
+completed on 2026-08-28 resolved QD-002 through QD-004. QD-001 is the only
+active item.
 
 ## Resolved runtime-output and CommonJS boundary
 
@@ -21,9 +21,9 @@ server suppression, and all lint warnings.
   `no-require-imports` exception, and the scripts/config-wide `**/*.cjs`
   exception are removed. The runtime-source fixture rejects their return.
 
-This resolves only the generated-output and runtime CommonJS exceptions.
-QD-002, QD-003, and QD-004 remain open with their existing inventories and exit
-conditions below.
+This resolves the generated-output and runtime CommonJS exceptions. The
+historical inventories for QD-002 through QD-004 are retained below as an audit
+record and are no longer current suppressions or skips.
 
 ## QD-001: ESLint 9 upstream compatibility window
 
@@ -40,8 +40,8 @@ conditions below.
 
 ## QD-002: Runtime-source lint suppressions
 
-- **State:** deferred to the next isolated quality cleanup
-- **Inventory:** eight source files
+- **State:** resolved on 2026-08-28
+- **Historical inventory:** eight source files
 
 ```text
 app/analizy/[slug]/page.tsx
@@ -54,20 +54,16 @@ lib/server/authors.ts
 scripts/prepare-tmp.js
 ```
 
-The page, API, MDX, and server suppressions cover broad `any` use or individual
-boundary conversions. `app/layout.tsx` suppresses the Next stylesheet-tag rule.
-`scripts/prepare-tmp.js` suppresses CommonJS imports instead of declaring its
-module format explicitly.
-
-- **Exit:** replace `any` with named boundary types or `unknown` plus narrowing;
-  express the script's CommonJS format explicitly; resolve the stylesheet
-  ownership without hiding the Next rule; remove every listed suppression; keep
-  lint at zero warnings.
+The page, API, MDX, and server boundaries now use explicit types or narrowing;
+the legacy stylesheet ownership is expressed through the ordered root wrapper;
+and the preparation script has an explicit module boundary. Every listed
+suppression is absent and the strict first-party lint gate passes with zero
+warnings.
 
 ## QD-003: Test-file lint suppressions
 
-- **State:** deferred to the next isolated quality cleanup
-- **Inventory:** fifteen test files
+- **State:** resolved on 2026-08-28
+- **Historical inventory:** fifteen test files
 
 ```text
 test/__mocks__/@/lib/db.ts
@@ -87,17 +83,17 @@ test/unit/components/SafeImage.test.tsx
 test/unit/lib/database-utils.test.ts
 ```
 
-Most file-level directives duplicate broad test overrides already present in
-`eslint.config.mjs`, while two mock lines use narrow unused-variable directives.
-
-- **Exit:** introduce typed Jest helpers and mock shapes, remove redundant
-  file-level directives, narrow or remove the test-class overrides, and pass the
-  complete Jest suite without reducing assertions.
+Typed Jest helpers and mock shapes replaced the file-level directives and broad
+test overrides. The complete clean-install Jest gate passes without reducing
+assertions. The only disabled lint rule is the structurally enforced
+`@next/next/no-img-element` exception for
+`test/__mocks__/nextImageMock.tsx`, whose purpose is to emulate `next/image` as a
+DOM `<img>` in Jest; it is not a general test-file suppression.
 
 ## QD-004: Conditional Jest suite skipping
 
-- **State:** deferred to the next isolated quality cleanup
-- **Inventory:** ten `(hasComponent ? describe : describe.skip)` sites
+- **State:** resolved on 2026-08-28
+- **Historical inventory:** ten `(hasComponent ? describe : describe.skip)` sites
 
 ```text
 test/integration/pages/HomePage.test.tsx
@@ -112,13 +108,11 @@ test/unit/components/Map.test.tsx
 test/unit/components/SafeImage.test.tsx
 ```
 
-These constructs can turn an import or repository-layout regression into a
-silent skip. They did not create the four Cypress pending tests removed by the
-current increment, but they remain a weaker failure mode.
-
-- **Exit:** import each owned component normally, let missing modules fail the
-  suite, remove every conditional `describe.skip`, and prove zero Jest skips in
-  both clean-install CI and the production-build test gate.
+Each owned component is imported normally, so missing modules fail rather than
+skip their suite. The conditional `describe.skip` constructs are absent. The
+fresh clean-install acceptance gate executed 75/75 Jest suites and 569/569
+tests, while Cypress executed 6/6 specs and 22/22 tests with zero pending or
+skipped scenarios.
 
 ## Not debt in this register
 
