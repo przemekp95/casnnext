@@ -11,6 +11,8 @@ export default defineConfig(
       "dist/**",
       "app/generated/**",
       "**/*.d.ts",
+      "**/*.d.mts",
+      "**/*.d.cts",
     ],
   },
   ...nextCoreWebVitals,

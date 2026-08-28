@@ -8,7 +8,7 @@ fail() { printf '[first-party-quality] %s\n' "$1" >&2; exit 1; }
 is_excluded_source() {
   local path="$1"
   case "$path" in
-    .next/*|node_modules/*|coverage/*|dist/*|app/generated/*|*.d.ts|lib/generated/*|lib/vendor/*)
+    .next/*|node_modules/*|coverage/*|dist/*|app/generated/*|*.d.ts|*.d.mts|*.d.cts|lib/generated/*|lib/vendor/*)
       return 0
       ;;
     *)
@@ -170,51 +170,75 @@ NODE
 
 check_workflow() {
   local workflow="$1"
+  local document_kind="$2"
   [[ -f "$root/$workflow" ]] || fail 'workflow-must-run-quality'
 
-  if ! node - "$root" "$root/$workflow" <<'NODE'
+  if ! node - "$root" "$root/$workflow" "$document_kind" <<'NODE'
 const fs = require('fs');
 const { createRequire } = require('module');
 const path = require('path');
 
-const [rootArgument, workflowFile] = process.argv.slice(2);
+const [rootArgument, workflowFile, documentKind] = process.argv.slice(2);
 const root = path.resolve(rootArgument);
 const requireFromRoot = createRequire(path.join(root, 'package.json'));
 const YAML = requireFromRoot('yaml');
 const workflow = YAML.parse(fs.readFileSync(workflowFile, 'utf8'));
 const stepGroups = [];
-if (Array.isArray(workflow?.runs?.steps)) stepGroups.push(workflow.runs.steps);
-for (const job of Object.values(workflow?.jobs ?? {})) {
-  if (Array.isArray(job?.steps)) stepGroups.push(job.steps);
+let invalid = false;
+
+if (documentKind === 'composite') {
+  if (workflow?.runs?.using !== 'composite' || !Array.isArray(workflow.runs.steps) || Object.hasOwn(workflow, 'jobs')) {
+    invalid = true;
+  } else {
+    stepGroups.push({ steps: workflow.runs.steps, isComposite: true });
+  }
+} else if (documentKind === 'workflow') {
+  if (!workflow?.jobs || typeof workflow.jobs !== 'object' || Object.hasOwn(workflow, 'runs')) {
+    invalid = true;
+  } else {
+    for (const job of Object.values(workflow.jobs)) {
+      if (Array.isArray(job?.steps)) stepGroups.push({ steps: job.steps, job, isComposite: false });
+    }
+  }
+} else {
+  invalid = true;
 }
 
 const lintLike = /\bnpm\s+run\s+lint(?:\b|:)/;
 const policyLike = /\bnpm\s+run\s+quality:policy\b/;
 const exactCommands = new Set(['npm run lint', 'npm run quality:policy']);
-let invalid = stepGroups.length === 0;
+const redirectsExecution = (env) => Object.keys(env ?? {}).some((name) => [
+  'PATH', 'NODE_PATH', 'PWD', 'INIT_CWD', 'BASH_ENV', 'ENV',
+  'npm_config_prefix', 'NPM_CONFIG_PREFIX', 'npm_config_userconfig', 'NPM_CONFIG_USERCONFIG',
+].includes(name));
+invalid ||= stepGroups.length === 0;
 const occurrences = [];
 
-for (const steps of stepGroups) {
+for (const group of stepGroups) {
+  const { steps, job, isComposite } = group;
   for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
     const step = steps[stepIndex];
     if (!step || typeof step !== 'object' || typeof step.run !== 'string') continue;
     const commands = step.run.split(/\r?\n/).map((command) => command.trim()).filter(Boolean);
     const relevant = commands.some((command) => lintLike.test(command) || policyLike.test(command));
     if (!relevant) continue;
-    if (Object.hasOwn(step, 'if') || Object.hasOwn(step, 'continue-on-error') || Object.hasOwn(step, 'env')
-      || Object.hasOwn(step, 'uses') || (Object.hasOwn(step, 'shell') && step.shell !== 'bash')
+    if ((job && (Object.hasOwn(job, 'if') || Object.hasOwn(job, 'continue-on-error') || redirectsExecution(job.env)
+        || job.defaults?.run?.['working-directory'] !== undefined))
+      || Object.hasOwn(step, 'if') || Object.hasOwn(step, 'continue-on-error') || Object.hasOwn(step, 'env')
+      || Object.hasOwn(step, 'uses') || Object.hasOwn(step, 'working-directory')
+      || (isComposite ? step.shell !== 'bash' : (Object.hasOwn(step, 'shell') && step.shell !== 'bash'))
       || commands.some((command) => !exactCommands.has(command))) {
       invalid = true;
       continue;
     }
-    commands.forEach((command, commandIndex) => occurrences.push({ steps, stepIndex, commandIndex, command }));
+    commands.forEach((command, commandIndex) => occurrences.push({ group, stepIndex, commandIndex, command }));
   }
 }
 
 const lintCommands = occurrences.filter(({ command }) => command === 'npm run lint');
 const policyCommands = occurrences.filter(({ command }) => command === 'npm run quality:policy');
 const adjacent = lintCommands.length === 1 && policyCommands.length === 1
-  && lintCommands[0].steps === policyCommands[0].steps
+  && lintCommands[0].group === policyCommands[0].group
   && ((lintCommands[0].stepIndex === policyCommands[0].stepIndex
       && policyCommands[0].commandIndex === lintCommands[0].commandIndex + 1)
     || (policyCommands[0].stepIndex === lintCommands[0].stepIndex + 1 && policyCommands[0].commandIndex === 0));
@@ -228,8 +252,8 @@ NODE
 check_source_suppressions
 check_eslint_config
 check_package_scripts
-check_workflow '.github/workflows/quality-checks/action.yml'
-check_workflow '.github/workflows/docker.yml'
-check_workflow '.github/workflows/deploy.yml'
+check_workflow '.github/workflows/quality-checks/action.yml' composite
+check_workflow '.github/workflows/docker.yml' workflow
+check_workflow '.github/workflows/deploy.yml' workflow
 
 echo 'First-party quality policy passed.'

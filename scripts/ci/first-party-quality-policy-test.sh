@@ -33,7 +33,7 @@ reset_fixture() {
     'import nextTypescript from "eslint-config-next/typescript";' \
     '' \
     'export default defineConfig(' \
-    '  { ignores: [".next/**", "node_modules/**", "coverage/**", "dist/**", "app/generated/**", "**/*.d.ts"] },' \
+    '  { ignores: [".next/**", "node_modules/**", "coverage/**", "dist/**", "app/generated/**", "**/*.d.ts", "**/*.d.mts", "**/*.d.cts"] },' \
     '  ...nextCoreWebVitals,' \
     '  ...nextTypescript,' \
     '  {' \
@@ -68,15 +68,59 @@ reset_fixture() {
   printf '%s\n' 'export type FixtureType = string;' >"$test_root/repo/types/example.ts"
   printf '%s\n' 'export const mtsFixture = 1;' >"$test_root/repo/types/example.mts"
   printf '%s\n' 'export const ctsFixture = 1;' >"$test_root/repo/types/example.cts"
+  printf '%s\n' '/* eslint-disable */' >"$test_root/repo/types/generated.d.mts"
+  printf '%s\n' '/* eslint-disable */' >"$test_root/repo/types/generated.d.cts"
+  mkdir -p "$test_root/repo/test/fake"
+  printf '%s\n' '{"scripts":{"lint":"true","first-party-quality:policy":"true"}}' >"$test_root/repo/test/fake/package.json"
   printf '%s\n' 'export default {};' >"$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
   printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - name: Lint and policy' '      run: |-' '        npm run lint' '        npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
-  printf '%s\n' 'jobs:' '  quality:' '    steps:' '      - name: Lint' '        run: "npm run lint"' '      - name: Policy' "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
+  printf '%s\n' 'jobs:' '  quality:' '    env: { CODECOV_TOKEN: test }' '    steps:' '      - name: Lint' '        run: "npm run lint"' '      - name: Policy' "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
   cp "$test_root/repo/.github/workflows/docker.yml" "$test_root/repo/.github/workflows/deploy.yml"
   git -C "$test_root/repo" add .
 }
 
 reset_fixture
 (cd "$test_root" && "$policy" "$test_root/repo")
+
+reset_fixture
+sed -i '/quality:/a\    if: false' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/quality:/a\    continue-on-error: true' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/quality:/a\    env: { PATH: /tmp }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/quality:/a\    defaults: { run: { working-directory: test/fake } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/run: "npm run lint"/a\        working-directory: test/fake' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i 's/using: composite/using: node20/' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+printf '%s\n' 'jobs:' '  quality:' '    steps:' '      - run: npm run lint' '      - run: npm run quality:policy' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - run: npm run lint' '    - run: npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
 sed -i 's/ --max-warnings 0/ --max-warnings 0 || true/' "$test_root/repo/package.json"
@@ -179,7 +223,7 @@ git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
-sed -i '/run: |-/a\      if: false' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+sed -i '/shell: bash/i\      if: false' "$test_root/repo/.github/workflows/quality-checks/action.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
@@ -237,7 +281,7 @@ git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
-sed -i '/run: |/a\      if: false' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+sed -i '/shell: bash/i\      if: false' "$test_root/repo/.github/workflows/quality-checks/action.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
