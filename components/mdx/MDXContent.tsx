@@ -7,41 +7,48 @@ import SafeImage, { type SafeImageProps } from '../SafeImage';
 import Chart from '../charts/Chart';
 import Map from '../maps/Map';
 
-type MdxImageProps = ComponentPropsWithoutRef<'img'>;
+type MdxImageProps = ComponentPropsWithoutRef<'img'> & { fill?: boolean };
 type MdxHeadingProps = ComponentPropsWithoutRef<'h1'>;
-type SafeImageDimension = NonNullable<SafeImageProps['width']>;
-type SafeImageDimensions = Pick<SafeImageProps, 'width' | 'height'> & { fallback: boolean };
+type SafeImageDimensions = Pick<SafeImageProps, 'width' | 'height'>;
 
-function isSafeImageDimension(value: MdxImageProps['width']): value is SafeImageDimension {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value >= 0;
-  }
+function toSafeImageDimension(value: MdxImageProps['width']): number | undefined {
+  const normalized = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
 
-  return typeof value === 'string' && /^\d+$/.test(value);
+  return typeof normalized === 'number' && Number.isFinite(normalized) && normalized >= 0
+    ? normalized
+    : undefined;
 }
 
 function toSafeImageDimensions(
   width: MdxImageProps['width'],
   height: MdxImageProps['height'],
-): SafeImageDimensions {
-  if (isSafeImageDimension(width) && isSafeImageDimension(height)) {
-    return { width, height, fallback: false };
+): SafeImageDimensions | undefined {
+  const normalizedWidth = toSafeImageDimension(width);
+  const normalizedHeight = toSafeImageDimension(height);
+
+  if (normalizedWidth !== undefined && normalizedHeight !== undefined) {
+    return { width: normalizedWidth, height: normalizedHeight };
   }
 
-  return { width: 0, height: 0, fallback: true };
+  return undefined;
 }
 
-function MdxImage({ src, alt, width, height, srcSet, style, ...rest }: MdxImageProps) {
+function MdxImage({ src, alt, width, height, srcSet, style, fill, ...rest }: MdxImageProps) {
   void srcSet;
-  const { fallback, ...dimensions } = toSafeImageDimensions(width, height);
+
+  if (fill) {
+    return <SafeImage {...rest} src={String(src ?? '')} alt={alt ?? ''} fill style={style} />;
+  }
+
+  const dimensions = toSafeImageDimensions(width, height);
 
   return (
     <SafeImage
       {...rest}
       src={String(src ?? '')}
       alt={alt ?? ''}
-      {...dimensions}
-      style={fallback ? { ...style, width: 'auto', height: 'auto' } : style}
+      {...(dimensions ?? { width: 0, height: 0 })}
+      style={dimensions ? style : { width: 'auto', height: 'auto', ...style }}
     />
   );
 }

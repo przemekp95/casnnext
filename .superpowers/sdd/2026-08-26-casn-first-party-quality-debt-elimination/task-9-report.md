@@ -109,3 +109,46 @@ looked like a valid typed call despite `alt` being required.
 ## Review-fix commit
 
 `fix(images): preserve dimensionless MDX rendering`
+
+## Second review-fix follow-up
+
+The second review found that the first repair still treated `fill` as a
+dimensionless non-fill image, let fallback `auto` styles override explicit MDX
+author styles, preserved leading-zero string dimensions instead of matching the
+installed component's numeric output, and did not make the mock reject invalid
+`fill` combinations.
+
+### Second review RED
+
+- Focused tests failed before the repair because explicit `50%`/`25%` author
+  styles were replaced by `auto`, `fill` received synthetic `0x0` dimensions,
+  leading-zero dimensions rendered as `080`/`060`, and fill-specific mock
+  validation did not throw.
+
+### Second review GREEN
+
+- MDX runtime props explicitly model `fill?: boolean`. The `fill` branch
+  forwards `fill` and the caller style unchanged, with neither synthetic
+  dimensions nor `auto` styles. For non-fill fallback, defaults are merged
+  first, so explicit author `width`/`height` values win.
+- Dimension normalization returns only finite, nonnegative numbers. Digit-only
+  strings are normalized through `Number`, so `080` and `060` become `80` and
+  `60`; non-finite numeric conversions fall back.
+- The exact mock rejects width/height or `style.width`/`style.height` when
+  `fill` is true while allowing unrelated caller styles; it retains paired
+  validation for non-fill images.
+- Mutation-sensitive focused tests including legacy CMS media passed: 4 suites,
+  29 tests. Main typecheck, five-file forced no-img lint, and ordinary mock lint
+  passed.
+- Direct installed-`next/image` `renderToStaticMarkup` probes passed for author
+  style precedence, the fill branch without synthetic dimensions/auto style,
+  and leading-zero normalization.
+- No third hydration/E2E/build/resource run was performed: these branch-specific
+  SSR and unit probes directly cover the review findings, and both prior
+  hydration runs remain recorded above.
+- The protected disposable harness remains byte-identical to `87e518d` with
+  SHA-256 `10253ea47aa9d3b0f93d6de1482c13207a1eaef3a3c85e5e0e8eea1516aa71b4`.
+
+## Second review-fix commit
+
+`fix(images): preserve MDX image layout contracts`

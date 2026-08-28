@@ -5,8 +5,8 @@ import Map from "@/components/maps/Map";
 import MDXContent from "@/components/mdx/MDXContent";
 
 type MdxComponentMap = {
-  img?: ComponentType<ComponentPropsWithoutRef<"img">>;
-  Image?: ComponentType<ComponentPropsWithoutRef<"img">>;
+  img?: ComponentType<ComponentPropsWithoutRef<"img"> & { fill?: boolean }>;
+  Image?: ComponentType<ComponentPropsWithoutRef<"img"> & { fill?: boolean }>;
   h1?: ComponentType<ComponentPropsWithoutRef<"h1">>;
   Chart?: typeof Chart;
   Map?: typeof Map;
@@ -139,18 +139,62 @@ describe("MDXContent", () => {
     expect(image).toHaveStyle({ width: "auto", height: "auto" });
   });
 
+  it("lets author styles override dimensionless fallback defaults", () => {
+    render(<MDXContent source="MDX fallback style" />);
+
+    const MdxImage = requireMdxImageComponent("img");
+    render(
+      <MdxImage
+        src="/images/mdx-author-style.webp"
+        alt="MDX author style"
+        style={{ width: "50%", height: "25%", objectFit: "contain" }}
+      />,
+    );
+
+    const image = screen.getByRole("img", { name: "MDX author style" });
+    expect(image).toHaveAttribute("width", "0");
+    expect(image).toHaveAttribute("height", "0");
+    expect(image).toHaveStyle({ width: "50%", height: "25%", objectFit: "contain" });
+  });
+
+  it("forwards fill images without synthetic dimensions or auto styles", () => {
+    render(<MDXContent source="MDX fill image" />);
+
+    const MdxImage = requireMdxImageComponent("Image");
+    render(
+      <MdxImage
+        src="/images/mdx-fill.webp"
+        alt="MDX fill image"
+        fill
+        style={{ objectFit: "cover" }}
+      />,
+    );
+
+    const image = screen.getByRole("img", { name: "MDX fill image" });
+    expect(image).not.toHaveAttribute("width");
+    expect(image).not.toHaveAttribute("height");
+    expect(image).toHaveStyle({ objectFit: "cover" });
+    expect(image).not.toHaveStyle({ width: "auto", height: "auto" });
+  });
+
   it.each([
     ["numeric zero", 0, 0],
-    ["digit strings", "080", "060"],
-  ])("preserves paired valid dimensions for %s", (_name, width, height) => {
+    ["digit strings", "080", "060", "80", "60"],
+  ].map(([name, width, height, expectedWidth = String(width), expectedHeight = String(height)]) => [
+    name,
+    width,
+    height,
+    expectedWidth,
+    expectedHeight,
+  ]))("preserves paired valid dimensions for %s", (_name, width, height, expectedWidth, expectedHeight) => {
     render(<MDXContent source="MDX valid dimensions" />);
 
     const MdxImage = requireMdxImageComponent("img");
     render(<MdxImage src={`/images/mdx-${_name}.webp`} alt={`MDX ${_name}`} width={width} height={height} />);
 
     const image = screen.getByRole("img", { name: `MDX ${_name}` });
-    expect(image).toHaveAttribute("width", String(width));
-    expect(image).toHaveAttribute("height", String(height));
+    expect(image).toHaveAttribute("width", expectedWidth);
+    expect(image).toHaveAttribute("height", expectedHeight);
     expect(image).not.toHaveStyle({ width: "auto", height: "auto" });
   });
 

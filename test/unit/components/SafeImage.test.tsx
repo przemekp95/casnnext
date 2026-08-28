@@ -71,4 +71,13 @@ describe('SafeImage', () => {
       'true',
     );
   });
+
+  it('rejects dimensions and dimension styles for fill images', () => {
+    expect(() => render(<SafeImage src="/test.jpg" alt="Filled dimensions" fill width={80} height={60} />)).toThrow(
+      'NextImageMock does not allow width or height when fill is true',
+    );
+    expect(() =>
+      render(<SafeImage src="/test.jpg" alt="Filled style" fill style={{ width: '50%', objectFit: 'cover' }} />),
+    ).toThrow('NextImageMock does not allow style.width or style.height when fill is true');
+  });
 });

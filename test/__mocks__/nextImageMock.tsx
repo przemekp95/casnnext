@@ -38,6 +38,14 @@ export default function NextImageMock({
   } = props;
   const normalizedSrc = typeof src === 'string' ? src : src?.src ?? '';
 
+  if (fill && (imgProps.width !== undefined || imgProps.height !== undefined)) {
+    throw new Error('NextImageMock does not allow width or height when fill is true');
+  }
+
+  if (fill && (imgProps.style?.width !== undefined || imgProps.style?.height !== undefined)) {
+    throw new Error('NextImageMock does not allow style.width or style.height when fill is true');
+  }
+
   if (!fill && (!isValidDimension(imgProps.width) || !isValidDimension(imgProps.height))) {
     throw new Error('NextImageMock requires paired valid width and height unless fill is true');
   }
