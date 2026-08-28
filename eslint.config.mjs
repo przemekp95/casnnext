@@ -78,8 +78,8 @@ export default defineConfig(
       // Pozwól używać <img> (np. w stopce)
       "@next/next/no-img-element": "off",
       // These strict React 19-oriented rules are too noisy for current codebase patterns.
-      "react-hooks/error-boundaries": "off",
-      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/error-boundaries": "error",
+      "react-hooks/set-state-in-effect": "error",
       // Global rules - these will be overridden by file-specific rules above
       "@typescript-eslint/no-explicit-any": "error", // Strict any checking everywhere else
       "@typescript-eslint/no-require-imports": "error", // Require ES modules everywhere else
