@@ -14,6 +14,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
+import type { BigIntStats } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { basename as pathBasename, join } from 'node:path';
 
@@ -140,6 +141,11 @@ export type OwnedRootHooks = Readonly<{
   onBoundary?: (event: OwnedRootBoundaryEvent) => void;
 }>;
 
+export type OwnedRootCreationDependencies = Readonly<{
+  openRoot: (path: string, authorityPath: string) => number;
+  fstatRoot: (fd: number) => BigIntStats;
+}>;
+
 type ChildIdentity = Readonly<{
   device: bigint;
   inode: bigint;
@@ -158,6 +164,14 @@ const rootPrefix = `${rootParent}/casn-quality-regression-`;
 const validBasename = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const fileTypeMask = BigInt(constants.S_IFMT);
 const rootStates = new WeakMap<OwnedRoot, RootState>();
+const defaultRootCreationDependencies: OwnedRootCreationDependencies = {
+  openRoot: (_path, authorityPath) =>
+    openSync(
+      authorityPath,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+    ),
+  fstatRoot: (fd) => fstatSync(fd, { bigint: true }),
+};
 
 function isErrnoWithCode(error: unknown, code: string): error is NodeJS.ErrnoException {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
@@ -571,9 +585,17 @@ function randomChildBasename(prefix: string): string {
   return `${prefix}-${randomBytes(12).toString('hex')}`;
 }
 
-export function createOwnedRoot(): OwnedRoot {
+export function createOwnedRoot(
+  dependencyOverrides: Partial<OwnedRootCreationDependencies> = {},
+): OwnedRoot {
+  const dependencies = { ...defaultRootCreationDependencies, ...dependencyOverrides };
   const parentFd = openSync(rootParent, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
   let rootFd: number | undefined;
+  let parentIdentity: Readonly<{ device: bigint; inode: bigint }> | undefined;
+  let createdPath: string | undefined;
+  let createdIdentity:
+    | Readonly<{ device: bigint; inode: bigint; uid: bigint; mode: bigint }>
+    | undefined;
   try {
     const parent = fstatSync(parentFd, { bigint: true });
     const parentPath = lstatSync(rootParent, { bigint: true });
@@ -586,17 +608,37 @@ export function createOwnedRoot(): OwnedRoot {
     ) {
       throw new Error('The temporary parent identity changed during root creation');
     }
+    parentIdentity = { device: parent.dev, inode: parent.ino };
 
     const path = mkdtempSync(rootPrefix);
-    rootFd = openSync(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
-    const rootStat = fstatSync(rootFd, { bigint: true });
-    if (!rootStat.isDirectory()) {
+    createdPath = path;
+    const basename = pathBasename(path);
+    const initialStat = lstatSync(descriptorPath(parentFd, basename), { bigint: true });
+    if (!initialStat.isDirectory() || initialStat.isSymbolicLink()) {
       throw new Error('The created driver root is not a directory');
+    }
+    createdIdentity = {
+      device: initialStat.dev,
+      inode: initialStat.ino,
+      uid: initialStat.uid,
+      mode: initialStat.mode,
+    };
+
+    rootFd = dependencies.openRoot(path, descriptorPath(parentFd, basename));
+    const rootStat = dependencies.fstatRoot(rootFd);
+    if (
+      !rootStat.isDirectory() ||
+      rootStat.dev !== initialStat.dev ||
+      rootStat.ino !== initialStat.ino ||
+      rootStat.uid !== initialStat.uid ||
+      rootStat.mode !== initialStat.mode
+    ) {
+      throw new Error('The created driver root identity changed before publication');
     }
 
     const root: OwnedRoot = Object.freeze({
       path,
-      basename: pathBasename(path),
+      basename,
       fd: rootFd,
       parentFd,
       parentDevice: parent.dev,
@@ -613,17 +655,68 @@ export function createOwnedRoot(): OwnedRoot {
     });
     return root;
   } catch (error: unknown) {
+    const rollbackFailures: unknown[] = [];
     if (rootFd !== undefined) {
       try {
         closeSync(rootFd);
-      } catch {
-        // Preserve the original root-creation failure.
+      } catch (closeError: unknown) {
+        rollbackFailures.push(closeError);
+      }
+    }
+    if (createdPath !== undefined) {
+      try {
+        if (parentIdentity === undefined || createdIdentity === undefined) {
+          throw new Error('created root authority was not captured');
+        }
+        const parentDescriptor = fstatSync(parentFd, { bigint: true });
+        const parentPath = lstatSync(rootParent, { bigint: true });
+        if (
+          !parentDescriptor.isDirectory() ||
+          !parentPath.isDirectory() ||
+          parentPath.isSymbolicLink() ||
+          parentDescriptor.dev !== parentIdentity.device ||
+          parentDescriptor.ino !== parentIdentity.inode ||
+          parentPath.dev !== parentIdentity.device ||
+          parentPath.ino !== parentIdentity.inode
+        ) {
+          throw new Error('temporary parent identity changed before root rollback');
+        }
+        const basename = pathBasename(createdPath);
+        const current = lstatSync(descriptorPath(parentFd, basename), { bigint: true });
+        if (
+          !current.isDirectory() ||
+          current.isSymbolicLink() ||
+          current.dev !== createdIdentity.device ||
+          current.ino !== createdIdentity.inode ||
+          current.uid !== createdIdentity.uid ||
+          current.mode !== createdIdentity.mode
+        ) {
+          throw new Error('created root identity changed before rollback');
+        }
+        rmdirSync(descriptorPath(parentFd, basename));
+        try {
+          lstatSync(descriptorPath(parentFd, basename), { bigint: true });
+          throw new Error('created root remained after rollback');
+        } catch (absenceError: unknown) {
+          if (!isErrnoWithCode(absenceError, 'ENOENT')) {
+            throw absenceError;
+          }
+        }
+      } catch (rollbackError: unknown) {
+        rollbackFailures.push(rollbackError);
       }
     }
     try {
       closeSync(parentFd);
-    } catch {
-      // Preserve the original root-creation failure.
+    } catch (closeError: unknown) {
+      rollbackFailures.push(closeError);
+    }
+    if (rollbackFailures.length > 0) {
+      const originalMessage = error instanceof Error ? error.message : 'owned root creation failed';
+      throw new AggregateError(
+        [error, ...rollbackFailures],
+        `${originalMessage}; partial root rollback failed for ${createdPath ?? rootParent}`,
+      );
     }
     throw error;
   }

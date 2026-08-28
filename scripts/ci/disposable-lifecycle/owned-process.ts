@@ -54,6 +54,8 @@ export type OwnedProcessDependencies = Readonly<{
   gateEnvironment: Readonly<Record<string, string>>;
   waitingTimeoutMs: number;
   unreleasedExitTimeoutMs: number;
+  now: () => number;
+  wait: (milliseconds: number) => Promise<void>;
 }>;
 
 type OwnedProcessState = {
@@ -91,6 +93,10 @@ const defaultDependencies: OwnedProcessDependencies = {
   gateEnvironment: {},
   waitingTimeoutMs: 1_000,
   unreleasedExitTimeoutMs: 3_000,
+  now: () => performance.now(),
+  wait: async (milliseconds) => {
+    await new Promise((resolveWait) => setTimeout(resolveWait, milliseconds));
+  },
 };
 const signalNames = new Set<string>([
   'SIGHUP',
@@ -284,15 +290,23 @@ async function waitForCondition(
   condition: () => boolean,
   phase: string,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!condition()) {
+  const deadline = state.dependencies.now() + timeoutMs;
+  while (true) {
+    const completed = condition();
+    const observedAt = state.dependencies.now();
+    if (completed) {
+      if (observedAt >= deadline) {
+        throw new LifecycleFailure(124, `${phase}: timed out after ${timeoutMs}ms`);
+      }
+      return;
+    }
+    if (observedAt >= deadline) {
+      throw new LifecycleFailure(124, `${phase}: timed out after ${timeoutMs}ms`);
+    }
     if (!isLive(child) || state.childClosed) {
       throw new LifecycleFailure(70, `${phase}: gated anchor exited before completion`);
     }
-    if (Date.now() >= deadline) {
-      throw new LifecycleFailure(124, `${phase}: timed out after ${timeoutMs}ms`);
-    }
-    await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+    await state.dependencies.wait(10);
   }
 }
 
@@ -477,15 +491,23 @@ async function sendGateMessage(
     );
   }
 
-  const deadline = Date.now() + messageTimeoutMs;
-  while (!result.settled) {
+  const deadline = state.dependencies.now() + messageTimeoutMs;
+  while (true) {
+    const settled = result.settled;
+    const observedAt = state.dependencies.now();
+    if (settled) {
+      if (observedAt >= deadline) {
+        throw new LifecycleFailure(124, `${message.type}: IPC send timed out`);
+      }
+      break;
+    }
+    if (observedAt >= deadline) {
+      throw new LifecycleFailure(124, `${message.type}: IPC send timed out`);
+    }
     if ((!isLive(child) || state.childClosed) && !allowClose) {
       throw new LifecycleFailure(70, `${message.type}: gated anchor exited during IPC send`);
     }
-    if (Date.now() >= deadline) {
-      throw new LifecycleFailure(124, `${message.type}: IPC send timed out`);
-    }
-    await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+    await state.dependencies.wait(10);
   }
   if (result.errorMessage !== undefined) {
     throw new LifecycleFailure(70, `${message.type}: ${result.errorMessage}`);
@@ -705,17 +727,21 @@ export async function waitForOwnedOutcome(
 ): Promise<ChildOutcome> {
   validateTimeout('timeoutMs', timeoutMs);
   const state = stateFor(owned);
-  const deadline = Date.now() + timeoutMs;
-  while (state.outcome === undefined) {
+  const deadline = state.dependencies.now() + timeoutMs;
+  while (true) {
+    const outcome = state.outcome;
+    const observedAt = state.dependencies.now();
+    if (outcome !== undefined) {
+      return observedAt < deadline ? outcome : { kind: 'timeout', phase: 'outcome' };
+    }
+    if (observedAt >= deadline) {
+      return { kind: 'timeout', phase: 'outcome' };
+    }
     if (!isLive(owned.child) || state.childClosed) {
       return { kind: 'spawn-error', message: 'gated anchor exited before target outcome' };
     }
-    if (Date.now() >= deadline) {
-      return { kind: 'timeout', phase: 'outcome' };
-    }
-    await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+    await state.dependencies.wait(10);
   }
-  return state.outcome;
 }
 
 export async function finishGatedProcess(owned: OwnedProcess, timeoutMs: number): Promise<void> {

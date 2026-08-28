@@ -424,6 +424,8 @@ function fixtureDependencies(
     gateEnvironment?: Readonly<Record<string, string>>;
     waitingTimeoutMs?: number;
     unreleasedExitTimeoutMs?: number;
+    now?: () => number;
+    wait?: (milliseconds: number) => Promise<void>;
   }> = {},
 ): OwnedProcessDependencies {
   return {
@@ -444,6 +446,55 @@ function fixtureDependencies(
         : { CASN_LIFECYCLE_TEST_GATE_MODE: '1', ...options.gateEnvironment },
     waitingTimeoutMs: options.waitingTimeoutMs ?? 1_000,
     unreleasedExitTimeoutMs: options.unreleasedExitTimeoutMs ?? 3_000,
+    now: options.now ?? (() => performance.now()),
+    wait:
+      options.wait ??
+      (async (milliseconds) => {
+        await new Promise((resolve) => setTimeout(resolve, milliseconds));
+      }),
+  };
+}
+
+function withDeadlineActors(
+  dependencies: OwnedProcessDependencies,
+  now: () => number,
+): OwnedProcessDependencies {
+  return {
+    ...dependencies,
+    now,
+    wait: async () => {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    },
+  };
+}
+
+function interceptMessageSettlement(
+  child: ChildProcess,
+  messageType: 'finish',
+  onSettlement: () => void,
+): () => void {
+  const originalSend = child.send;
+  const interceptedSend = ((...input: readonly unknown[]) => {
+    const [message, ...rest] = input;
+    const callbackIndex = rest.findIndex((entry) => typeof entry === 'function');
+    if (
+      typeof message === 'object' &&
+      message !== null &&
+      'type' in message &&
+      message.type === messageType &&
+      callbackIndex >= 0
+    ) {
+      const callback = rest[callbackIndex] as (...args: readonly unknown[]) => void;
+      rest[callbackIndex] = (...args: readonly unknown[]) => {
+        onSettlement();
+        callback(...args);
+      };
+    }
+    return Reflect.apply(originalSend, child, [message, ...rest]);
+  }) as ChildProcess['send'];
+  child.send = interceptedSend;
+  return () => {
+    child.send = originalSend;
   };
 }
 
@@ -1266,6 +1317,130 @@ test(
 );
 
 const invalidDeadlineValues = [Number.NaN, Number.POSITIVE_INFINITY, -1, 0, 2_147_483_648] as const;
+
+test.each([
+  [99, 'accepted'],
+  [100, 'rejected'],
+] as const)(
+  'samples gate readiness at %ims against the strict 100ms monotonic deadline',
+  async (observedAt, expected) => {
+    await withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      let clock = 0;
+      const base = fixtureDependencies(fixture, {
+        waitingTimeoutMs: 100,
+        observeSpawn: (child) => {
+          fixture.captureChild(child);
+          child.on('message', (message: unknown) => {
+            if (
+              typeof message === 'object' &&
+              message !== null &&
+              'type' in message &&
+              message.type === 'waiting'
+            ) {
+              clock = observedAt;
+            }
+          });
+        },
+      });
+      const attempt = spawnGatedProcess(
+        { root, command: process.execPath, args: ['-e', 'process.exit(0)'], env: {} },
+        withDeadlineActors(base, () => clock),
+      );
+
+      if (expected === 'rejected') {
+        await expect(attempt).rejects.toMatchObject({
+          exitCode: 124,
+          message: 'gate waiting: timed out after 100ms',
+        });
+        return;
+      }
+
+      const owned = await attempt;
+      await releaseGatedProcess(owned);
+      expect(await waitForOwnedOutcome(owned, 1_000)).toEqual({ kind: 'exit', code: 0 });
+      await finishGatedProcess(owned, 1_000);
+      expect(removeOwnedRoot(root)).toEqual({ kind: 'removed' });
+    });
+  },
+  15_000,
+);
+
+test.each([
+  [99, { kind: 'exit', code: 41 }],
+  [100, { kind: 'timeout', phase: 'outcome' }],
+] as const)(
+  'samples the target outcome at %ims against the strict 100ms monotonic deadline',
+  async (observedAt, expected) => {
+    await withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      let clock = 0;
+      const base = fixtureDependencies(fixture, {
+        observeSpawn: (child) => {
+          fixture.captureChild(child);
+          child.on('message', (message: unknown) => {
+            if (
+              typeof message === 'object' &&
+              message !== null &&
+              'type' in message &&
+              message.type === 'outcome'
+            ) {
+              clock = observedAt;
+            }
+          });
+        },
+      });
+      const owned = await spawnGatedProcess(
+        { root, command: process.execPath, args: ['-e', 'process.exitCode=41'], env: {} },
+        withDeadlineActors(base, () => clock),
+      );
+      await releaseGatedProcess(owned);
+
+      expect(await waitForOwnedOutcome(owned, 100)).toEqual(expected);
+      clock = 0;
+      await finishGatedProcess(owned, 1_000);
+      expect(removeOwnedRoot(root)).toEqual({ kind: 'removed' });
+    });
+  },
+  15_000,
+);
+
+test.each([
+  [999, 'accepted'],
+  [1_000, 'rejected'],
+] as const)(
+  'samples finish IPC settlement at %ims against the strict 1000ms monotonic deadline',
+  async (observedAt, expected) => {
+    await withOwnedFixture(async (fixture) => {
+      const root = fixture.createRoot();
+      let clock = 0;
+      const owned = await spawnGatedProcess(
+        { root, command: process.execPath, args: ['-e', 'process.exitCode=43'], env: {} },
+        withDeadlineActors(fixtureDependencies(fixture), () => clock),
+      );
+      await releaseGatedProcess(owned);
+      expect(await waitForOwnedOutcome(owned, 1_000)).toEqual({ kind: 'exit', code: 43 });
+      const restoreSend = interceptMessageSettlement(owned.child, 'finish', () => {
+        clock = observedAt;
+      });
+
+      try {
+        if (expected === 'rejected') {
+          await expect(finishGatedProcess(owned, 2_000)).rejects.toMatchObject({
+            exitCode: 124,
+            message: 'finish: IPC send timed out',
+          });
+        } else {
+          await finishGatedProcess(owned, 2_000);
+          expect(removeOwnedRoot(root)).toEqual({ kind: 'removed' });
+        }
+      } finally {
+        restoreSend();
+      }
+    });
+  },
+  15_000,
+);
 
 test.each(invalidDeadlineValues)(
   'rejects invalid waiting deadline %s before creating logs or a gate child',

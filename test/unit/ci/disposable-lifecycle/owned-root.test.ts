@@ -29,6 +29,7 @@ import {
   verifyOwnedRoot,
   type OwnedRoot,
   type OwnedRootBoundary,
+  type OwnedRootCreationDependencies,
 } from '@/scripts/ci/disposable-lifecycle/owned-root';
 
 class TestFixture {
@@ -172,6 +173,63 @@ const evidenceInput = {
   ],
   diagnostics: ['fixture failure'],
 };
+
+test.each(['open', 'fstat'] as const)(
+  'removes the exact newly created root when %s fails before authority publication',
+  (failurePoint) => {
+    let createdPath: string | undefined;
+    let createdIdentity: Readonly<{ device: bigint; inode: bigint }> | undefined;
+    let returnedRoot: OwnedRoot | undefined;
+    const dependencies: Partial<OwnedRootCreationDependencies> = {
+      openRoot(path) {
+        createdPath = path;
+        const stat = lstatSync(path, { bigint: true });
+        createdIdentity = { device: stat.dev, inode: stat.ino };
+        if (failurePoint === 'open') {
+          throw new Error('injected root open failure');
+        }
+        return openSync(
+          path,
+          constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+        );
+      },
+      fstatRoot(fd) {
+        if (failurePoint === 'fstat') {
+          throw new Error('injected root fstat failure');
+        }
+        return fstatSync(fd, { bigint: true });
+      },
+    };
+
+    try {
+      expect(() => {
+        returnedRoot = createOwnedRoot(dependencies);
+      }).toThrow(`injected root ${failurePoint} failure`);
+      expect(createdPath).toBeDefined();
+      if (createdPath !== undefined) {
+        expect(existsSync(createdPath)).toBe(false);
+      }
+    } finally {
+      if (returnedRoot !== undefined) {
+        const cleanup = removeOwnedRoot(returnedRoot);
+        if (cleanup.kind === 'failed') {
+          throw new Error(`published RED root cleanup failed: ${cleanup.reason}`);
+        }
+      }
+      if (createdPath !== undefined && existsSync(createdPath)) {
+        const current = lstatSync(createdPath, { bigint: true });
+        if (
+          createdIdentity === undefined ||
+          current.dev !== createdIdentity.device ||
+          current.ino !== createdIdentity.inode
+        ) {
+          throw new Error(`refusing to clean a replaced RED root: ${createdPath}`);
+        }
+        rmdirSync(createdPath);
+      }
+    }
+  },
+);
 
 test('anchors root ownership and refuses a symlink replacement without deleting its sentinel', () =>
   withFixture((fixture) => {
