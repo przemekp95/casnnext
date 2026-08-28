@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import SafeImage from '@/components/SafeImage';
+import SafeImage, { type SafeImageProps } from '@/components/SafeImage';
 
 describe('SafeImage', () => {
   it('renders the supplied source, accessible alternative text, and literal dimensions through Next Image', () => {
@@ -11,6 +11,7 @@ describe('SafeImage', () => {
     expect(image).toHaveAttribute('width', '80');
     expect(image).toHaveAttribute('height', '60');
     expect(image).toHaveAttribute('data-next-image', 'true');
+    expect(image).toHaveAttribute('data-next-image-unoptimized', 'true');
   });
 
   it('forwards standard image attributes', () => {
@@ -32,15 +33,42 @@ describe('SafeImage', () => {
     expect(image).toHaveAttribute('data-testid', 'custom-image');
   });
 
-  it('defaults alternative text to empty when it is not supplied', () => {
-    render(<SafeImage src="/test.jpg" />);
+  it('defaults alternative text to empty at the invalid runtime boundary', () => {
+    const props = {
+      src: '/test.jpg',
+      width: 80,
+      height: 60,
+    } as unknown as SafeImageProps;
+
+    render(<SafeImage {...props} />);
 
     expect(screen.getByAltText('')).toHaveAttribute('src', '/test.jpg');
   });
 
   it('normalizes an invalid source boundary to a string', () => {
-    render(<SafeImage src={123 as unknown as string} alt="Test" />);
+    render(<SafeImage src={123 as unknown as string} alt="Test" width={80} height={60} />);
 
     expect(screen.getByRole('img', { name: 'Test' })).toHaveAttribute('src', '123');
+  });
+
+  it('rejects unpaired dimensions unless fill is selected', () => {
+    const props = {
+      src: '/test.jpg',
+      alt: 'Unpaired dimensions',
+      width: 80,
+    } as SafeImageProps;
+
+    expect(() => render(<SafeImage {...props} />)).toThrow(
+      'NextImageMock requires paired valid width and height unless fill is true',
+    );
+  });
+
+  it('allows fill images without dimensions', () => {
+    render(<SafeImage src="/test.jpg" alt="Fill image" fill />);
+
+    expect(screen.getByRole('img', { name: 'Fill image' })).toHaveAttribute(
+      'data-next-image-unoptimized',
+      'true',
+    );
   });
 });

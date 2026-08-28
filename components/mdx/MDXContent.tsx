@@ -9,30 +9,39 @@ import Map from '../maps/Map';
 
 type MdxImageProps = ComponentPropsWithoutRef<'img'>;
 type MdxHeadingProps = ComponentPropsWithoutRef<'h1'>;
-type SafeImageDimension = SafeImageProps['width'];
+type SafeImageDimension = NonNullable<SafeImageProps['width']>;
+type SafeImageDimensions = Pick<SafeImageProps, 'width' | 'height'> & { fallback: boolean };
 
-function toSafeImageDimension(value: MdxImageProps['width']): SafeImageDimension {
+function isSafeImageDimension(value: MdxImageProps['width']): value is SafeImageDimension {
   if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : undefined;
+    return Number.isFinite(value) && value >= 0;
   }
 
-  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) {
-    return value as `${number}`;
-  }
-
-  return undefined;
+  return typeof value === 'string' && /^\d+$/.test(value);
 }
 
-function MdxImage({ src, alt, width, height, srcSet, ...rest }: MdxImageProps) {
+function toSafeImageDimensions(
+  width: MdxImageProps['width'],
+  height: MdxImageProps['height'],
+): SafeImageDimensions {
+  if (isSafeImageDimension(width) && isSafeImageDimension(height)) {
+    return { width, height, fallback: false };
+  }
+
+  return { width: 0, height: 0, fallback: true };
+}
+
+function MdxImage({ src, alt, width, height, srcSet, style, ...rest }: MdxImageProps) {
   void srcSet;
+  const { fallback, ...dimensions } = toSafeImageDimensions(width, height);
 
   return (
     <SafeImage
       {...rest}
       src={String(src ?? '')}
       alt={alt ?? ''}
-      width={toSafeImageDimension(width)}
-      height={toSafeImageDimension(height)}
+      {...dimensions}
+      style={fallback ? { ...style, width: 'auto', height: 'auto' } : style}
     />
   );
 }

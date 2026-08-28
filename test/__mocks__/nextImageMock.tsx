@@ -12,6 +12,14 @@ type NextImageMockProps = ImgHTMLAttributes<HTMLImageElement> & {
   onLoadingComplete?: (img: HTMLImageElement) => void;
 };
 
+function isValidDimension(value: unknown): value is number | `${number}` {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value >= 0;
+  }
+
+  return typeof value === 'string' && /^\d+$/.test(value);
+}
+
 export default function NextImageMock({
   src,
   alt,
@@ -29,16 +37,27 @@ export default function NextImageMock({
     ...imgProps
   } = props;
   const normalizedSrc = typeof src === 'string' ? src : src?.src ?? '';
-  void fill;
+
+  if (!fill && (!isValidDimension(imgProps.width) || !isValidDimension(imgProps.height))) {
+    throw new Error('NextImageMock requires paired valid width and height unless fill is true');
+  }
+
   void priority;
-  void unoptimized;
   void placeholder;
   void blurDataURL;
   void loader;
   void quality;
   void onLoadingComplete;
 
-  return <img {...imgProps} src={normalizedSrc} alt={alt ?? ''} data-next-image="true" />;
+  return (
+    <img
+      {...imgProps}
+      src={normalizedSrc}
+      alt={alt ?? ''}
+      data-next-image="true"
+      data-next-image-unoptimized={String(unoptimized === true)}
+    />
+  );
 }
 
 type GetImagePropsInput = {
