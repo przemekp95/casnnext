@@ -12,7 +12,7 @@
     "prebuild": "bash scripts/check-posts.sh",
     "postbuild": "node scripts/prepare-tmp.mjs",
     "start": "node server.cjs",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs --max-warnings 0",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs --fix --max-warnings 0",
     "quality:policy": "bash scripts/ci/quality-debt-policy.sh",
     "first-party-quality:policy": "bash scripts/ci/first-party-quality-policy.sh .",
@@ -84,7 +84,8 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.20.4",
     "typescript": "^5.6.0",
-    "wait-on": "^9.0.4"
+    "wait-on": "^9.0.4",
+    "yaml": "2.9.0"
   },
   "overrides": {
     "axios": "^1.13.5",

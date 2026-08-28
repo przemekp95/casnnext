@@ -21,7 +21,7 @@ tracked_source_files() {
   local path
   local -a tracked_files=()
   mapfile -d '' -t tracked_files < <(
-    git -C "$root" ls-files -z -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.cjs' '*.mjs'
+    git -C "$root" ls-files -z -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.cjs' '*.mjs' '*.mts' '*.cts'
   )
 
   for path in "${tracked_files[@]}"; do
@@ -64,12 +64,14 @@ check_eslint_config() {
   mapfile -d '' -t source_files < <(tracked_source_files)
 
   if ! node - "$root" "${source_files[@]}" <<'NODE'
-const { ESLint } = require('eslint');
+const { createRequire } = require('module');
 const { pathToFileURL } = require('url');
 const path = require('path');
 
 const [rootArgument, ...files] = process.argv.slice(2);
 const root = path.resolve(rootArgument);
+const requireFromRoot = createRequire(path.join(root, 'package.json'));
+const { ESLint } = requireFromRoot('eslint');
 const configFile = path.join(root, 'eslint.config.mjs');
 const severity = (value) => {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -100,8 +102,18 @@ const hookExtensions = new Set(['.js', '.jsx', '.mjs', '.ts', '.tsx', '.mts', '.
     'casn/next-image-mock',
   ];
   const hasExpectedTail = requiredNames.every((name, index) => items.at(index - requiredNames.length)?.name === name);
+  const mockBlock = items.find((item) => item?.name === 'casn/next-image-mock');
+  const hasExactMockBlock = mockBlock
+    && Object.keys(mockBlock).sort().join(',') === 'files,name,rules'
+    && Array.isArray(mockBlock.files)
+    && mockBlock.files.length === 1
+    && mockBlock.files[0] === 'test/__mocks__/nextImageMock.tsx'
+    && Object.keys(mockBlock.rules ?? {}).length === 1
+    && mockBlock.rules?.['@next/next/no-img-element'] === 'off';
+  const disabledImageRuleBlocks = items.filter((item) => severity(item?.rules?.['@next/next/no-img-element']) === 0);
   if (requiredNames.some((name) => names.filter((candidate) => candidate === name).length !== 1)
-    || !hasExpectedTail) {
+    || !hasExpectedTail || !hasExactMockBlock || disabledImageRuleBlocks.length !== 1
+    || disabledImageRuleBlocks[0] !== mockBlock) {
     process.exitCode = 1;
     return;
   }
@@ -149,7 +161,7 @@ NODE
   if ! node - "$root/package.json" <<'NODE'
 const fs = require('fs');
 const packageJson = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-process.exit(packageJson.scripts?.lint === 'eslint . --ext .ts,.tsx,.js,.jsx,.cjs --max-warnings 0' ? 0 : 1);
+process.exit(packageJson.scripts?.lint === 'eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0' ? 0 : 1);
 NODE
   then
     fail 'lint-must-reject-warnings'
@@ -160,64 +172,53 @@ check_workflow() {
   local workflow="$1"
   [[ -f "$root/$workflow" ]] || fail 'workflow-must-run-quality'
 
-  if ! node - "$root/$workflow" <<'NODE'
+  if ! node - "$root" "$root/$workflow" <<'NODE'
 const fs = require('fs');
-const workflow = fs.readFileSync(process.argv[2], 'utf8');
-const lines = workflow.split(/\r?\n/);
-const indentation = (line) => line.match(/^\s*/)[0].length;
-const stepSections = [];
+const { createRequire } = require('module');
+const path = require('path');
 
-for (let index = 0; index < lines.length; index += 1) {
-  const section = /^(\s*)steps:\s*$/.exec(lines[index]);
-  if (!section) continue;
-  const sectionIndent = section[1].length;
-  const stepIndent = sectionIndent + 2;
-  for (let cursor = index + 1; cursor < lines.length;) {
-    if (lines[cursor].trim() && indentation(lines[cursor]) <= sectionIndent) break;
-    if (new RegExp(`^ {${stepIndent}}-\\s+`).test(lines[cursor])) {
-      const start = cursor;
-      cursor += 1;
-      while (cursor < lines.length && !(new RegExp(`^ {${stepIndent}}-\\s+`).test(lines[cursor])) && !(lines[cursor].trim() && indentation(lines[cursor]) <= sectionIndent)) cursor += 1;
-      stepSections.push(lines.slice(start, cursor));
+const [rootArgument, workflowFile] = process.argv.slice(2);
+const root = path.resolve(rootArgument);
+const requireFromRoot = createRequire(path.join(root, 'package.json'));
+const YAML = requireFromRoot('yaml');
+const workflow = YAML.parse(fs.readFileSync(workflowFile, 'utf8'));
+const stepGroups = [];
+if (Array.isArray(workflow?.runs?.steps)) stepGroups.push(workflow.runs.steps);
+for (const job of Object.values(workflow?.jobs ?? {})) {
+  if (Array.isArray(job?.steps)) stepGroups.push(job.steps);
+}
+
+const lintLike = /\bnpm\s+run\s+lint(?:\b|:)/;
+const policyLike = /\bnpm\s+run\s+quality:policy\b/;
+const exactCommands = new Set(['npm run lint', 'npm run quality:policy']);
+let invalid = stepGroups.length === 0;
+const occurrences = [];
+
+for (const steps of stepGroups) {
+  for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
+    const step = steps[stepIndex];
+    if (!step || typeof step !== 'object' || typeof step.run !== 'string') continue;
+    const commands = step.run.split(/\r?\n/).map((command) => command.trim()).filter(Boolean);
+    const relevant = commands.some((command) => lintLike.test(command) || policyLike.test(command));
+    if (!relevant) continue;
+    if (Object.hasOwn(step, 'if') || Object.hasOwn(step, 'continue-on-error') || Object.hasOwn(step, 'env')
+      || Object.hasOwn(step, 'uses') || (Object.hasOwn(step, 'shell') && step.shell !== 'bash')
+      || commands.some((command) => !exactCommands.has(command))) {
+      invalid = true;
       continue;
     }
-    cursor += 1;
+    commands.forEach((command, commandIndex) => occurrences.push({ steps, stepIndex, commandIndex, command }));
   }
 }
 
-const executions = [];
-let unsafe = false;
-for (let stepIndex = 0; stepIndex < stepSections.length; stepIndex += 1) {
-  const step = stepSections[stepIndex];
-  const runIndex = step.findIndex((line) => /^\s*(?:-\s*)?run:\s*/.test(line));
-  if (runIndex === -1) continue;
-  const runMatch = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(step[runIndex]);
-  const runIndent = runMatch[1].length;
-  let commands = [];
-  if (runMatch[2] === '|') {
-    for (let index = runIndex + 1; index < step.length; index += 1) {
-      const line = step[index];
-      if (line.trim() && indentation(line) <= runIndent) break;
-      if (line.trim()) commands.push(line.trim());
-    }
-  } else if (runMatch[2]) {
-    commands = [runMatch[2].trim()];
-  }
-  const relevant = commands.some((command) => /\bnpm\s+run\s+(?:lint|quality:policy)\b/.test(command));
-  if (relevant && step.some((line) => /^\s*(?:-\s*)?(?:if|continue-on-error|env):/.test(line) || line.includes('#'))) unsafe = true;
-  commands.forEach((command, commandIndex) => executions.push({ stepIndex, commandIndex, command }));
-}
-
-const lintLike = executions.filter(({ command }) => /\bnpm\s+run\s+lint(?:\b|:)/.test(command));
-const policyLike = executions.filter(({ command }) => /\bnpm\s+run\s+quality:policy\b/.test(command));
-const exactLint = lintLike.filter(({ command }) => command === 'npm run lint');
-const exactPolicy = policyLike.filter(({ command }) => command === 'npm run quality:policy');
-const adjacent = exactLint.length === 1 && exactPolicy.length === 1
-  && exactPolicy[0].stepIndex >= exactLint[0].stepIndex
-  && exactPolicy[0].stepIndex <= exactLint[0].stepIndex + 1
-  && executions.indexOf(exactPolicy[0]) === executions.indexOf(exactLint[0]) + 1;
-const hasOnlyExactCommands = lintLike.length === 1 && policyLike.length === 1;
-process.exit(unsafe || !hasOnlyExactCommands || !adjacent ? 1 : 0);
+const lintCommands = occurrences.filter(({ command }) => command === 'npm run lint');
+const policyCommands = occurrences.filter(({ command }) => command === 'npm run quality:policy');
+const adjacent = lintCommands.length === 1 && policyCommands.length === 1
+  && lintCommands[0].steps === policyCommands[0].steps
+  && ((lintCommands[0].stepIndex === policyCommands[0].stepIndex
+      && policyCommands[0].commandIndex === lintCommands[0].commandIndex + 1)
+    || (policyCommands[0].stepIndex === lintCommands[0].stepIndex + 1 && policyCommands[0].commandIndex === 0));
+process.exit(invalid || !adjacent ? 1 : 0);
 NODE
   then
     fail 'workflow-must-run-quality'

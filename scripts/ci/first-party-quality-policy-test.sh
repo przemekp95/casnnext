@@ -26,7 +26,7 @@ reset_fixture() {
     "$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist"
   ln -s "$source_root/node_modules" "$test_root/repo/node_modules"
   git -C "$test_root/repo" init -q
-  printf '%s\n' '{"scripts":{"lint":"eslint . --ext .ts,.tsx,.js,.jsx,.cjs --max-warnings 0","first-party-quality:policy":"bash scripts/ci/first-party-quality-policy.sh ."}}' >"$test_root/repo/package.json"
+  printf '%s\n' '{"scripts":{"lint":"eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0","first-party-quality:policy":"bash scripts/ci/first-party-quality-policy.sh ."}}' >"$test_root/repo/package.json"
   printf '%s\n' \
     'import { defineConfig } from "eslint/config";' \
     'import nextCoreWebVitals from "eslint-config-next/core-web-vitals";' \
@@ -66,15 +66,17 @@ reset_fixture() {
   printf '%s\n' 'export const value = 1;' >"$test_root/repo/scripts/tool.ts"
   printf '%s\n' 'export const migration = 1;' >"$test_root/repo/migrations/example.ts"
   printf '%s\n' 'export type FixtureType = string;' >"$test_root/repo/types/example.ts"
+  printf '%s\n' 'export const mtsFixture = 1;' >"$test_root/repo/types/example.mts"
+  printf '%s\n' 'export const ctsFixture = 1;' >"$test_root/repo/types/example.cts"
   printf '%s\n' 'export default {};' >"$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
-  printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - name: Lint and policy' '      run: |' '        npm run lint' '        npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
-  printf '%s\n' 'jobs:' '  quality:' '    steps:' '      - name: Lint' '        run: npm run lint' '      - name: Policy' '        run: npm run quality:policy' >"$test_root/repo/.github/workflows/docker.yml"
+  printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - name: Lint and policy' '      run: |-' '        npm run lint' '        npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
+  printf '%s\n' 'jobs:' '  quality:' '    steps:' '      - name: Lint' '        run: "npm run lint"' '      - name: Policy' "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
   cp "$test_root/repo/.github/workflows/docker.yml" "$test_root/repo/.github/workflows/deploy.yml"
   git -C "$test_root/repo" add .
 }
 
 reset_fixture
-"$policy" "$test_root/repo"
+(cd "$test_root" && "$policy" "$test_root/repo")
 
 reset_fixture
 sed -i 's/ --max-warnings 0/ --max-warnings 0 || true/' "$test_root/repo/package.json"
@@ -127,6 +129,16 @@ git -C "$test_root/repo" add .
 expect_rejected 'effective-eslint-config'
 
 reset_fixture
+sed -i 's/"@next\/next\/no-img-element": "off"/"@next\/next\/no-img-element": 0/' "$test_root/repo/eslint.config.mjs"
+git -C "$test_root/repo" add .
+expect_rejected 'effective-eslint-config'
+
+reset_fixture
+sed -i 's/"@next\/next\/no-img-element": "off"/"@next\/next\/no-img-element": "off", "@next\/next\/no-css-tags": "error"/' "$test_root/repo/eslint.config.mjs"
+git -C "$test_root/repo" add .
+expect_rejected 'effective-eslint-config'
+
+reset_fixture
 sed -i '1i /* eslint-disable */' "$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
 git -C "$test_root/repo" add .
 expect_rejected 'inline-eslint-directive'
@@ -145,6 +157,49 @@ reset_fixture
 sed -i '1i /* eslint-disable */' "$test_root/repo/types/example.ts"
 git -C "$test_root/repo" add .
 expect_rejected 'inline-eslint-directive'
+
+reset_fixture
+sed -i '1i /* eslint-disable */' "$test_root/repo/types/example.mts"
+git -C "$test_root/repo" add .
+expect_rejected 'inline-eslint-directive'
+
+reset_fixture
+sed -i '1i /* eslint-disable */' "$test_root/repo/types/example.cts"
+git -C "$test_root/repo" add .
+expect_rejected 'inline-eslint-directive'
+
+reset_fixture
+printf '%s\n' 'runs: [' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '6i\        exit 0' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/run: |-/a\      if: false' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '6c\        function lint() { npm run lint; }' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+sed -i '7c\        lint' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+sed -i '8i\        npm run quality:policy' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '6c\        bash -c "{ npm run lint; npm run quality:policy; }"' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+sed -i '7d' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/shell: bash/a\      uses: actions/checkout@v4' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
 sed -i 's/it(/it.skip(/' "$test_root/repo/test/page.test.tsx"
