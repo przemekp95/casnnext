@@ -14,6 +14,16 @@ type MdxComponentMap = {
 
 let mockMdxComponents: MdxComponentMap | undefined;
 
+function requireMdxImageComponent(name: "img" | "Image") {
+  const component = mockMdxComponents?.[name];
+
+  if (!component) {
+    throw new Error(`MDX component map is missing ${name}`);
+  }
+
+  return component;
+}
+
 // Mock MDXRemote since it's hard to test directly
 jest.mock("next-mdx-remote/rsc", () => ({
   MDXRemote: ({ source, components }: { source: string; components?: MdxComponentMap }) => {
@@ -69,6 +79,39 @@ describe("MDXContent", () => {
     );
     expect(screen.getByRole("heading", { level: 2, name: "MDX heading" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 1, name: "MDX heading" })).not.toBeInTheDocument();
+  });
+
+  it("adapts valid HTML image dimensions and drops invalid dimensions at the SafeImage boundary", () => {
+    render(<MDXContent source="MDX image adapter" />);
+
+    const MdxImage = requireMdxImageComponent("img");
+    render(
+      <MdxImage
+        src="/images/mdx-dimensions.webp"
+        alt="MDX dimensions"
+        width="80"
+        height="60"
+      />,
+    );
+
+    const image = screen.getByRole("img", { name: "MDX dimensions" });
+    expect(image).toHaveAttribute("src", "/images/mdx-dimensions.webp");
+    expect(image).toHaveAttribute("alt", "MDX dimensions");
+    expect(image).toHaveAttribute("width", "80");
+    expect(image).toHaveAttribute("height", "60");
+
+    render(
+      <MdxImage
+        src="/images/mdx-invalid-dimensions.webp"
+        alt="MDX invalid dimensions"
+        width="wide"
+        height="tall"
+      />,
+    );
+
+    const invalidImage = screen.getByRole("img", { name: "MDX invalid dimensions" });
+    expect(invalidImage).not.toHaveAttribute("width");
+    expect(invalidImage).not.toHaveAttribute("height");
   });
 
   it("passes the production Chart and Map entries to MDX", () => {

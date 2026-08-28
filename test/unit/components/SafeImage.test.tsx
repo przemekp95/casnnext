@@ -2,12 +2,15 @@ import { render, screen } from '@testing-library/react';
 import SafeImage from '@/components/SafeImage';
 
 describe('SafeImage', () => {
-  it('renders the supplied source and accessible alternative text', () => {
-    render(<SafeImage src="/test.jpg" alt="Test image" />);
+  it('renders the supplied source, accessible alternative text, and literal dimensions through Next Image', () => {
+    render(<SafeImage src="/images/example.png" alt="Example" width={80} height={60} />);
 
-    const image = screen.getByRole('img', { name: 'Test image' });
-    expect(image).toHaveAttribute('src', '/test.jpg');
-    expect(image).toHaveAttribute('alt', 'Test image');
+    const image = screen.getByRole('img', { name: 'Example' });
+    expect(image).toHaveAttribute('src', '/images/example.png');
+    expect(image).toHaveAttribute('alt', 'Example');
+    expect(image).toHaveAttribute('width', '80');
+    expect(image).toHaveAttribute('height', '60');
+    expect(image).toHaveAttribute('data-next-image', 'true');
   });
 
   it('forwards standard image attributes', () => {

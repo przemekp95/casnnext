@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import type { ImgHTMLAttributes, ReactNode } from "react";
+import type { ReactNode } from "react";
 import AuthorsClient from "@/app/autorzy/AuthorsClient";
 import type { AuthorRow } from "@/types/author";
 
@@ -8,20 +8,6 @@ jest.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: ReactNode }) => (
     <a href={href}>{children}</a>
   ),
-}));
-
-jest.mock("next/image", () => ({
-  __esModule: true,
-  default: (props: ImgHTMLAttributes<HTMLImageElement> & {
-    unoptimized?: boolean;
-    fill?: boolean;
-  }) => {
-    const imageProps = { ...props };
-    delete imageProps.unoptimized;
-    delete imageProps.fill;
-
-    return <img {...imageProps} alt={imageProps.alt ?? ""} />;
-  },
 }));
 
 describe("AuthorsClient", () => {

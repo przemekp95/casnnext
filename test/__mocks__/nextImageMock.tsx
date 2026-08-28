@@ -38,7 +38,7 @@ export default function NextImageMock({
   void quality;
   void onLoadingComplete;
 
-  return <img {...imgProps} src={normalizedSrc} alt={alt ?? ''} />;
+  return <img {...imgProps} src={normalizedSrc} alt={alt ?? ''} data-next-image="true" />;
 }
 
 type GetImagePropsInput = {

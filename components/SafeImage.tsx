@@ -1,4 +1,10 @@
-type Props = React.ImgHTMLAttributes<HTMLImageElement>;
+import Image from 'next/image';
+import type React from 'react';
+
+export type SafeImageProps = Omit<React.ComponentProps<typeof Image>, 'src' | 'alt'> & {
+  src: string;
+  alt: string;
+};
 
 /**
  * Prosty <img> komponent bez klientowej logiki.
@@ -8,6 +14,6 @@ export default function SafeImage({
   src = '',
   alt = '',
   ...rest
-}: Props) {
-  return <img src={String(src)} alt={alt} {...rest} />;
+}: SafeImageProps) {
+  return <Image src={String(src)} alt={alt} {...rest} unoptimized={true} />;
 }
