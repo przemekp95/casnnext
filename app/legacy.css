@@ -1,9 +1,9 @@
 /* Legacy styles used by existing templates/components. */
-@import url("/css/legacy/bootstrap.min.css");
-@import url("/css/legacy/style.css");
-@import url("/css/legacy/menu.css");
-@import url("/css/legacy/owl.carousel.css");
-@import url("/css/legacy/owl.theme.css");
-@import url("/css/legacy/owl.transitions.css");
-@import url("/css/legacy/themify-icons.css");
-@import url("/css/legacy/magnific-popup.css");
+@import url("../public/css/legacy/bootstrap.min.css");
+@import url("../public/css/legacy/style.css?v=20260826-hero-contrast");
+@import url("../public/css/legacy/menu.css");
+@import url("../public/css/legacy/owl.carousel.css");
+@import url("../public/css/legacy/owl.theme.css");
+@import url("../public/css/legacy/owl.transitions.css");
+@import url("../public/css/legacy/themify-icons.css");
+@import url("../public/css/legacy/magnific-popup.css");

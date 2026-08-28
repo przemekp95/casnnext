@@ -43,11 +43,24 @@ describe('Hero', () => {
   it('keeps the contrast colors and responsive opacity in the legacy stylesheet', () => {
     const css = readFileSync(join(process.cwd(), 'public/css/legacy/style.css'), 'utf8');
     const layout = readFileSync(join(process.cwd(), 'app/layout.tsx'), 'utf8');
+    const legacyCss = readFileSync(join(process.cwd(), 'app/legacy.css'), 'utf8');
 
     expect(css).toMatch(/\.topnav-bg\s*{[^}]*background:\s*#242426;/s);
     expect(css).toMatch(/\.contact-us-home \.hero-contrast-overlay\s*{[^}]*rgba\(10, 10, 12, 0\.72\)[^}]*opacity:\s*1;/s);
     expect(css).toMatch(/\.hero-content-panel\s*{[^}]*rgba\(18, 18, 20, 0\.76\)/s);
     expect(css).toMatch(/@media\s*\(max-width:\s*768px\)[\s\S]*?\.hero-content-panel\s*{[^}]*rgba\(18, 18, 20, 0\.82\)/s);
-    expect(layout).toContain('/css/legacy/style.css?v=20260826-hero-contrast');
+    expect(layout.indexOf('import "./globals.css";')).toBeLessThan(
+      layout.indexOf('import "./legacy.css";'),
+    );
+    expect(legacyCss.match(/^@import url\([^\n]+\);$/gm)).toEqual([
+      '@import url("../public/css/legacy/bootstrap.min.css");',
+      '@import url("../public/css/legacy/style.css?v=20260826-hero-contrast");',
+      '@import url("../public/css/legacy/menu.css");',
+      '@import url("../public/css/legacy/owl.carousel.css");',
+      '@import url("../public/css/legacy/owl.theme.css");',
+      '@import url("../public/css/legacy/owl.transitions.css");',
+      '@import url("../public/css/legacy/themify-icons.css");',
+      '@import url("../public/css/legacy/magnific-popup.css");',
+    ]);
   });
 });
