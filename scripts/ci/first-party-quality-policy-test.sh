@@ -132,6 +132,11 @@ git -C "$test_root/repo" add .
 expect_rejected 'inline-eslint-directive'
 
 reset_fixture
+sed -i '1i /* eslint-disable */' "$test_root/repo/app/page.tsx"
+git -C "$test_root/repo" add .
+expect_rejected 'inline-eslint-directive'
+
+reset_fixture
 sed -i '1i /* eslint-disable */' "$test_root/repo/migrations/example.ts"
 git -C "$test_root/repo" add .
 expect_rejected 'inline-eslint-directive'
@@ -140,6 +145,26 @@ reset_fixture
 sed -i '1i /* eslint-disable */' "$test_root/repo/types/example.ts"
 git -C "$test_root/repo" add .
 expect_rejected 'inline-eslint-directive'
+
+reset_fixture
+sed -i 's/it(/it.skip(/' "$test_root/repo/test/page.test.tsx"
+git -C "$test_root/repo" add .
+expect_rejected 'focused-or-skipped-test'
+
+reset_fixture
+printf '%s\n' "describe.only('x', () => {});" >>"$test_root/repo/test/page.test.tsx"
+git -C "$test_root/repo" add .
+expect_rejected 'focused-or-skipped-test'
+
+reset_fixture
+printf '%s\n' "(hasComponent ? describe : describe.skip)('x', () => {});" >>"$test_root/repo/test/page.test.tsx"
+git -C "$test_root/repo" add .
+expect_rejected 'conditional-suite'
+
+reset_fixture
+printf '%s\n' 'if (element) expect(element).toBeVisible();' >>"$test_root/repo/test/page.test.tsx"
+git -C "$test_root/repo" add .
+expect_rejected 'conditional-assertion'
 
 reset_fixture
 sed -i 's/npm run quality:policy/npm run quality:policy || true/' "$test_root/repo/.github/workflows/quality-checks/action.yml"
@@ -163,6 +188,16 @@ expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
 sed -i 's/npm run lint/npm run lint:fix/' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i 's/npm run lint/npm run lint -- --fix/' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/npm run quality:policy/d' "$test_root/repo/.github/workflows/docker.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
