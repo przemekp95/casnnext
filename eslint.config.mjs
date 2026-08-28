@@ -72,14 +72,20 @@ export default defineConfig(
     },
   },
 
-  // 9) Drobne dopasowania pod projekt
+  // 9) React hook rules only where the React-capable preset supplies its plugin.
+  {
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
+    rules: {
+      "react-hooks/error-boundaries": "error",
+      "react-hooks/set-state-in-effect": "error",
+    },
+  },
+
+  // 10) Drobne dopasowania pod projekt
   {
     rules: {
       // Pozwól używać <img> (np. w stopce)
       "@next/next/no-img-element": "off",
-      // These strict React 19-oriented rules are too noisy for current codebase patterns.
-      "react-hooks/error-boundaries": "error",
-      "react-hooks/set-state-in-effect": "error",
       // Global rules - these will be overridden by file-specific rules above
       "@typescript-eslint/no-explicit-any": "error", // Strict any checking everywhere else
       "@typescript-eslint/no-require-imports": "error", // Require ES modules everywhere else

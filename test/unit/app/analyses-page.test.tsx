@@ -22,6 +22,16 @@ const analysis: AnalysisRow = {
   },
 };
 
+function createAnalysis(overrides: Partial<AnalysisRow>): AnalysisRow {
+  return {
+    id: 'analysis-default',
+    title: 'Analiza domyślna',
+    slug: 'analiza-domyslna',
+    authorId: 'author-default',
+    ...overrides,
+  };
+}
+
 describe('app/analizy/page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -34,6 +44,68 @@ describe('app/analizy/page', () => {
 
     expect(screen.getAllByRole('link', { name: 'Analiza testowa' })).toHaveLength(2);
     expect(screen.getByRole('link', { name: 'PRZECZYTAJ' })).toHaveAttribute('href', '/analizy/analiza-testowa');
+  });
+
+  it('orders analyses by newest publication date then Polish title', async () => {
+    mockedGetAnalyses.mockResolvedValueOnce([
+      createAnalysis({
+        id: 'zaba',
+        title: 'Żaba',
+        slug: 'zaba',
+        publishedAt: '2025-01-02T00:00:00.000Z',
+      }),
+      createAnalysis({
+        id: 'najnowsza',
+        title: 'Najnowsza analiza',
+        slug: 'najnowsza-analiza',
+        publishedAt: '2025-01-03T00:00:00.000Z',
+      }),
+      createAnalysis({
+        id: 'ala',
+        title: 'Ala',
+        slug: 'ala',
+        publishedAt: '2025-01-02T00:00:00.000Z',
+      }),
+    ]);
+
+    const { container } = render(await AnalysesPage());
+    const titles = Array.from(container.querySelectorAll('ul li a')).map((link) => link.textContent);
+
+    expect(titles).toEqual(['Najnowsza analiza', 'Ala', 'Żaba']);
+  });
+
+  it('renders the known author link and image metadata', async () => {
+    mockedGetAnalyses.mockResolvedValueOnce([analysis]);
+
+    render(await AnalysesPage());
+
+    expect(screen.getAllByRole('link', { name: 'Jan Kowalski' })[0]).toHaveAttribute('href', '/autor/jan-kowalski');
+    expect(screen.getByRole('img', { name: 'Jan Kowalski' })).toHaveAttribute('src', '/images/jan-kowalski.png');
+  });
+
+  it('renders unknown-author and placeholder-image fallbacks', async () => {
+    mockedGetAnalyses.mockResolvedValueOnce([
+      createAnalysis({
+        id: 'bez-autora',
+        title: 'Bez autora',
+        slug: 'bez-autora',
+        author: undefined,
+      }),
+    ]);
+
+    render(await AnalysesPage());
+
+    expect(screen.getByText('Nieznany autor')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Autor' })).toHaveAttribute('src', '/images/placeholder.png');
+  });
+
+  it('renders the empty state when no analyses are available', async () => {
+    mockedGetAnalyses.mockResolvedValueOnce([]);
+
+    render(await AnalysesPage());
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Wszystkie analizy (0)' })).toBeInTheDocument();
+    expect(screen.getByText('Brak dostępnych analiz. Sprawdź ponownie później.')).toBeInTheDocument();
   });
 
   it('renders the explicit load error when loading fails', async () => {

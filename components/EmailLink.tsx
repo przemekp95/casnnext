@@ -9,13 +9,21 @@ type Props = {
   iconClass?: string;
 };
 
+const subscribeToMountState = () => () => {};
+const getClientMountSnapshot = () => true;
+const getServerMountSnapshot = () => false;
+
 export function EmailLink({
   email,
   ariaLabel,
   className = '',
   iconClass = 'mdi mdi-email mr-1 text-custom',
 }: Props) {
-  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
+  const mounted = useSyncExternalStore(
+    subscribeToMountState,
+    getClientMountSnapshot,
+    getServerMountSnapshot,
+  );
 
   // Don't render anything on the server to prevent Cloudflare obfuscation
   if (!mounted) {
