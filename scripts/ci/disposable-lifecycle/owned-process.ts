@@ -54,9 +54,15 @@ export type OwnedProcessDependencies = Readonly<{
   gateEnvironment: Readonly<Record<string, string>>;
   waitingTimeoutMs: number;
   unreleasedExitTimeoutMs: number;
-  now: () => number;
-  wait: (milliseconds: number) => Promise<void>;
+  now?: () => number;
+  wait?: (milliseconds: number) => Promise<void>;
 }>;
+
+type ResolvedOwnedProcessDependencies = Omit<OwnedProcessDependencies, 'now' | 'wait'> &
+  Readonly<{
+    now: () => number;
+    wait: (milliseconds: number) => Promise<void>;
+  }>;
 
 type OwnedProcessState = {
   readonly child: ChildProcess;
@@ -66,7 +72,7 @@ type OwnedProcessState = {
   readonly diagnostics: string[];
   readonly stdoutClosed: Promise<void>;
   readonly stderrClosed: Promise<void>;
-  readonly dependencies: OwnedProcessDependencies;
+  readonly dependencies: ResolvedOwnedProcessDependencies;
   waiting: boolean;
   outcome: ChildOutcome | undefined;
   childClosed: boolean;
@@ -82,7 +88,7 @@ const logLimitBytes = 1024 * 1024;
 const messageTimeoutMs = 1_000;
 const maximumTimeoutMs = 2_147_483_647;
 const processStates = new WeakMap<OwnedProcess, OwnedProcessState>();
-const defaultDependencies: OwnedProcessDependencies = {
+const defaultDependencies: ResolvedOwnedProcessDependencies = {
   lookupProcess,
   lookupGroup: (processGroupId, sessionId, excludedPids) =>
     lookupGroup(processGroupId, sessionId, undefined, excludedPids),
@@ -532,6 +538,11 @@ export async function spawnGatedProcess(
 ): Promise<OwnedProcess> {
   validateTimeout('waitingTimeoutMs', dependencies.waitingTimeoutMs);
   validateTimeout('unreleasedExitTimeoutMs', dependencies.unreleasedExitTimeoutMs);
+  const resolvedDependencies: ResolvedOwnedProcessDependencies = {
+    ...dependencies,
+    now: dependencies.now ?? defaultDependencies.now,
+    wait: dependencies.wait ?? defaultDependencies.wait,
+  };
   const stdout = createOwnedFile(input.root, 'stdout.log', 0o600);
   if (stdout.kind === 'failed') {
     throw new LifecycleFailure(70, `stdout capture creation failed: ${stdout.reason}`);
@@ -578,7 +589,7 @@ export async function spawnGatedProcess(
     diagnostics,
     stdoutClosed: captureStream(child.stdout, stdout.file.fd, 'stdout', diagnostics),
     stderrClosed: captureStream(child.stderr, stderr.file.fd, 'stderr', diagnostics),
-    dependencies,
+    dependencies: resolvedDependencies,
     waiting: false,
     outcome: undefined,
     childClosed: false,
