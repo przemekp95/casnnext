@@ -3,12 +3,18 @@
 import { promises as fs } from "fs";
 import { POST } from "@/app/api/client-log/route";
 
-jest.mock("fs", () => ({
-  promises: {
-    mkdir: jest.fn(),
-    appendFile: jest.fn(),
-  },
-}));
+jest.mock("fs", () => {
+  const actualFs = jest.requireActual<typeof import("fs")>("fs");
+
+  return {
+    ...actualFs,
+    promises: {
+      ...actualFs.promises,
+      mkdir: jest.fn(),
+      appendFile: jest.fn(),
+    },
+  };
+});
 
 describe("/api/client-log route", () => {
   it("discards attacker-controlled telemetry without parsing or persisting it", async () => {
