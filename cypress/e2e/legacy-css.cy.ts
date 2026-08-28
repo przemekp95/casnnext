@@ -9,8 +9,8 @@ const legacyStylesheetUrls = [
   '/css/legacy/magnific-popup.css',
 ] as const;
 
-describe('Legacy CSS ownership', () => {
-  it('serves the ordered legacy styles and preserves their visible contracts', () => {
+describe('Legacy CSS public assets and visible styles', () => {
+  it('serves eight public assets and preserves representative computed styles', () => {
     legacyStylesheetUrls.forEach((url) => {
       cy.request(url).its('status').should('eq', 200);
     });

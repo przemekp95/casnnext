@@ -49,9 +49,12 @@ describe('Hero', () => {
     expect(css).toMatch(/\.contact-us-home \.hero-contrast-overlay\s*{[^}]*rgba\(10, 10, 12, 0\.72\)[^}]*opacity:\s*1;/s);
     expect(css).toMatch(/\.hero-content-panel\s*{[^}]*rgba\(18, 18, 20, 0\.76\)/s);
     expect(css).toMatch(/@media\s*\(max-width:\s*768px\)[\s\S]*?\.hero-content-panel\s*{[^}]*rgba\(18, 18, 20, 0\.82\)/s);
-    expect(layout.indexOf('import "./globals.css";')).toBeLessThan(
-      layout.indexOf('import "./legacy.css";'),
-    );
+    const globalsImportIndex = layout.indexOf('import "./globals.css";');
+    const legacyImportIndex = layout.indexOf('import "./legacy.css";');
+
+    expect(globalsImportIndex).toBeGreaterThanOrEqual(0);
+    expect(legacyImportIndex).toBeGreaterThanOrEqual(0);
+    expect(globalsImportIndex).toBeLessThan(legacyImportIndex);
     expect(legacyCss.match(/^@import url\([^\n]+\);$/gm)).toEqual([
       '@import url("../public/css/legacy/bootstrap.min.css");',
       '@import url("../public/css/legacy/style.css?v=20260826-hero-contrast");',
