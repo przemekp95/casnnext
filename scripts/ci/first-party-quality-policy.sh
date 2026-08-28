@@ -2,22 +2,8 @@
 set -euo pipefail
 
 readonly root="$1"
-readonly source_paths=(app components lib scripts test cypress directus/extensions/directus-extension-casn-field-guard jest.setup.ts cypress.config.ts server.cjs)
 
 fail() { printf '[first-party-quality] %s\n' "$1" >&2; exit 1; }
-
-is_first_party_source() {
-  local path="$1"
-  local source_path
-  for source_path in "${source_paths[@]}"; do
-    if [[ "$source_path" == *.* ]]; then
-      [[ "$path" == "$source_path" ]] && return 0
-    elif [[ "$path" == "$source_path/"* ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
 
 is_excluded_source() {
   local path="$1"
@@ -39,7 +25,6 @@ tracked_source_files() {
   )
 
   for path in "${tracked_files[@]}"; do
-    is_first_party_source "$path" || continue
     is_excluded_source "$path" && continue
     printf '%s\0' "$root/$path"
   done
@@ -69,46 +54,102 @@ check_source_suppressions() {
 
 check_eslint_config() {
   local -a configs=()
+  local -a source_files=()
   mapfile -d '' -t configs < <(
     git -C "$root" ls-files -z -- \
       'eslint.config.js' 'eslint.config.cjs' 'eslint.config.mjs' 'eslint.config.ts' \
       '.eslintrc' '.eslintrc.js' '.eslintrc.cjs' '.eslintrc.mjs' '.eslintrc.json'
   )
-  ((${#configs[@]})) || return
+  [[ ${#configs[@]} -eq 1 && ${configs[0]} == 'eslint.config.mjs' ]] || fail 'effective-eslint-config'
+  mapfile -d '' -t source_files < <(tracked_source_files)
 
-  local -a config_files=()
-  local config
-  for config in "${configs[@]}"; do
-    config_files+=("$root/$config")
-  done
+  if ! node - "$root" "${source_files[@]}" <<'NODE'
+const { ESLint } = require('eslint');
+const { pathToFileURL } = require('url');
+const path = require('path');
 
-  if ! node - "${config_files[@]}" <<'NODE'
-const fs = require('fs');
-const exactNextImageMockException = /\{\s*files\s*:\s*\[\s*["']test\/__mocks__\/nextImageMock\.tsx["']\s*\]\s*,\s*rules\s*:\s*\{\s*["']@next\/next\/no-img-element["']\s*:\s*["']off["']\s*,?\s*\}\s*,?\s*\}/g;
-const broadRuleDisable = /rules\s*:\s*\{[\s\S]*?["'][^"'\n]+["']\s*:\s*["']off["']/;
-const hasBroadRuleDisable = process.argv.slice(2).some((file) => {
-  const config = fs.readFileSync(file, 'utf8');
-  const exceptions = config.match(exactNextImageMockException) ?? [];
-  const configWithoutException = config.replace(exactNextImageMockException, '');
-  return exceptions.length > 1 || broadRuleDisable.test(configWithoutException);
-});
-process.exit(hasBroadRuleDisable ? 1 : 0);
+const [rootArgument, ...files] = process.argv.slice(2);
+const root = path.resolve(rootArgument);
+const configFile = path.join(root, 'eslint.config.mjs');
+const severity = (value) => {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === 'error') return 2;
+  if (raw === 'warn') return 1;
+  if (raw === 'off') return 0;
+  return raw;
+};
+const nonHookRules = [
+  '@typescript-eslint/no-explicit-any',
+  '@typescript-eslint/no-require-imports',
+  '@typescript-eslint/no-unused-vars',
+  '@typescript-eslint/ban-ts-comment',
+  '@typescript-eslint/no-var-requires',
+  '@next/next/no-assign-module-variable',
+  '@next/next/no-css-tags',
+];
+const hookRules = ['react-hooks/error-boundaries', 'react-hooks/set-state-in-effect'];
+const hookExtensions = new Set(['.js', '.jsx', '.mjs', '.ts', '.tsx', '.mts', '.cts']);
+
+(async () => {
+  const loaded = await import(pathToFileURL(configFile).href);
+  const items = Array.isArray(loaded.default) ? loaded.default : [loaded.default];
+  const names = items.map((item) => item?.name).filter(Boolean);
+  const requiredNames = [
+    'casn/strict-first-party',
+    'casn/react-hook-supported-files',
+    'casn/next-image-mock',
+  ];
+  const hasExpectedTail = requiredNames.every((name, index) => items.at(index - requiredNames.length)?.name === name);
+  if (requiredNames.some((name) => names.filter((candidate) => candidate === name).length !== 1)
+    || !hasExpectedTail) {
+    process.exitCode = 1;
+    return;
+  }
+
+  const eslint = new ESLint({ cwd: root, overrideConfigFile: configFile });
+  for (const file of files) {
+    const config = await eslint.calculateConfigForFile(file);
+    if (nonHookRules.some((rule) => severity(config.rules?.[rule]) !== 2)) {
+      process.exitCode = 1;
+      return;
+    }
+    for (const rule of hookRules) {
+      const expected = hookExtensions.has(path.extname(file)) ? 2 : undefined;
+      if (expected === 2 && severity(config.rules?.[rule]) !== 2) {
+        process.exitCode = 1;
+        return;
+      }
+      if (expected === undefined && config.rules?.[rule] !== undefined) {
+        process.exitCode = 1;
+        return;
+      }
+    }
+    const expectedImageSeverity = path.relative(root, file) === 'test/__mocks__/nextImageMock.tsx' ? 0 : 2;
+    if (severity(config.rules?.['@next/next/no-img-element']) !== expectedImageSeverity) {
+      process.exitCode = 1;
+      return;
+    }
+  }
+})().catch(() => { process.exitCode = 1; });
 NODE
   then
-    fail 'broad-rule-disable'
+    fail 'effective-eslint-config'
   fi
 }
 
-check_lint_script() {
+check_package_scripts() {
   if ! node - "$root/package.json" <<'NODE'
 const fs = require('fs');
 const packageJson = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const lint = packageJson.scripts?.lint;
-const isStrictLint = typeof lint === 'string'
-  && lint.startsWith('eslint . ')
-  && lint.includes('--max-warnings 0')
-  && !/--(?:fix|write)\b/.test(lint);
-process.exit(isStrictLint ? 0 : 1);
+process.exit(packageJson.scripts?.['first-party-quality:policy'] === 'bash scripts/ci/first-party-quality-policy.sh .' ? 0 : 1);
+NODE
+  then
+    fail 'first-party-policy-alias'
+  fi
+  if ! node - "$root/package.json" <<'NODE'
+const fs = require('fs');
+const packageJson = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+process.exit(packageJson.scripts?.lint === 'eslint . --ext .ts,.tsx,.js,.jsx,.cjs --max-warnings 0' ? 0 : 1);
 NODE
   then
     fail 'lint-must-reject-warnings'
@@ -119,43 +160,73 @@ check_workflow() {
   local workflow="$1"
   [[ -f "$root/$workflow" ]] || fail 'workflow-must-run-quality'
 
-  if rg -n -- '--fix|--write' "$root/$workflow"; then
-    fail 'workflow-must-not-rewrite'
-  fi
-
   if ! node - "$root/$workflow" <<'NODE'
 const fs = require('fs');
 const workflow = fs.readFileSync(process.argv[2], 'utf8');
 const lines = workflow.split(/\r?\n/);
-const exactLintCommand = /^\s*npm run lint\s*(?:#.*)?$/;
-const hasInlineLintCommand = /^\s*(?:-\s*)?run:\s*["']?npm run lint["']?\s*(?:#.*)?$/m.test(workflow);
-const hasBlockLintCommand = lines.some((line, index) => {
-  const block = /^(\s*)(?:-\s*)?run:\s*\|\s*(?:#.*)?$/.exec(line);
-  if (!block) return false;
+const indentation = (line) => line.match(/^\s*/)[0].length;
+const stepSections = [];
 
-  const blockIndent = block[1].length;
-  for (let lineIndex = index + 1; lineIndex < lines.length; lineIndex += 1) {
-    const candidate = lines[lineIndex];
-    if (candidate.trim() && candidate.match(/^\s*/)[0].length <= blockIndent) break;
-    if (exactLintCommand.test(candidate)) return true;
+for (let index = 0; index < lines.length; index += 1) {
+  const section = /^(\s*)steps:\s*$/.exec(lines[index]);
+  if (!section) continue;
+  const sectionIndent = section[1].length;
+  const stepIndent = sectionIndent + 2;
+  for (let cursor = index + 1; cursor < lines.length;) {
+    if (lines[cursor].trim() && indentation(lines[cursor]) <= sectionIndent) break;
+    if (new RegExp(`^ {${stepIndent}}-\\s+`).test(lines[cursor])) {
+      const start = cursor;
+      cursor += 1;
+      while (cursor < lines.length && !(new RegExp(`^ {${stepIndent}}-\\s+`).test(lines[cursor])) && !(lines[cursor].trim() && indentation(lines[cursor]) <= sectionIndent)) cursor += 1;
+      stepSections.push(lines.slice(start, cursor));
+      continue;
+    }
+    cursor += 1;
   }
-  return false;
-});
-const hasExactLintCommand = hasInlineLintCommand || hasBlockLintCommand;
-process.exit(hasExactLintCommand ? 0 : 1);
+}
+
+const executions = [];
+let unsafe = false;
+for (let stepIndex = 0; stepIndex < stepSections.length; stepIndex += 1) {
+  const step = stepSections[stepIndex];
+  const runIndex = step.findIndex((line) => /^\s*(?:-\s*)?run:\s*/.test(line));
+  if (runIndex === -1) continue;
+  const runMatch = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(step[runIndex]);
+  const runIndent = runMatch[1].length;
+  let commands = [];
+  if (runMatch[2] === '|') {
+    for (let index = runIndex + 1; index < step.length; index += 1) {
+      const line = step[index];
+      if (line.trim() && indentation(line) <= runIndent) break;
+      if (line.trim()) commands.push(line.trim());
+    }
+  } else if (runMatch[2]) {
+    commands = [runMatch[2].trim()];
+  }
+  const relevant = commands.some((command) => /\bnpm\s+run\s+(?:lint|quality:policy)\b/.test(command));
+  if (relevant && step.some((line) => /^\s*(?:-\s*)?(?:if|continue-on-error|env):/.test(line) || line.includes('#'))) unsafe = true;
+  commands.forEach((command, commandIndex) => executions.push({ stepIndex, commandIndex, command }));
+}
+
+const lintLike = executions.filter(({ command }) => /\bnpm\s+run\s+lint(?:\b|:)/.test(command));
+const policyLike = executions.filter(({ command }) => /\bnpm\s+run\s+quality:policy\b/.test(command));
+const exactLint = lintLike.filter(({ command }) => command === 'npm run lint');
+const exactPolicy = policyLike.filter(({ command }) => command === 'npm run quality:policy');
+const adjacent = exactLint.length === 1 && exactPolicy.length === 1
+  && exactPolicy[0].stepIndex >= exactLint[0].stepIndex
+  && exactPolicy[0].stepIndex <= exactLint[0].stepIndex + 1
+  && executions.indexOf(exactPolicy[0]) === executions.indexOf(exactLint[0]) + 1;
+const hasOnlyExactCommands = lintLike.length === 1 && policyLike.length === 1;
+process.exit(unsafe || !hasOnlyExactCommands || !adjacent ? 1 : 0);
 NODE
   then
-    fail 'workflow-must-run-quality'
-  fi
-
-  if ! rg -Fq 'npm run quality:policy' "$root/$workflow"; then
     fail 'workflow-must-run-quality'
   fi
 }
 
 check_source_suppressions
 check_eslint_config
-check_lint_script
+check_package_scripts
 check_workflow '.github/workflows/quality-checks/action.yml'
 check_workflow '.github/workflows/docker.yml'
 check_workflow '.github/workflows/deploy.yml'

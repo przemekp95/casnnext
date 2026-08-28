@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly PACKAGE_JSON='package.json'
 readonly ESLINT_CONFIG='eslint.config.mjs'
 readonly CYPRESS_HYDRATION='cypress/e2e/hydration.cy.ts'
 readonly QUALITY_ACTION='.github/workflows/quality-checks/action.yml'
@@ -37,6 +36,9 @@ if (/--ignore-pattern\s+["']?(lib|migrations)\//.test(pkg.scripts?.lint ?? '')) 
 }
 if (pkg.scripts?.['quality:policy'] !== 'bash scripts/ci/quality-debt-policy.sh') {
   errors.push('quality:policy script is missing or unexpected.');
+}
+if (pkg.scripts?.['first-party-quality:policy'] !== 'bash scripts/ci/first-party-quality-policy.sh .') {
+  errors.push('first-party-quality:policy script is missing or unexpected.');
 }
 for (const error of errors) console.error(`[quality-policy] ${error}`);
 process.exitCode = errors.length > 0 ? 1 : 0;

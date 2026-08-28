@@ -16,6 +16,7 @@ export default defineConfig(
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
+    name: "casn/strict-first-party",
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-require-imports": "error",
@@ -28,6 +29,7 @@ export default defineConfig(
     },
   },
   {
+    name: "casn/react-hook-supported-files",
     files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     rules: {
       "react-hooks/error-boundaries": "error",
@@ -35,6 +37,7 @@ export default defineConfig(
     },
   },
   {
+    name: "casn/next-image-mock",
     files: ["test/__mocks__/nextImageMock.tsx"],
     rules: {
       "@next/next/no-img-element": "off",
