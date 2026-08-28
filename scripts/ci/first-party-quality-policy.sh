@@ -84,8 +84,15 @@ check_eslint_config() {
 
   if ! node - "${config_files[@]}" <<'NODE'
 const fs = require('fs');
+const exactNextImageMockException = /\{\s*files\s*:\s*\[\s*["']test\/__mocks__\/nextImageMock\.tsx["']\s*\]\s*,\s*rules\s*:\s*\{\s*["']@next\/next\/no-img-element["']\s*:\s*["']off["']\s*,?\s*\}\s*,?\s*\}/g;
 const broadRuleDisable = /rules\s*:\s*\{[\s\S]*?["'][^"'\n]+["']\s*:\s*["']off["']/;
-process.exit(process.argv.slice(2).some((file) => broadRuleDisable.test(fs.readFileSync(file, 'utf8'))) ? 1 : 0);
+const hasBroadRuleDisable = process.argv.slice(2).some((file) => {
+  const config = fs.readFileSync(file, 'utf8');
+  const exceptions = config.match(exactNextImageMockException) ?? [];
+  const configWithoutException = config.replace(exactNextImageMockException, '');
+  return exceptions.length > 1 || broadRuleDisable.test(configWithoutException);
+});
+process.exit(hasBroadRuleDisable ? 1 : 0);
 NODE
   then
     fail 'broad-rule-disable'
@@ -96,7 +103,12 @@ check_lint_script() {
   if ! node - "$root/package.json" <<'NODE'
 const fs = require('fs');
 const packageJson = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-process.exit(packageJson.scripts?.lint === 'eslint . --max-warnings 0' ? 0 : 1);
+const lint = packageJson.scripts?.lint;
+const isStrictLint = typeof lint === 'string'
+  && lint.startsWith('eslint . ')
+  && lint.includes('--max-warnings 0')
+  && !/--(?:fix|write)\b/.test(lint);
+process.exit(isStrictLint ? 0 : 1);
 NODE
   then
     fail 'lint-must-reject-warnings'
@@ -116,9 +128,9 @@ const fs = require('fs');
 const workflow = fs.readFileSync(process.argv[2], 'utf8');
 const lines = workflow.split(/\r?\n/);
 const exactLintCommand = /^\s*npm run lint\s*(?:#.*)?$/;
-const hasInlineLintCommand = /^\s*-\s*run:\s*["']?npm run lint["']?\s*(?:#.*)?$/m.test(workflow);
+const hasInlineLintCommand = /^\s*(?:-\s*)?run:\s*["']?npm run lint["']?\s*(?:#.*)?$/m.test(workflow);
 const hasBlockLintCommand = lines.some((line, index) => {
-  const block = /^(\s*)-\s*run:\s*\|\s*(?:#.*)?$/.exec(line);
+  const block = /^(\s*)(?:-\s*)?run:\s*\|\s*(?:#.*)?$/.exec(line);
   if (!block) return false;
 
   const blockIndent = block[1].length;

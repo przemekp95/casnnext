@@ -15,6 +15,7 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs --fix --max-warnings 0",
     "quality:policy": "bash scripts/ci/quality-debt-policy.sh",
+    "first-party-quality:policy": "bash scripts/ci/first-party-quality-policy.sh .",
     "runtime:policy": "bash scripts/ci/runtime-source-policy.sh . all",
     "runtime:policy:test": "bash scripts/ci/runtime-source-policy-test.sh",
     "type-check": "tsc --noEmit -p tsconfig.ci.json",

@@ -20,7 +20,7 @@ reset_fixture() {
     "$test_root/repo/scripts" "$test_root/repo/.github/workflows/quality-checks" \
     "$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist"
   git -C "$test_root/repo" init -q
-  printf '%s\n' '{"scripts":{"lint":"eslint . --max-warnings 0"}}' >"$test_root/repo/package.json"
+  printf '%s\n' '{"scripts":{"lint":"eslint . --ext .ts,.tsx,.js,.jsx,.cjs --max-warnings 0"}}' >"$test_root/repo/package.json"
   printf '%s\n' \
     'export default [' \
     '  { ignores: [".next/**", "node_modules/**", "coverage/**", "dist/**", "app/generated/**", "**/*.d.ts"] },' \
@@ -29,14 +29,26 @@ reset_fixture() {
   printf '%s\n' "it('renders', () => { expect(true).toBe(true); });" >"$test_root/repo/test/page.test.tsx"
   printf '%s\n' 'export const value = 1;' >"$test_root/repo/scripts/tool.ts"
   printf '%s\n' 'export default {};' >"$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
-  printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - run: npm run lint' '      shell: bash' '    - run: npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
-  printf '%s\n' 'jobs:' '  quality:' '    steps:' '      - run: npm run lint' '      - run: npm run quality:policy' >"$test_root/repo/.github/workflows/docker.yml"
+  printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - name: Lint' '      run: npm run lint' '      shell: bash' '    - name: Policy' '      run: npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
+  printf '%s\n' 'jobs:' '  quality:' '    steps:' '      - name: Lint' '        run: npm run lint' '      - name: Policy' '        run: npm run quality:policy' >"$test_root/repo/.github/workflows/docker.yml"
   cp "$test_root/repo/.github/workflows/docker.yml" "$test_root/repo/.github/workflows/deploy.yml"
   git -C "$test_root/repo" add .
 }
 
 reset_fixture
 "$policy" "$test_root/repo"
+
+reset_fixture
+mkdir -p "$test_root/repo/test/__mocks__"
+printf '%s\n' 'export default function NextImageMock() { return <img alt="" />; }' >"$test_root/repo/test/__mocks__/nextImageMock.tsx"
+sed -i '$i\  { files: ["test/__mocks__/nextImageMock.tsx"], rules: { "@next/next/no-img-element": "off" } },' "$test_root/repo/eslint.config.mjs"
+git -C "$test_root/repo" add .
+"$policy" "$test_root/repo"
+
+reset_fixture
+sed -i '$i\  { files: ["test/page.test.tsx"], rules: { "@next/next/no-img-element": "off" } },' "$test_root/repo/eslint.config.mjs"
+git -C "$test_root/repo" add .
+expect_rejected 'broad-rule-disable'
 
 reset_fixture
 printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - run: |' '        npm run lint' '        npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
@@ -79,7 +91,7 @@ git -C "$test_root/repo" add .
 expect_rejected 'broad-rule-disable'
 
 reset_fixture
-sed -i 's/eslint . --max-warnings 0/eslint ./' "$test_root/repo/package.json"
+sed -i 's/ --max-warnings 0//' "$test_root/repo/package.json"
 git -C "$test_root/repo" add .
 expect_rejected 'lint-must-reject-warnings'
 

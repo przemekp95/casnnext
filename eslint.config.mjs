@@ -3,76 +3,30 @@ import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 
 export default defineConfig(
-  // 1) Ignorowane ścieżki (zamiast .eslintignore)
   {
     ignores: [
       ".next/**",
       "node_modules/**",
       "coverage/**",
       "dist/**",
-      "app/generated/**", // Generated client and runtime (vendor)
-      "**/*.d.ts", // TypeScript definition files
+      "app/generated/**",
+      "**/*.d.ts",
     ],
   },
-
-  // 2) Bazowe konfiguracje Next (core web vitals + TS)
   ...nextCoreWebVitals,
   ...nextTypescript,
-
-  // 3) Reguły dla testów - automatyczne wyłączanie uzasadnionych błędów
   {
-    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off", // Test mocks require any types
-      "@typescript-eslint/no-require-imports": "off", // Jest compatibility requires require()
-      "@typescript-eslint/no-unused-vars": "off", // Test files often have unused variables (catch blocks, mocks)
-      "@typescript-eslint/ban-ts-comment": "off", // Allow @ts-ignore in tests
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-require-imports": "error",
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/ban-ts-comment": "error",
+      "@typescript-eslint/no-var-requires": "error",
+      "@next/next/no-assign-module-variable": "error",
+      "@next/next/no-css-tags": "error",
+      "@next/next/no-img-element": "error",
     },
   },
-
-  // 4) Reguły dla komponentów MDX - dynamic typing requirements
-  {
-    files: ["**/mdx/**/*.tsx", "**/mdx/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off", // MDX components require dynamic typing
-    },
-  },
-
-  // 5) Reguły dla skryptów i config files
-  {
-    files: ["scripts/**/*.js", "scripts/**/*.ts", "**/*.config.js", "**/*.config.ts"],
-    rules: {
-      "@typescript-eslint/no-require-imports": "off", // CommonJS scripts need require()
-      "@typescript-eslint/no-var-requires": "off", // Allow var requires in scripts
-    },
-  },
-
-  // 6) Reguły dla API routes - error handling patterns
-  {
-    files: ["app/api/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }], // Allow unused error vars in catch blocks
-      "@typescript-eslint/no-explicit-any": "off", // API error handling requires any types
-    },
-  },
-
-  // 7) Reguły dla lib files - database and utility functions
-  {
-    files: ["lib/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off", // Database operations require any types
-    },
-  },
-
-  // 8) Reguły dla scripts - allow require() and disable module assignment warnings
-  {
-    files: ["scripts/**/*.js", "test/**/*.ts"],
-    rules: {
-      "@next/next/no-assign-module-variable": "off", // Allow module assignments in tests
-    },
-  },
-
-  // 9) React hook rules only where the React-capable preset supplies its plugin.
   {
     files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     rules: {
@@ -80,15 +34,10 @@ export default defineConfig(
       "react-hooks/set-state-in-effect": "error",
     },
   },
-
-  // 10) Drobne dopasowania pod projekt
   {
+    files: ["test/__mocks__/nextImageMock.tsx"],
     rules: {
-      // Pozwól używać <img> (np. w stopce)
       "@next/next/no-img-element": "off",
-      // Global rules - these will be overridden by file-specific rules above
-      "@typescript-eslint/no-explicit-any": "error", // Strict any checking everywhere else
-      "@typescript-eslint/no-require-imports": "error", // Require ES modules everywhere else
     },
   },
 );

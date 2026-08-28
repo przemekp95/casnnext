@@ -61,6 +61,10 @@ if ! npm run runtime:policy; then
   report_failure 'Runtime source policy failed.'
 fi
 
+if ! npm run first-party-quality:policy; then
+  report_failure 'First-party quality policy failed.'
+fi
+
 if ! bash scripts/ci/server-launcher-test.sh; then
   report_failure 'Server launcher fixture contract failed.'
 fi
