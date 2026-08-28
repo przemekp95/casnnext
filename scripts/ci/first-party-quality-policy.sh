@@ -185,9 +185,25 @@ const YAML = requireFromRoot('yaml');
 const workflow = YAML.parse(fs.readFileSync(workflowFile, 'utf8'));
 const stepGroups = [];
 let invalid = false;
+const allowedInheritedEnv = new Set([
+  'APP_IMAGE_NAME',
+  'CODECOV_TOKEN',
+  'COVERAGE_EXCELLENT_LINES',
+  'COVERAGE_MIN_LINES',
+  'NGINX_IMAGE_NAME',
+  'REGISTRY',
+]);
+const hasOnlyAllowedInheritedEnv = (env) => env === undefined
+  || (env !== null && typeof env === 'object' && !Array.isArray(env)
+    && Object.keys(env).every((name) => allowedInheritedEnv.has(name)));
+const isRunnerLabel = (label) => typeof label === 'string' && /^[A-Za-z0-9_.-]+$/.test(label);
+const hasValidRunsOn = (runsOn) => isRunnerLabel(runsOn)
+  || (Array.isArray(runsOn) && runsOn.length > 0
+    && runsOn.every(isRunnerLabel));
 
 if (documentKind === 'composite') {
-  if (workflow?.runs?.using !== 'composite' || !Array.isArray(workflow.runs.steps) || Object.hasOwn(workflow, 'jobs')) {
+  if (workflow?.runs?.using !== 'composite' || !Array.isArray(workflow.runs.steps)
+    || Object.hasOwn(workflow, 'jobs') || Object.hasOwn(workflow, 'env') || Object.hasOwn(workflow, 'defaults')) {
     invalid = true;
   } else {
     stepGroups.push({ steps: workflow.runs.steps, isComposite: true });
@@ -196,6 +212,7 @@ if (documentKind === 'composite') {
   if (!workflow?.jobs || typeof workflow.jobs !== 'object' || Object.hasOwn(workflow, 'runs')) {
     invalid = true;
   } else {
+    invalid ||= Object.hasOwn(workflow, 'defaults') || !hasOnlyAllowedInheritedEnv(workflow.env);
     for (const job of Object.values(workflow.jobs)) {
       if (Array.isArray(job?.steps)) stepGroups.push({ steps: job.steps, job, isComposite: false });
     }
@@ -207,10 +224,6 @@ if (documentKind === 'composite') {
 const lintLike = /\bnpm\s+run\s+lint(?:\b|:)/;
 const policyLike = /\bnpm\s+run\s+quality:policy\b/;
 const exactCommands = new Set(['npm run lint', 'npm run quality:policy']);
-const redirectsExecution = (env) => Object.keys(env ?? {}).some((name) => [
-  'PATH', 'NODE_PATH', 'PWD', 'INIT_CWD', 'BASH_ENV', 'ENV',
-  'npm_config_prefix', 'NPM_CONFIG_PREFIX', 'npm_config_userconfig', 'NPM_CONFIG_USERCONFIG',
-].includes(name));
 invalid ||= stepGroups.length === 0;
 const occurrences = [];
 
@@ -222,11 +235,12 @@ for (const group of stepGroups) {
     const commands = step.run.split(/\r?\n/).map((command) => command.trim()).filter(Boolean);
     const relevant = commands.some((command) => lintLike.test(command) || policyLike.test(command));
     if (!relevant) continue;
-    if ((job && (Object.hasOwn(job, 'if') || Object.hasOwn(job, 'continue-on-error') || redirectsExecution(job.env)
-        || job.defaults?.run?.['working-directory'] !== undefined))
+    if ((job && (Object.hasOwn(job, 'if') || Object.hasOwn(job, 'continue-on-error')
+        || Object.hasOwn(job, 'defaults') || Object.hasOwn(job, 'needs')
+        || !hasOnlyAllowedInheritedEnv(job.env) || !hasValidRunsOn(job['runs-on'])))
       || Object.hasOwn(step, 'if') || Object.hasOwn(step, 'continue-on-error') || Object.hasOwn(step, 'env')
       || Object.hasOwn(step, 'uses') || Object.hasOwn(step, 'working-directory')
-      || (isComposite ? step.shell !== 'bash' : (Object.hasOwn(step, 'shell') && step.shell !== 'bash'))
+      || (isComposite ? step.shell !== 'bash' : Object.hasOwn(step, 'shell'))
       || commands.some((command) => !exactCommands.has(command))) {
       invalid = true;
       continue;

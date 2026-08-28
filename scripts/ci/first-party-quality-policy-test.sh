@@ -74,7 +74,7 @@ reset_fixture() {
   printf '%s\n' '{"scripts":{"lint":"true","first-party-quality:policy":"true"}}' >"$test_root/repo/test/fake/package.json"
   printf '%s\n' 'export default {};' >"$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
   printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - name: Lint and policy' '      run: |-' '        npm run lint' '        npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
-  printf '%s\n' 'jobs:' '  quality:' '    env: { CODECOV_TOKEN: test }' '    steps:' '      - name: Lint' '        run: "npm run lint"' '      - name: Policy' "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
+  printf '%s\n' 'jobs:' '  quality:' '    runs-on: ubuntu-latest' '    env: { CODECOV_TOKEN: test }' '    steps:' '      - name: Lint' '        run: "npm run lint"' '      - name: Policy' "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
   cp "$test_root/repo/.github/workflows/docker.yml" "$test_root/repo/.github/workflows/deploy.yml"
   git -C "$test_root/repo" add .
 }
@@ -93,7 +93,37 @@ git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
+sed -i '1i env: { NODE_OPTIONS: --require=./test/fake/wrapper.cjs }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '1i env: { npm_config_script_shell: test/fake/wrapper }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/env: { CODECOV_TOKEN: test }/c\    env: { CODECOV_TOKEN: test, NODE_OPTIONS: --require=./test/fake/wrapper.cjs }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/env: { CODECOV_TOKEN: test }/c\    env: { CODECOV_TOKEN: test, npm_config_script_shell: test/fake/wrapper }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
 sed -i '/quality:/a\    env: { PATH: /tmp }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '1i defaults: { run: { working-directory: test/fake } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '1i defaults: { run: { shell: "bash -c cwd=test/fake {0}" } }' "$test_root/repo/.github/workflows/docker.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
@@ -103,7 +133,38 @@ git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
+sed -i '/quality:/a\    defaults: { run: { shell: "bash -c cwd=test/fake {0}" } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
 sed -i '/run: "npm run lint"/a\        working-directory: test/fake' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/run: "npm run lint"/a\        shell: bash' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/runs-on:/d' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i 's/runs-on: ubuntu-latest/runs-on: ""/' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i 's/runs-on: ubuntu-latest/runs-on: "${{ vars.RUNNER }}"/' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/runs-on: ubuntu-latest/a\    needs: prerequisite' "$test_root/repo/.github/workflows/docker.yml"
+sed -i '1a\  prerequisite:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"' "$test_root/repo/.github/workflows/docker.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
