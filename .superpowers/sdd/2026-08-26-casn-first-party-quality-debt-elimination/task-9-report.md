@@ -152,3 +152,27 @@ installed component's numeric output, and did not make the mock reject invalid
 ## Second review-fix commit
 
 `fix(images): preserve MDX image layout contracts`
+
+## Final review mock-fidelity follow-up
+
+The final review passed Task 9 and identified one Minor test-only fidelity gap:
+the mock rejected a real Next-compatible fill combination of absent or numeric
+zero dimensions and `100%` width/height styles.
+
+### Final review RED/GREEN
+
+- The new `SafeImage` RED rendered `fill` with `width={0}`, `height={0}`, and
+  `style={{ width: '100%', height: '100%', objectFit: 'cover' }}`. The old mock
+  rejected it with its blanket fill-dimension error.
+- The mock now accepts absent or numeric-zero dimensions and absent or exactly
+  `100%` width/height styles for `fill`; it still rejects nonzero dimensions and
+  incompatible dimension styles such as `50%`, while allowing unrelated styles.
+- Focused SafeImage and MDX tests passed: 2 suites, 28 tests. Main typecheck,
+  five-file forced no-img lint, ordinary mock lint, diff, protected harness hash,
+  and clean status checks passed.
+- No production source, hydration, build, or disposable resource action ran for
+  this test/mock-only forward fix.
+
+## Final review mock-fidelity commit
+
+`test(images): align Next Image fill mock`

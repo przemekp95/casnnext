@@ -37,12 +37,18 @@ export default function NextImageMock({
     ...imgProps
   } = props;
   const normalizedSrc = typeof src === 'string' ? src : src?.src ?? '';
+  const hasUnsupportedFillDimensions =
+    (imgProps.width !== undefined && imgProps.width !== 0) ||
+    (imgProps.height !== undefined && imgProps.height !== 0);
+  const hasUnsupportedFillStyles =
+    (imgProps.style?.width !== undefined && imgProps.style.width !== '100%') ||
+    (imgProps.style?.height !== undefined && imgProps.style.height !== '100%');
 
-  if (fill && (imgProps.width !== undefined || imgProps.height !== undefined)) {
+  if (fill && hasUnsupportedFillDimensions) {
     throw new Error('NextImageMock does not allow width or height when fill is true');
   }
 
-  if (fill && (imgProps.style?.width !== undefined || imgProps.style?.height !== undefined)) {
+  if (fill && hasUnsupportedFillStyles) {
     throw new Error('NextImageMock does not allow style.width or style.height when fill is true');
   }
 

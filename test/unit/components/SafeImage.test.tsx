@@ -72,6 +72,24 @@ describe('SafeImage', () => {
     );
   });
 
+  it('allows Next-compatible zero dimensions and full-size styles for fill images', () => {
+    render(
+      <SafeImage
+        src="/test.jpg"
+        alt="Filled zero dimensions"
+        fill
+        width={0}
+        height={0}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      />,
+    );
+
+    const image = screen.getByRole('img', { name: 'Filled zero dimensions' });
+    expect(image).toHaveAttribute('width', '0');
+    expect(image).toHaveAttribute('height', '0');
+    expect(image).toHaveStyle({ width: '100%', height: '100%', objectFit: 'cover' });
+  });
+
   it('rejects dimensions and dimension styles for fill images', () => {
     expect(() => render(<SafeImage src="/test.jpg" alt="Filled dimensions" fill width={80} height={60} />)).toThrow(
       'NextImageMock does not allow width or height when fill is true',
