@@ -74,13 +74,96 @@ reset_fixture() {
   printf '%s\n' '{"scripts":{"lint":"true","first-party-quality:policy":"true"}}' >"$test_root/repo/test/fake/package.json"
   printf '%s\n' 'export default {};' >"$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
   printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - name: Lint and policy' '      run: |-' '        npm run lint' '        npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
-  printf '%s\n' 'jobs:' '  quality:' '    runs-on: ubuntu-latest' '    env: { CODECOV_TOKEN: test }' '    steps:' '      - name: Lint' '        run: "npm run lint"' '      - name: Policy' "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
+  printf '%s\n' \
+    'on: { push: {} }' \
+    'jobs:' \
+    '  quality:' \
+    '    runs-on: ubuntu-latest' \
+    '    permissions: { contents: read }' \
+    '    env: { CODECOV_TOKEN: test }' \
+    '    steps:' \
+    '      - name: Checkout repository' \
+    '        uses: actions/checkout@v4' \
+    '      - name: Setup Node.js' \
+    '        uses: actions/setup-node@v4' \
+    '        with: { node-version: "22", cache: npm }' \
+    '      - name: Install immutable quality dependencies' \
+    '        run: npm ci --ignore-scripts' \
+    '      - name: Lint' \
+    '        run: "npm run lint"' \
+    '      - name: Policy' \
+    "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
   cp "$test_root/repo/.github/workflows/docker.yml" "$test_root/repo/.github/workflows/deploy.yml"
   git -C "$test_root/repo" add .
 }
 
 reset_fixture
 (cd "$test_root" && "$policy" "$test_root/repo")
+
+reset_fixture
+sed -i '/- name: Lint/i\      - name: Mutate package scripts\n        run: npm pkg set scripts.lint=true' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/- name: Lint/i\      - name: Persist Node preload\n        run: echo "NODE_OPTIONS=--require=./test/fake/wrapper.cjs" >> "$GITHUB_ENV"' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/- name: Lint/i\      - name: Prepend executable path\n        run: echo "./test/fake" >> "$GITHUB_PATH"' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/- name: Lint/i\      - name: Arbitrary predecessor action\n        uses: ./test/fake/action' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/uses: actions\/checkout@v4/a\        with: { ref: stale }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i 's/with: { node-version: "22", cache: npm }/with: { node-version: "22", cache: npm, registry-url: https:\/\/registry.example.test }/' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i 's/npm ci --ignore-scripts/npm ci/' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/  steps:/a\    - name: Mutate before composite gate\n      run: npm pkg set scripts.lint=true\n      shell: bash' "$test_root/repo/.github/workflows/quality-checks/action.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/runs-on: ubuntu-latest/a\    container: node:22' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/runs-on: ubuntu-latest/a\    strategy: { matrix: { node: [22] } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/runs-on: ubuntu-latest/a\    services: { proxy: { image: attacker/image } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/^on:/d' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+printf '%s\n' 'on: { push: {} }' 'jobs: []' >"$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
 sed -i '/quality:/a\    if: false' "$test_root/repo/.github/workflows/docker.yml"
@@ -159,6 +242,11 @@ expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
 sed -i 's/runs-on: ubuntu-latest/runs-on: "${{ vars.RUNNER }}"/' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i 's/runs-on: ubuntu-latest/runs-on: self-hosted/' "$test_root/repo/.github/workflows/docker.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 

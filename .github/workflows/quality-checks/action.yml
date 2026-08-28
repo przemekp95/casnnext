@@ -4,14 +4,14 @@ description: "Run linting, type checking, and code quality checks"
 runs:
   using: "composite"
   steps:
-    - name: Type check
-      run: npm run type-check
-      shell: bash
-
     - name: Lint and quality policy
       run: |
         npm run lint
         npm run quality:policy
+      shell: bash
+
+    - name: Type check
+      run: npm run type-check
       shell: bash
 
     - name: Check posts

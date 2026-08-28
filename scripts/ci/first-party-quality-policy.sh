@@ -185,6 +185,9 @@ const YAML = requireFromRoot('yaml');
 const workflow = YAML.parse(fs.readFileSync(workflowFile, 'utf8'));
 const stepGroups = [];
 let invalid = false;
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const hasExactKeys = (value, keys) => isPlainObject(value)
+  && Object.keys(value).sort().join(',') === [...keys].sort().join(',');
 const allowedInheritedEnv = new Set([
   'APP_IMAGE_NAME',
   'CODECOV_TOKEN',
@@ -194,22 +197,52 @@ const allowedInheritedEnv = new Set([
   'REGISTRY',
 ]);
 const hasOnlyAllowedInheritedEnv = (env) => env === undefined
-  || (env !== null && typeof env === 'object' && !Array.isArray(env)
+  || (isPlainObject(env)
     && Object.keys(env).every((name) => allowedInheritedEnv.has(name)));
-const isRunnerLabel = (label) => typeof label === 'string' && /^[A-Za-z0-9_.-]+$/.test(label);
-const hasValidRunsOn = (runsOn) => isRunnerLabel(runsOn)
-  || (Array.isArray(runsOn) && runsOn.length > 0
-    && runsOn.every(isRunnerLabel));
+const allowedTriggers = new Set(['pull_request', 'push', 'workflow_dispatch']);
+const hasActiveTrigger = (document) => Object.hasOwn(document, 'on')
+  && isPlainObject(document.on)
+  && Object.keys(document.on).length > 0
+  && Object.entries(document.on).every(([trigger, configuration]) => allowedTriggers.has(trigger)
+    && (configuration === null || isPlainObject(configuration)));
+const hasReadOnlyContentsPermission = (permissions) => hasExactKeys(permissions, ['contents'])
+  && permissions.contents === 'read';
+const hasStepName = (step) => typeof step.name === 'string' && step.name.trim() !== '';
+const isExactCheckoutStep = (step) => hasExactKeys(step, ['name', 'uses']) && hasStepName(step)
+  && step.uses === 'actions/checkout@v4';
+const isExactSetupNodeStep = (step) => hasExactKeys(step, ['name', 'uses', 'with']) && hasStepName(step)
+  && step.uses === 'actions/setup-node@v4'
+  && hasExactKeys(step.with, ['cache', 'node-version'])
+  && step.with.cache === 'npm' && step.with['node-version'] === '22';
+const isExactRunStep = (step, command) => hasExactKeys(step, ['name', 'run']) && hasStepName(step)
+  && step.run === command;
+const isExactWorkflowGateJob = (job) => {
+  if (!isPlainObject(job) || !Object.keys(job).every((key) => ['env', 'permissions', 'runs-on', 'steps'].includes(key))
+    || job['runs-on'] !== 'ubuntu-latest' || !hasReadOnlyContentsPermission(job.permissions)
+    || !hasOnlyAllowedInheritedEnv(job.env) || !Array.isArray(job.steps) || job.steps.length !== 5) {
+    return false;
+  }
+  return isExactCheckoutStep(job.steps[0])
+    && isExactSetupNodeStep(job.steps[1])
+    && isExactRunStep(job.steps[2], 'npm ci --ignore-scripts')
+    && isExactRunStep(job.steps[3], 'npm run lint')
+    && isExactRunStep(job.steps[4], 'npm run quality:policy');
+};
+const isExactCompositeGateStep = (step) => hasExactKeys(step, ['name', 'run', 'shell'])
+  && hasStepName(step) && step.shell === 'bash';
 
 if (documentKind === 'composite') {
-  if (workflow?.runs?.using !== 'composite' || !Array.isArray(workflow.runs.steps)
-    || Object.hasOwn(workflow, 'jobs') || Object.hasOwn(workflow, 'env') || Object.hasOwn(workflow, 'defaults')) {
+  if (!isPlainObject(workflow) || workflow?.runs?.using !== 'composite' || !Array.isArray(workflow.runs.steps)
+    || Object.hasOwn(workflow, 'jobs') || Object.hasOwn(workflow, 'on')
+    || Object.hasOwn(workflow, 'env') || Object.hasOwn(workflow, 'defaults')) {
     invalid = true;
   } else {
     stepGroups.push({ steps: workflow.runs.steps, isComposite: true });
   }
 } else if (documentKind === 'workflow') {
-  if (!workflow?.jobs || typeof workflow.jobs !== 'object' || Object.hasOwn(workflow, 'runs')) {
+  if (!isPlainObject(workflow) || !hasActiveTrigger(workflow) || !isPlainObject(workflow.jobs)
+    || Object.keys(workflow.jobs).length === 0 || Object.hasOwn(workflow, 'runs')
+    || Object.values(workflow.jobs).some((job) => !isPlainObject(job))) {
     invalid = true;
   } else {
     invalid ||= Object.hasOwn(workflow, 'defaults') || !hasOnlyAllowedInheritedEnv(workflow.env);
@@ -228,20 +261,14 @@ invalid ||= stepGroups.length === 0;
 const occurrences = [];
 
 for (const group of stepGroups) {
-  const { steps, job, isComposite } = group;
+  const { steps } = group;
   for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
     const step = steps[stepIndex];
-    if (!step || typeof step !== 'object' || typeof step.run !== 'string') continue;
+    if (!isPlainObject(step) || typeof step.run !== 'string') continue;
     const commands = step.run.split(/\r?\n/).map((command) => command.trim()).filter(Boolean);
     const relevant = commands.some((command) => lintLike.test(command) || policyLike.test(command));
     if (!relevant) continue;
-    if ((job && (Object.hasOwn(job, 'if') || Object.hasOwn(job, 'continue-on-error')
-        || Object.hasOwn(job, 'defaults') || Object.hasOwn(job, 'needs')
-        || !hasOnlyAllowedInheritedEnv(job.env) || !hasValidRunsOn(job['runs-on'])))
-      || Object.hasOwn(step, 'if') || Object.hasOwn(step, 'continue-on-error') || Object.hasOwn(step, 'env')
-      || Object.hasOwn(step, 'uses') || Object.hasOwn(step, 'working-directory')
-      || (isComposite ? step.shell !== 'bash' : Object.hasOwn(step, 'shell'))
-      || commands.some((command) => !exactCommands.has(command))) {
+    if (commands.some((command) => !exactCommands.has(command))) {
       invalid = true;
       continue;
     }
@@ -256,6 +283,16 @@ const adjacent = lintCommands.length === 1 && policyCommands.length === 1
   && ((lintCommands[0].stepIndex === policyCommands[0].stepIndex
       && policyCommands[0].commandIndex === lintCommands[0].commandIndex + 1)
     || (policyCommands[0].stepIndex === lintCommands[0].stepIndex + 1 && policyCommands[0].commandIndex === 0));
+if (adjacent && documentKind === 'composite') {
+  invalid ||= lintCommands[0].stepIndex !== 0 || lintCommands[0].commandIndex !== 0
+    || policyCommands[0].stepIndex !== 0 || policyCommands[0].commandIndex !== 1
+    || !isExactCompositeGateStep(lintCommands[0].group.steps[0]);
+}
+if (adjacent && documentKind === 'workflow') {
+  invalid ||= lintCommands[0].stepIndex !== 3 || lintCommands[0].commandIndex !== 0
+    || policyCommands[0].stepIndex !== 4 || policyCommands[0].commandIndex !== 0
+    || !isExactWorkflowGateJob(lintCommands[0].group.job);
+}
 process.exit(invalid || !adjacent ? 1 : 0);
 NODE
   then

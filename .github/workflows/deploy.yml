@@ -42,6 +42,29 @@ env:
   COVERAGE_EXCELLENT_LINES: "80"
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install immutable quality dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Enforce quality debt policy
+        run: npm run quality:policy
+
   test:
     runs-on: ubuntu-latest
     services:
@@ -70,12 +93,7 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm ci
 
       - name: Install snapshot test dependencies
         run: |
@@ -106,12 +124,6 @@ jobs:
 
       - name: Type check
         run: npm run type-check
-
-      - name: Lint code
-        run: npm run lint
-
-      - name: Enforce quality debt policy
-        run: npm run quality:policy
 
       - name: Check posts
         run: npm run check:posts
@@ -250,7 +262,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    needs: [test, directus-smoke]
+    needs: [quality, test, directus-smoke]
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
