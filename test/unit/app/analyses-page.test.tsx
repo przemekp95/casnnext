@@ -79,7 +79,11 @@ describe('app/analizy/page', () => {
 
     render(await AnalysesPage());
 
-    expect(screen.getAllByRole('link', { name: 'Jan Kowalski' })[0]).toHaveAttribute('href', '/autor/jan-kowalski');
+    const authorLinks = screen.getAllByRole('link', { name: 'Jan Kowalski' });
+    expect(authorLinks).toHaveLength(2);
+    authorLinks.forEach((authorLink) => {
+      expect(authorLink).toHaveAttribute('href', '/autor/jan-kowalski');
+    });
     expect(screen.getByRole('img', { name: 'Jan Kowalski' })).toHaveAttribute('src', '/images/jan-kowalski.png');
   });
 
