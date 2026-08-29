@@ -86,10 +86,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install snapshot test dependencies
+      - name: Install snapshot and policy dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes age
+          sudo apt-get install --yes age ripgrep
 
       - name: Clear TypeScript cache
         run: rm -rf node_modules/.cache tsconfig.tsbuildinfo tsconfig.ci.tsbuildinfo
