@@ -134,6 +134,16 @@ git -C "$test_root/repo" add .
 expect_rejected 'npm-execution-contract'
 
 reset_fixture
+rm "$test_root/repo/.npmrc"
+git -C "$test_root/repo" add -u
+expect_rejected 'npm-execution-contract'
+
+reset_fixture
+: >"$test_root/repo/.npmrc"
+git -C "$test_root/repo" add .
+expect_rejected 'npm-execution-contract'
+
+reset_fixture
 sed -i '/  build-and-push:/,/    steps:/ {/    needs: \[quality\]/d;}' "$test_root/repo/.github/workflows/docker.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-quality-dependency'

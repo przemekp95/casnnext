@@ -163,6 +163,8 @@ const fs = require('fs');
 
 const [packageFile, ...npmConfigFiles] = process.argv.slice(2);
 const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+const rootNpmConfig = packageFile.replace(/package\.json$/, '.npmrc');
+let hasSafeRootNpmConfig = false;
 const forbiddenLifecycleHooks = new Set([
   'prelint',
   'postlint',
@@ -177,6 +179,7 @@ if (Object.keys(packageJson.scripts ?? {}).some((name) => forbiddenLifecycleHook
 }
 
 for (const npmConfigFile of npmConfigFiles) {
+  if (!fs.lstatSync(npmConfigFile).isFile()) process.exit(1);
   const lines = fs.readFileSync(npmConfigFile, 'utf8').split(/\r?\n/);
   for (const line of lines) {
     const trimmed = line.trim();
@@ -186,8 +189,10 @@ for (const npmConfigFile of npmConfigFiles) {
     const key = trimmed.slice(0, separator).trim().toLowerCase().replaceAll('_', '-');
     const value = trimmed.slice(separator + 1).trim().toLowerCase();
     if (key !== 'strict-allow-scripts' || value !== 'true') process.exit(1);
+    if (npmConfigFile === rootNpmConfig) hasSafeRootNpmConfig = true;
   }
 }
+if (!hasSafeRootNpmConfig) process.exit(1);
 NODE
   then
     fail 'npm-execution-contract'
