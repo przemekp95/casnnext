@@ -256,6 +256,32 @@ function emitOwnedProcessEvidence(identities: readonly ProcessIdentity[]): void 
   );
 }
 
+async function waitForCleanupFailureSignalForTests(interruption: AbortSignal): Promise<void> {
+  const value = process.env.CASN_LIFECYCLE_TEST_CLEANUP_FAILURE_DELAY_MS;
+  if (value === undefined) {
+    return;
+  }
+  if (process.env.NODE_ENV !== 'test' || !/^[1-9][0-9]*$/.test(value)) {
+    throw new LifecycleFailure(64, 'cleanup failure signal boundary requires NODE_ENV=test and a positive delay');
+  }
+  const delay = Number(value);
+  if (!Number.isSafeInteger(delay) || delay > 2_147_483_647) {
+    throw new LifecycleFailure(64, 'cleanup failure signal boundary delay is outside the timer range');
+  }
+  process.stdout.write('cleanup-failure-ready\n');
+  await new Promise<void>((resolveDelay) => {
+    const timer = setTimeout(resolveDelay, delay);
+    interruption.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        resolveDelay();
+      },
+      { once: true },
+    );
+  });
+}
+
 function reportCleanupFailure(
   root: OwnedRoot,
   requestedSignal: CliSignal | undefined,
@@ -319,6 +345,7 @@ async function runDefaultFastScenario(
       const cleanup = await finalizeOwnedRun(owned, scenarioTimeoutMs);
       if (cleanup.kind === 'failed') {
         cleanupFailures.set(root, { cleanup, childOutcome });
+        await waitForCleanupFailureSignalForTests(interruption);
         return cleanup.code;
       }
       if (childOutcome !== undefined) {
@@ -434,9 +461,6 @@ export async function runCli(
         return incomingStatus;
       }
       const scenarioStatus = await scenarioRun;
-      if (scenarioStatus === 70) {
-        await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
-      }
       if (root !== undefined) {
         reportCleanupFailure(root, requestedSignal);
       }

@@ -694,9 +694,12 @@ test(
     `;
 
     const result = await executeOwnedCli(tsxBin, ['-e', harness], {
-      environment: { NODE_ENV: 'test' },
+      environment: {
+        NODE_ENV: 'test',
+        CASN_LIFECYCLE_TEST_CLEANUP_FAILURE_DELAY_MS: '1000',
+      },
       requireOwnedEvidence: true,
-      signalAfterOwnedEvidence: 'SIGTERM',
+      signalAfterStdout: { marker: 'cleanup-failure-ready', signal: 'SIGTERM' },
     });
 
     expect(result.status).toBe(70);

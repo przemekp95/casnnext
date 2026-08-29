@@ -556,15 +556,15 @@ export async function spawnGatedProcess(
   let child: ChildProcess;
   try {
     if (Object.keys(dependencies.gateEnvironment).length === 0) {
-      child = spawn(process.execPath, ['--import', 'tsx', gateChildPath], {
+      child = spawn(process.execPath, ['--no-warnings', '--experimental-strip-types', gateChildPath], {
         cwd: repositoryRoot,
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       });
     } else {
       child = spawn(process.execPath, [
-        '--import',
-        'tsx',
+        '--no-warnings',
+        '--experimental-strip-types',
         gateChildPath,
         gateTestInvocationToken,
       ], {
