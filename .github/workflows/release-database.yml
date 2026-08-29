@@ -36,8 +36,14 @@ jobs:
           node-version: "22"
           cache: "npm"
 
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install --yes ripgrep
+
       - name: Install immutable quality dependencies
         run: npm ci --ignore-scripts
+
+      - name: Enforce lifecycle-safe preflight
+        run: bash scripts/ci/first-party-quality-policy.sh .
 
       - name: Lint code
         run: npm run lint

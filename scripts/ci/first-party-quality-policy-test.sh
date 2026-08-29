@@ -27,7 +27,7 @@ reset_fixture() {
   ln -s "$source_root/node_modules" "$test_root/repo/node_modules"
   git -C "$test_root/repo" init -q
   printf '%s\n' 'strict-allow-scripts=true' >"$test_root/repo/.npmrc"
-  printf '%s\n' '{"scripts":{"lint":"eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0","first-party-quality:policy":"bash scripts/ci/first-party-quality-policy.sh ."}}' >"$test_root/repo/package.json"
+  printf '%s\n' '{"scripts":{"prebuild":"bash scripts/check-posts.sh","postbuild":"node scripts/prepare-tmp.mjs","lint":"eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0","first-party-quality:policy":"bash scripts/ci/first-party-quality-policy.sh ."}}' >"$test_root/repo/package.json"
   printf '%s\n' \
     'import { defineConfig } from "eslint/config";' \
     'import nextCoreWebVitals from "eslint-config-next/core-web-vitals";' \
@@ -88,13 +88,23 @@ reset_fixture() {
     '      - name: Setup Node.js' \
     '        uses: actions/setup-node@v4' \
     '        with: { node-version: "22", cache: npm }' \
+    '      - name: Install ripgrep' \
+    '        run: sudo apt-get update && sudo apt-get install --yes ripgrep' \
     '      - name: Install immutable quality dependencies' \
     '        run: npm ci --ignore-scripts' \
+    '      - name: Enforce lifecycle-safe preflight' \
+    '        run: bash scripts/ci/first-party-quality-policy.sh .' \
     '      - name: Lint' \
     '        run: "npm run lint"' \
     '      - name: Policy' \
     "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
   printf '%s\n' \
+    '  test:' \
+    '    needs: [quality]' \
+    '    runs-on: ubuntu-latest' \
+    '    steps:' \
+    '      - name: Install dependencies' \
+    '        run: npm ci' \
     '  build-and-push:' \
     '    needs: [quality]' \
     '    runs-on: ubuntu-latest' \
@@ -116,6 +126,31 @@ reset_fixture() {
 
 reset_fixture
 (cd "$test_root" && "$policy" "$test_root/repo")
+
+reset_fixture
+sed -i '/- name: Install ripgrep/,+1d' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i 's#bash scripts/ci/first-party-quality-policy.sh \.#npm run first-party-quality:policy#' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/  test:/,/    steps:/ {/    needs: \[quality\]/d;}' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
+sed -i '/  test:/,/  build-and-push:/ {s/        run: npm ci$/        run: npm ci --ignore-scripts false/; /    needs: \[quality\]/d;}' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
+sed -i '/  test:/,/  build-and-push:/ {s/        run: npm ci$/        run: npm --silent ci/; /    needs: \[quality\]/d;}' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
 
 reset_fixture
 sed -i '/  build-and-push:/a\    if: github.ref == '\''refs/heads/main'\''' "$test_root/repo/.github/workflows/docker.yml"
@@ -161,6 +196,39 @@ git -C "$test_root/repo" add .
 expect_rejected 'npm-execution-contract'
 
 reset_fixture
+node - "$test_root/repo/package.json" <<'NODE'
+const fs = require('fs');
+const packageFile = process.argv[2];
+const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+packageJson.scripts['preruntime:policy'] = 'npm pkg delete scripts.preruntime:policy';
+fs.writeFileSync(packageFile, `${JSON.stringify(packageJson)}\n`);
+NODE
+git -C "$test_root/repo" add .
+expect_rejected 'npm-execution-contract'
+
+reset_fixture
+node - "$test_root/repo/package.json" <<'NODE'
+const fs = require('fs');
+const packageFile = process.argv[2];
+const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+packageJson.scripts.install = 'node -e "process.exit(0)"';
+fs.writeFileSync(packageFile, `${JSON.stringify(packageJson)}\n`);
+NODE
+git -C "$test_root/repo" add .
+expect_rejected 'npm-execution-contract'
+
+reset_fixture
+node - "$test_root/repo/package.json" <<'NODE'
+const fs = require('fs');
+const packageFile = process.argv[2];
+const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+packageJson.scripts.prebuild = 'true';
+fs.writeFileSync(packageFile, `${JSON.stringify(packageJson)}\n`);
+NODE
+git -C "$test_root/repo" add .
+expect_rejected 'npm-execution-contract'
+
+reset_fixture
 rm "$test_root/repo/.npmrc"
 git -C "$test_root/repo" add -u
 expect_rejected 'npm-execution-contract'
@@ -182,6 +250,24 @@ expect_rejected 'workflow-quality-dependency'
 
 reset_fixture
 sed -i "/  deploy:/a\\    if: needs['quality'].result == 'failure'" "$test_root/repo/.github/workflows/deploy.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
+printf '%s\n' \
+  'on: { workflow_dispatch: null }' \
+  'jobs:' \
+  '  ship:' \
+  '    uses: example-org/reusable/.github/workflows/publish.yml@v1' >"$test_root/repo/.github/workflows/future-publisher.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
+printf '%s\n' \
+  'on: { workflow_dispatch: null }' \
+  'jobs:' \
+  '  quality:' \
+  '    uses: example-org/reusable/.github/workflows/publish.yml@v1' >"$test_root/repo/.github/workflows/future-publisher.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-quality-dependency'
 

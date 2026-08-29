@@ -165,17 +165,16 @@ const [packageFile, ...npmConfigFiles] = process.argv.slice(2);
 const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
 const rootNpmConfig = packageFile.replace(/package\.json$/, '.npmrc');
 let hasSafeRootNpmConfig = false;
-const forbiddenLifecycleHooks = new Set([
-  'prelint',
-  'postlint',
-  'prequality:policy',
-  'postquality:policy',
-  'prefirst-party-quality:policy',
-  'postfirst-party-quality:policy',
+const scripts = packageJson.scripts ?? {};
+const allowedLifecycleHooks = new Map([
+  ['prebuild', 'bash scripts/check-posts.sh'],
+  ['postbuild', 'node scripts/prepare-tmp.mjs'],
 ]);
+const unprefixedLifecycleHooks = new Set(['dependencies', 'install', 'publish', 'version']);
 
-if (Object.keys(packageJson.scripts ?? {}).some((name) => forbiddenLifecycleHooks.has(name))) {
-  process.exit(1);
+for (const [name, command] of Object.entries(scripts)) {
+  if (!/^(?:pre|post)/.test(name) && !unprefixedLifecycleHooks.has(name)) continue;
+  if (allowedLifecycleHooks.get(name) !== command) process.exit(1);
 }
 
 for (const npmConfigFile of npmConfigFiles) {
@@ -231,9 +230,6 @@ const workflow = YAML.parse(fs.readFileSync(workflowFile, 'utf8'));
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const hasExactKeys = (value, keys) => isPlainObject(value)
   && Object.keys(value).sort().join(',') === [...keys].sort().join(',');
-const publishingAction = /^(?:docker\/build-push-action|appleboy\/ssh-action|softprops\/action-gh-release|actions\/(?:create-release|upload-release-asset))@/;
-const publishingCommand = /\b(?:docker\s+(?:push|buildx\b[^\n]*--push)|npm\s+publish|gh\s+release\b)/i;
-const publishingName = /(?:deploy|publish|push|release)/i;
 const allowedInheritedEnv = new Set([
   'APP_IMAGE_NAME',
   'CODECOV_TOKEN',
@@ -254,14 +250,20 @@ const isExactSetupNodeStep = (step) => hasExactKeys(step, ['name', 'uses', 'with
   && step.with.cache === 'npm' && step.with['node-version'] === '22';
 const isExactRunStep = (step, command) => hasExactKeys(step, ['name', 'run']) && hasStepName(step)
   && step.run === command;
+const isExactRipgrepStep = (step) => isExactRunStep(
+  step,
+  'sudo apt-get update && sudo apt-get install --yes ripgrep',
+);
 const isExactWorkflowGateJob = (job) => isPlainObject(job)
   && Object.keys(job).every((key) => ['env', 'permissions', 'runs-on', 'steps'].includes(key))
   && job['runs-on'] === 'ubuntu-latest' && hasReadOnlyContentsPermission(job.permissions)
-  && hasOnlyAllowedInheritedEnv(job.env) && Array.isArray(job.steps) && job.steps.length === 5
+  && hasOnlyAllowedInheritedEnv(job.env) && Array.isArray(job.steps) && job.steps.length === 7
   && isExactCheckoutStep(job.steps[0]) && isExactSetupNodeStep(job.steps[1])
-  && isExactRunStep(job.steps[2], 'npm ci --ignore-scripts')
-  && isExactRunStep(job.steps[3], 'npm run lint')
-  && isExactRunStep(job.steps[4], 'npm run quality:policy');
+  && isExactRipgrepStep(job.steps[2])
+  && isExactRunStep(job.steps[3], 'npm ci --ignore-scripts')
+  && isExactRunStep(job.steps[4], 'bash scripts/ci/first-party-quality-policy.sh .')
+  && isExactRunStep(job.steps[5], 'npm run lint')
+  && isExactRunStep(job.steps[6], 'npm run quality:policy');
 const bypassesFailedDependency = (condition) => {
   if (condition === undefined) return false;
   if (typeof condition !== 'string') return true;
@@ -276,26 +278,16 @@ const bypassesFailedDependency = (condition) => {
 
 if (!isPlainObject(workflow) || !isPlainObject(workflow.jobs)) process.exit(0);
 
-const protectedJobs = [];
 for (const [jobId, job] of Object.entries(workflow.jobs)) {
   if (!isPlainObject(job)) process.exit(1);
-  const steps = Array.isArray(job.steps) ? job.steps : [];
-  const publishesOrDeploys = publishingName.test(jobId)
-    || (typeof job.name === 'string' && publishingName.test(job.name))
-    || job.permissions?.packages === 'write'
-    || Object.hasOwn(job, 'environment')
-    || steps.some((step) => isPlainObject(step)
-      && ((typeof step.uses === 'string' && publishingAction.test(step.uses))
-        || (typeof step.run === 'string' && publishingCommand.test(step.run))));
-  if (!publishesOrDeploys) continue;
-  protectedJobs.push(job);
+  if (jobId === 'quality') continue;
 
   const needs = typeof job.needs === 'string' ? [job.needs] : job.needs;
   if (!Array.isArray(needs) || !needs.includes('quality') || bypassesFailedDependency(job.if)) {
     process.exit(1);
   }
 }
-if (protectedJobs.length > 0 && !isExactWorkflowGateJob(workflow.jobs.quality)) process.exit(1);
+if (!isExactWorkflowGateJob(workflow.jobs.quality)) process.exit(1);
 NODE
   then
     fail 'workflow-quality-dependency'
@@ -392,17 +384,23 @@ const isExactSetupNodeStep = (step) => hasExactKeys(step, ['name', 'uses', 'with
   && step.with.cache === 'npm' && step.with['node-version'] === '22';
 const isExactRunStep = (step, command) => hasExactKeys(step, ['name', 'run']) && hasStepName(step)
   && step.run === command;
+const isExactRipgrepStep = (step) => isExactRunStep(
+  step,
+  'sudo apt-get update && sudo apt-get install --yes ripgrep',
+);
 const isExactWorkflowGateJob = (job) => {
   if (!isPlainObject(job) || !Object.keys(job).every((key) => ['env', 'permissions', 'runs-on', 'steps'].includes(key))
     || job['runs-on'] !== 'ubuntu-latest' || !hasReadOnlyContentsPermission(job.permissions)
-    || !hasOnlyAllowedInheritedEnv(job.env) || !Array.isArray(job.steps) || job.steps.length !== 5) {
+    || !hasOnlyAllowedInheritedEnv(job.env) || !Array.isArray(job.steps) || job.steps.length !== 7) {
     return false;
   }
   return isExactCheckoutStep(job.steps[0])
     && isExactSetupNodeStep(job.steps[1])
-    && isExactRunStep(job.steps[2], 'npm ci --ignore-scripts')
-    && isExactRunStep(job.steps[3], 'npm run lint')
-    && isExactRunStep(job.steps[4], 'npm run quality:policy');
+    && isExactRipgrepStep(job.steps[2])
+    && isExactRunStep(job.steps[3], 'npm ci --ignore-scripts')
+    && isExactRunStep(job.steps[4], 'bash scripts/ci/first-party-quality-policy.sh .')
+    && isExactRunStep(job.steps[5], 'npm run lint')
+    && isExactRunStep(job.steps[6], 'npm run quality:policy');
 };
 const isExactCompositeGateStep = (step) => hasExactKeys(step, ['name', 'run', 'shell'])
   && hasStepName(step) && step.shell === 'bash';
@@ -465,8 +463,8 @@ if (adjacent && documentKind === 'composite') {
     || !isExactCompositeGateStep(lintCommands[0].group.steps[0]);
 }
 if (adjacent && documentKind === 'workflow') {
-  invalid ||= lintCommands[0].stepIndex !== 3 || lintCommands[0].commandIndex !== 0
-    || policyCommands[0].stepIndex !== 4 || policyCommands[0].commandIndex !== 0
+  invalid ||= lintCommands[0].stepIndex !== 5 || lintCommands[0].commandIndex !== 0
+    || policyCommands[0].stepIndex !== 6 || policyCommands[0].commandIndex !== 0
     || !isExactWorkflowGateJob(lintCommands[0].group.job);
 }
 process.exit(invalid || !adjacent ? 1 : 0);
@@ -488,6 +486,18 @@ while IFS= read -r -d '' workflow; do
   relative_workflow="${workflow#./}"
   workflow_name="${relative_workflow#.github/workflows/}"
   [[ "$workflow_name" == */* ]] && continue
+  case "$workflow_name" in
+    mysql-service.yml)
+      [[ "$(sha256sum "$root/$relative_workflow" | cut -d ' ' -f 1)" == '721e6255653e2261697b55a345996d1117695b7facf62cbdc2baa8bb3acb7412' ]] \
+        || fail 'ungated-workflow-exception'
+      continue
+      ;;
+    refresh-dev-main-pr.yml)
+      [[ "$(sha256sum "$root/$relative_workflow" | cut -d ' ' -f 1)" == 'c7c469a2da2515062f144bf4288bf328b78465d0d651e91d407791622a0a9a7c' ]] \
+        || fail 'ungated-workflow-exception'
+      continue
+      ;;
+  esac
   check_publish_deploy_dependencies "$relative_workflow"
 done < <(git -C "$root" ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml')
 
