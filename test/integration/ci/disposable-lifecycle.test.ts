@@ -620,11 +620,10 @@ test(
       const marker = fixture.absentFile(markerDirectory, 'released');
       const owned = await spawnGatedProcess({
         root,
-        command: process.execPath,
+        command: '/bin/sh',
         args: [
-          '--input-type=module',
-          '-e',
-          "import { writeFileSync } from 'node:fs'; writeFileSync(process.env.MARKER, 'released')",
+          '-c',
+          'printf %s released > "$MARKER"',
         ],
         env: { MARKER: marker },
       }, fixtureDependencies(fixture));

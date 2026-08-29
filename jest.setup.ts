@@ -54,7 +54,7 @@ afterAll(async () => {
   // Importing the canonical datasource does not initialize it. Integration
   // suites that initialized it are responsible for leaving no open handles.
   const { AppDataSource } = await import('@/lib/db.shared');
-  if (AppDataSource?.isInitialized) {
+  if (AppDataSource?.isInitialized && typeof AppDataSource.destroy === 'function') {
     await AppDataSource.destroy();
   }
 });

@@ -360,7 +360,6 @@ async function executeOwnedCli(
   let requestedSignal = false;
   let rootIdentityCaptured = false;
   let rootPoll: NodeJS.Timeout | undefined;
-  let evidenceSignalPoll: NodeJS.Timeout | undefined;
   let executionFailure: unknown;
   let result: CliResult | undefined;
 
@@ -397,27 +396,26 @@ async function executeOwnedCli(
       if (signalRequest !== undefined && stdout.includes(signalRequest.marker)) {
         requestOwnedSignal(signalRequest.signal);
       }
+      if (
+        options.signalAfterOwnedEvidence !== undefined &&
+        parseOwnedProcessEvidence(stdout).length > 0
+      ) {
+        if (!rootIdentityCaptured) {
+          rootIdentityCaptured = lifecycleInventory().some(
+            (entry) =>
+              entry.startsWith('/tmp/casn-quality-regression-') && !before.includes(entry),
+          );
+        }
+        if (rootIdentityCaptured) {
+          requestOwnedSignal(options.signalAfterOwnedEvidence);
+        }
+      }
     });
     child.stderr?.on('data', (chunk: Buffer | string) => {
       stderr += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk;
     });
 
     child.stdin?.end('release\n');
-    if (options.signalAfterOwnedEvidence !== undefined) {
-      evidenceSignalPoll = setInterval(() => {
-        if (parseOwnedProcessEvidence(stdout).length > 0) {
-          if (!rootIdentityCaptured) {
-            rootIdentityCaptured = lifecycleInventory().some(
-              (entry) =>
-                entry.startsWith('/tmp/casn-quality-regression-') && !before.includes(entry),
-            );
-          }
-          if (rootIdentityCaptured) {
-            requestOwnedSignal(options.signalAfterOwnedEvidence ?? 'SIGTERM');
-          }
-        }
-      }, 5);
-    }
     if (options.signalAfterRootCreation !== undefined) {
       rootPoll = setInterval(() => {
         const createdRoot = lifecycleInventory().find(
@@ -459,9 +457,6 @@ async function executeOwnedCli(
   } finally {
     if (rootPoll !== undefined) {
       clearInterval(rootPoll);
-    }
-    if (evidenceSignalPoll !== undefined) {
-      clearInterval(evidenceSignalPoll);
     }
     let cleanupFailure: unknown;
     if (identity !== undefined) {

@@ -434,6 +434,9 @@ export async function runCli(
         return incomingStatus;
       }
       const scenarioStatus = await scenarioRun;
+      if (scenarioStatus === 70) {
+        await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+      }
       if (root !== undefined) {
         reportCleanupFailure(root, requestedSignal);
       }
