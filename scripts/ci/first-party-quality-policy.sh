@@ -150,6 +150,48 @@ NODE
 }
 
 check_package_scripts() {
+  local -a npm_config_files=()
+  mapfile -d '' -t npm_config_files < <(
+    git -C "$root" ls-files -z | while IFS= read -r -d '' path; do
+      case "$path" in
+        .npmrc|*/.npmrc) printf '%s\0' "$root/$path" ;;
+      esac
+    done
+  )
+  if ! node - "$root/package.json" "${npm_config_files[@]}" <<'NODE'
+const fs = require('fs');
+
+const [packageFile, ...npmConfigFiles] = process.argv.slice(2);
+const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+const forbiddenLifecycleHooks = new Set([
+  'prelint',
+  'postlint',
+  'prequality:policy',
+  'postquality:policy',
+  'prefirst-party-quality:policy',
+  'postfirst-party-quality:policy',
+]);
+
+if (Object.keys(packageJson.scripts ?? {}).some((name) => forbiddenLifecycleHooks.has(name))) {
+  process.exit(1);
+}
+
+for (const npmConfigFile of npmConfigFiles) {
+  const lines = fs.readFileSync(npmConfigFile, 'utf8').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('#') || trimmed.startsWith(';')) continue;
+    const separator = trimmed.indexOf('=');
+    if (separator <= 0) process.exit(1);
+    const key = trimmed.slice(0, separator).trim().toLowerCase().replaceAll('_', '-');
+    const value = trimmed.slice(separator + 1).trim().toLowerCase();
+    if (key !== 'strict-allow-scripts' || value !== 'true') process.exit(1);
+  }
+}
+NODE
+  then
+    fail 'npm-execution-contract'
+  fi
   if ! node - "$root/package.json" <<'NODE'
 const fs = require('fs');
 const packageJson = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));

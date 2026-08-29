@@ -26,6 +26,7 @@ reset_fixture() {
     "$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist"
   ln -s "$source_root/node_modules" "$test_root/repo/node_modules"
   git -C "$test_root/repo" init -q
+  printf '%s\n' 'strict-allow-scripts=true' >"$test_root/repo/.npmrc"
   printf '%s\n' '{"scripts":{"lint":"eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0","first-party-quality:policy":"bash scripts/ci/first-party-quality-policy.sh ."}}' >"$test_root/repo/package.json"
   printf '%s\n' \
     'import { defineConfig } from "eslint/config";' \
@@ -99,6 +100,22 @@ reset_fixture() {
 
 reset_fixture
 (cd "$test_root" && "$policy" "$test_root/repo")
+
+reset_fixture
+printf '%s\n' 'script-shell=./test/fake/wrapper' >>"$test_root/repo/.npmrc"
+git -C "$test_root/repo" add .
+expect_rejected 'npm-execution-contract'
+
+reset_fixture
+node - "$test_root/repo/package.json" <<'NODE'
+const fs = require('fs');
+const packageFile = process.argv[2];
+const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+packageJson.scripts.prelint = 'npm pkg set scripts.lint=true';
+fs.writeFileSync(packageFile, `${JSON.stringify(packageJson)}\n`);
+NODE
+git -C "$test_root/repo" add .
+expect_rejected 'npm-execution-contract'
 
 reset_fixture
 sed -i '/- name: Lint/i\      - name: Mutate package scripts\n        run: npm pkg set scripts.lint=true' "$test_root/repo/.github/workflows/docker.yml"
