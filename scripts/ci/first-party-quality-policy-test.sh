@@ -76,7 +76,7 @@ reset_fixture() {
   printf '%s\n' 'export default {};' >"$test_root/repo/directus/extensions/directus-extension-casn-field-guard/dist/index.js"
   printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - name: Lint and policy' '      run: |-' '        npm run lint' '        npm run quality:policy' '      shell: bash' >"$test_root/repo/.github/workflows/quality-checks/action.yml"
   printf '%s\n' \
-    'on: { push: {} }' \
+    'on: { workflow_dispatch: null, push: { branches: [main, dev], tags: ["v*"] }, pull_request: { branches: [main, dev] } }' \
     'jobs:' \
     '  quality:' \
     '    runs-on: ubuntu-latest' \
@@ -152,6 +152,21 @@ printf '%s\n' \
   '      - run: echo publish' >>"$test_root/repo/.github/workflows/docker.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
+sed -i '1c\on: { workflow_dispatch: null }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'docker-trigger-policy'
+
+reset_fixture
+sed -i '1c\on: { workflow_dispatch: null, push: { branches: [main, dev], tags: ["v*"], paths-ignore: ["docs/**"] }, pull_request: { branches: [main, dev] } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'docker-trigger-policy'
+
+reset_fixture
+sed -i '1c\on: { push: { branches: [main], tags: ["release-*"] }, pull_request: { branches: [main] } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'docker-trigger-policy'
 
 reset_fixture
 sed -i '/- name: Lint/i\      - name: Mutate package scripts\n        run: npm pkg set scripts.lint=true' "$test_root/repo/.github/workflows/docker.yml"

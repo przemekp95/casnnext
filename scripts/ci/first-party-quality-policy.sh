@@ -251,6 +251,45 @@ NODE
   fi
 }
 
+check_docker_triggers() {
+  if ! node - "$root" "$root/.github/workflows/docker.yml" <<'NODE'
+const fs = require('fs');
+const { createRequire } = require('module');
+const path = require('path');
+
+const [rootArgument, workflowFile] = process.argv.slice(2);
+const root = path.resolve(rootArgument);
+const requireFromRoot = createRequire(path.join(root, 'package.json'));
+const YAML = requireFromRoot('yaml');
+const workflow = YAML.parse(fs.readFileSync(workflowFile, 'utf8'));
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const includesEvery = (values, required) => Array.isArray(values)
+  && required.every((value) => values.includes(value));
+const rejectsSourceFilters = (configuration) => isPlainObject(configuration)
+  && ['paths', 'paths-ignore', 'branches-ignore', 'tags-ignore']
+    .some((key) => Object.hasOwn(configuration, key));
+const coversBranches = (configuration) => configuration === null
+  || (isPlainObject(configuration)
+    && !rejectsSourceFilters(configuration)
+    && (!Object.hasOwn(configuration, 'branches')
+      || includesEvery(configuration.branches, ['main', 'dev'])));
+const coversReleaseTags = (configuration) => configuration === null
+  || (isPlainObject(configuration)
+    && !rejectsSourceFilters(configuration)
+    && (!Object.hasOwn(configuration, 'tags') || includesEvery(configuration.tags, ['v*'])));
+
+if (!isPlainObject(workflow) || !isPlainObject(workflow.on)
+  || !Object.hasOwn(workflow.on, 'push') || !Object.hasOwn(workflow.on, 'pull_request')
+  || !coversBranches(workflow.on.push) || !coversReleaseTags(workflow.on.push)
+  || !coversBranches(workflow.on.pull_request)) {
+  process.exit(1);
+}
+NODE
+  then
+    fail 'docker-trigger-policy'
+  fi
+}
+
 check_workflow() {
   local workflow="$1"
   local document_kind="$2"
@@ -388,6 +427,7 @@ check_eslint_config
 check_package_scripts
 check_workflow '.github/workflows/quality-checks/action.yml' composite
 check_workflow '.github/workflows/docker.yml' workflow
+check_docker_triggers
 check_publish_deploy_dependencies '.github/workflows/docker.yml'
 check_workflow '.github/workflows/deploy.yml' workflow
 check_publish_deploy_dependencies '.github/workflows/deploy.yml'
