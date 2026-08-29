@@ -266,7 +266,9 @@ const bypassesFailedDependency = (condition) => {
   if (condition === undefined) return false;
   if (typeof condition !== 'string') return true;
   const expression = condition.trim().replace(/^\$\{\{\s*/, '').replace(/\s*\}\}$/, '').trim();
-  if (/needs\s*\.\s*quality\s*\.\s*result/i.test(expression)) return true;
+  if (/needs\s*(?:\.\s*quality|\[\s*['"]quality['"]\s*\])\s*(?:\.\s*result|\[\s*['"]result['"]\s*\])/i.test(expression)) {
+    return true;
+  }
   const statusChecks = expression.match(/\b(?:always|cancelled|failure|success)\s*\(\s*\)/gi) ?? [];
   if (statusChecks.length === 0) return false;
   return expression.toLowerCase() !== 'success()';

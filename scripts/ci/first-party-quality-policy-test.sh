@@ -181,6 +181,11 @@ git -C "$test_root/repo" add .
 expect_rejected 'workflow-quality-dependency'
 
 reset_fixture
+sed -i "/  deploy:/a\\    if: needs['quality'].result == 'failure'" "$test_root/repo/.github/workflows/deploy.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
 printf '%s\n' \
   '  release-image:' \
   '    runs-on: ubuntu-latest' \
