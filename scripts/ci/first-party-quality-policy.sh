@@ -315,8 +315,11 @@ const isPlainObject = (value) => value !== null && typeof value === 'object' && 
 const includesEvery = (values, required) => Array.isArray(values)
   && required.every((value) => values.includes(value));
 const rejectsSourceFilters = (configuration) => isPlainObject(configuration)
-  && ['paths', 'paths-ignore', 'branches-ignore', 'tags-ignore']
-    .some((key) => Object.hasOwn(configuration, key));
+  && (['paths', 'paths-ignore', 'branches-ignore', 'tags-ignore']
+    .some((key) => Object.hasOwn(configuration, key))
+    || ['branches', 'tags'].some((key) => Array.isArray(configuration[key])
+      && configuration[key].some((pattern) => typeof pattern === 'string'
+        && pattern.trim().startsWith('!'))));
 const coversBranches = (configuration) => configuration === null
   || (isPlainObject(configuration)
     && !rejectsSourceFilters(configuration)

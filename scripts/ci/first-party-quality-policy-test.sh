@@ -195,6 +195,16 @@ git -C "$test_root/repo" add .
 expect_rejected 'docker-trigger-policy'
 
 reset_fixture
+sed -i '1c\on: { push: { branches: [main, dev, "!main", "!dev"], tags: ["v*"] }, pull_request: { branches: [main, dev, "!main", "!dev"] } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'docker-trigger-policy'
+
+reset_fixture
+sed -i '1c\on: { push: { branches: [main, dev], tags: ["v*", "!v*"] }, pull_request: { branches: [main, dev] } }' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'docker-trigger-policy'
+
+reset_fixture
 sed -i '/- name: Lint/i\      - name: Mutate package scripts\n        run: npm pkg set scripts.lint=true' "$test_root/repo/.github/workflows/docker.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
