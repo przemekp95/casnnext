@@ -98,17 +98,20 @@ describe('Database Seeding', () => {
   it(
     'seed script only runs once (idempotent)',
     async () => {
-      const articleRepository = AppDataSource.getRepository('Analysis');
-      const countBefore = await articleRepository.count();
+      const authorRepository = AppDataSource.getRepository('Author');
+      const analysisRepository = AppDataSource.getRepository('Analysis');
+      const countsBefore = {
+        authors: await authorRepository.count(),
+        analyses: await analysisRepository.count(),
+      };
 
-      try {
-        await runSeed();
-      } catch (e) {
-        throw e;
-      }
+      await runSeed();
 
-      const countAfter = await articleRepository.count();
-      expect(countAfter).toBe(countBefore);
+      const countsAfter = {
+        authors: await authorRepository.count(),
+        analyses: await analysisRepository.count(),
+      };
+      expect(countsAfter).toEqual(countsBefore);
     },
     TEST_TIMEOUT_MS
   );

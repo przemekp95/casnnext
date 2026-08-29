@@ -71,7 +71,7 @@ if (databaseUrl) {
 }
 
 // Export default DataSource for TypeORM CLI
-export default new DataSource({
+const migrationDataSource = new DataSource({
   ...dbConfig,
   entities: [AuthorSchema, AnalysisSchema, IssueCollectionSchema],
   migrations: [
@@ -80,3 +80,5 @@ export default new DataSource({
   ],
   subscribers: [],
 });
+
+export default migrationDataSource;

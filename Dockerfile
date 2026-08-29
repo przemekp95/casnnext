@@ -58,14 +58,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Copy custom server for DB bootstrap
-COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
+COPY --from=builder --chown=nextjs:nodejs /app/server.cjs ./server.cjs
 
-# Copy lib directory for runtime entities and utilities
-COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
-
-# Copy migrations for production database initialization
-# Note: TypeORM loads migrations at runtime, so .ts files are fine
-COPY --from=builder --chown=nextjs:nodejs /app/migrations ./migrations
+# Copy reproducible custom Node runtime; TypeScript source stays in builder.
+COPY --from=builder --chown=nextjs:nodejs /app/dist/runtime ./dist/runtime
 
 # Create posts directory with correct permissions before copying
 RUN mkdir -p /app/posts && chown -R nextjs:nodejs /app/posts
@@ -83,4 +79,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 EXPOSE 3000
 
 # Start the custom production server with DB bootstrap
-CMD ["node", "server.js"]
+CMD ["node", "server.cjs"]

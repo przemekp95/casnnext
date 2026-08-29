@@ -144,8 +144,7 @@ export async function initializeDatabase() {
   });
 
   if (!hasDatabaseConfig) {
-    console.log('Skipping database initialization - no database configured');
-    return AppDataSource;
+    throw new Error('Database configuration is required for initialization');
   }
 
   // Skip for unit tests without DATABASE_URL
@@ -155,8 +154,7 @@ export async function initializeDatabase() {
   }
 
   if (!AppDataSource) {
-    console.log('AppDataSource is null - database configuration failed');
-    return null;
+    throw new Error('Database datasource could not be created');
   }
 
   if (!AppDataSource.isInitialized) {
@@ -172,23 +170,20 @@ export async function initializeDatabase() {
       await AppDataSource.initialize();
       console.log('Database connection established successfully');
 
-      console.log('Database migrations are controlled by the startup environment policy');
+      console.log('Database migrations require the explicit migration runner');
 
       // Verify migrations actually worked by checking database content
       console.log('Verifying migration success...');
+      const queryRunner = AppDataSource.createQueryRunner();
       try {
         // Check if tables exist first
-        const queryRunner = AppDataSource.createQueryRunner();
         const tables = await queryRunner.query('SHOW TABLES');
         const tableNames = tables.map((row: Record<string, unknown>) => Object.values(row)[0] as string);
 
         console.log('Available tables:', tableNames);
 
         if (!tableNames.includes('Author') || !tableNames.includes('Analysis')) {
-          console.error('Migration verification failed: Required tables do not exist');
-          console.error('This indicates migrations did not run successfully');
-          console.error('Check that migrations are properly included in the Docker build');
-          return AppDataSource;
+          throw new Error('Migration verification failed: Required tables do not exist');
         }
 
         // Check actual data counts
@@ -203,20 +198,14 @@ export async function initializeDatabase() {
         });
 
         if (authorCount === 0 || analysisCount === 0 || !knownAuthor) {
-          console.error('Migration verification failed: Expected data not found in database');
-          console.error('Migration may have run but data was not inserted properly');
-          console.error(`Expected: 34+ authors, 39+ analyses, author 'balcerowski' exists`);
-          console.error(`Found: ${authorCount} authors, ${analysisCount} analyses, known author: ${!!knownAuthor}`);
+          throw new Error('Migration verification failed: Expected data not found');
         } else {
           console.log('Migration verification successful: All expected data found in database');
           console.log(`Database contains ${authorCount} authors and ${analysisCount} analyses`);
         }
 
+      } finally {
         await queryRunner.release();
-      } catch (verificationError) {
-        console.error('Migration verification failed:', verificationError.message);
-        console.warn('Migrations may have completed but verification failed');
-        console.warn('Check database connection and table structure');
       }
 
       console.log('Database initialization completed');
@@ -236,9 +225,7 @@ export async function initializeDatabase() {
         sqlState: error.sqlState
       });
 
-      // Don't throw in production - just log and continue
-      console.log('Continuing without database connection');
-      return AppDataSource;
+      throw error;
     }
   } else {
     console.log('Database already initialized');

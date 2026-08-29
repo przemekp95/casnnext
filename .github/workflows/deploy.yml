@@ -42,7 +42,40 @@ env:
   COVERAGE_EXCELLENT_LINES: "80"
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install --yes ripgrep
+
+      - name: Install immutable quality dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Enforce lifecycle-safe preflight
+        run: bash scripts/ci/first-party-quality-policy.sh .
+
+      - name: Build runtime policy target
+        run: npm run build:runtime
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Enforce quality debt policy
+        run: npm run quality:policy
+
   test:
+    needs: [quality]
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -70,17 +103,12 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm ci
 
-      - name: Install snapshot test dependencies
+      - name: Install snapshot and policy dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes age
+          sudo apt-get install --yes age ripgrep
 
       - name: Clear TypeScript cache
         run: rm -rf node_modules/.cache tsconfig.tsbuildinfo tsconfig.ci.tsbuildinfo
@@ -101,12 +129,11 @@ jobs:
           DB_USER: root
           DB_PASSWORD: rootpassword
           DB_NAME: casn_test
+          RUN_DB_MIGRATIONS: "1"
+          DB_MIGRATION_CONFIRM: RUN_CASN_MIGRATIONS
 
       - name: Type check
         run: npm run type-check
-
-      - name: Lint code
-        run: npm run lint
 
       - name: Check posts
         run: npm run check:posts
@@ -124,10 +151,15 @@ jobs:
         run: npm run build
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          RUN_DB_MIGRATIONS: "1"
+          DB_MIGRATION_CONFIRM: RUN_CASN_MIGRATIONS
+
+      - name: Verify isolated runtime artifact
+        run: npm run runtime:policy
 
       - name: Start application server
         run: |
-          node server.js &
+          node server.cjs &
           echo $! > server.pid
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
@@ -158,6 +190,7 @@ jobs:
         run: npm run test:integration:live
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          LIVE_BASE_URL: http://127.0.0.1:3000
           RUN_LIVE_TESTS: "1"
 
       - name: Run E2E tests
@@ -185,6 +218,7 @@ jobs:
           retention-days: 30
 
   directus-smoke:
+    needs: [quality]
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -240,7 +274,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    needs: [test, directus-smoke]
+    needs: [quality, test, directus-smoke]
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
@@ -305,32 +339,31 @@ jobs:
           NGINX_IMAGE: ${{ env.NGINX_IMAGE }}
           APP_REVISION: ${{ env.APP_REVISION }}
           EXPECTED_APP_REVISION: ${{ env.EXPECTED_APP_REVISION }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION
+          envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION,DEPLOY_PATH
           script: |
             set -eu
-            cd ${{ secrets.DEPLOY_PATH || '/opt/casn' }}
+            cd "$DEPLOY_PATH"
 
-            git fetch --depth=1 origin "$APP_REVISION"
-            git checkout --detach "$APP_REVISION"
-            test "$(git rev-parse HEAD)" = "$APP_REVISION"
-
-            scripts/deploy/login-registry.sh
             if [ "$DEPLOY_OPERATION" = "authenticate-only" ]; then
+              scripts/deploy/login-registry.sh
               echo "Remote GHCR authentication completed; deployment intentionally skipped."
               exit 0
             fi
 
-            scripts/deploy/write-artifact-env.sh .env
-            docker pull "$APP_IMAGE"
-            docker pull "$NGINX_IMAGE"
-
-            docker compose --env-file .env -f docker-compose.portainer.yml config --quiet
-            docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans
+            git fetch --depth=1 origin "$APP_REVISION"
+            remote_deploy_script="$(mktemp)"
+            health_verifier_script="$(mktemp)"
+            trap 'rm -f "$remote_deploy_script" "$health_verifier_script"' EXIT
+            git show "$APP_REVISION:scripts/deploy/remote-deploy.sh" >"$remote_deploy_script"
+            git show "$APP_REVISION:scripts/deploy/verify-health.sh" >"$health_verifier_script"
+            chmod 700 "$remote_deploy_script" "$health_verifier_script"
+            HEALTH_VERIFIER="$health_verifier_script" "$remote_deploy_script"
 
       - name: Reject unimplemented Portainer-only deployment
         if: ${{ env.PORTAINER_URL != '' && env.DEPLOY_HOST == '' }}
@@ -353,7 +386,9 @@ jobs:
           echo '3. Preserve existing secrets and set APP_IMAGE, NGINX_IMAGE, and APP_REVISION in .env'
           echo '4. Validate: docker compose --env-file .env -f docker-compose.portainer.yml config --quiet'
           echo '5. Pull the exact app/nginx references printed above'
-          echo '6. Deploy: docker compose --env-file .env -f docker-compose.portainer.yml up -d --remove-orphans'
+          echo '6. Run the exact revision scripts/deploy/remote-deploy.sh with DEPLOY_PATH and HEALTH_VERIFIER=scripts/deploy/verify-health.sh'
+          echo '7. If the internal exact-revision gate fails, the script restores and verifies the previous immutable release'
+          echo '8. Independently verify the canonical public health JSON reports the exact deployed revision'
 
       - name: Health check
         if: ${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}

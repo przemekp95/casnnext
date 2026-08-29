@@ -1,185 +1,150 @@
 /** @jest-environment node */
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
-import { AppDataSource } from '@/lib/db.server';
+import { jest } from '@jest/globals';
+import type { AnalysisDetail, AnalysisRow } from '@/types/analysis';
 
-describe('Analyses API - Comprehensive Coverage', () => {
-  let analysesGET: any;
-  let analysesSlugGET: any;
-  let isDatabaseAvailable = false;
-  const createSlugContext = (slug: string) => ({ params: Promise.resolve({ slug }) });
+type AnalysesRoute = typeof import('@/app/api/analyses/route');
+type AnalysesSlugRoute = typeof import('@/app/api/analyses/[slug]/route');
+type AnalysesModule = typeof import('@/lib/analyses');
 
-  beforeAll(async () => {
+const analysisFixture = {
+  id: 'analysis-1',
+  slug: 'first-analysis',
+  title: 'First analysis',
+  authorId: 'author-1',
+  contentMdx: '# First',
+} satisfies AnalysisRow & Pick<AnalysisDetail, 'contentMdx'>;
+
+const analysisDetailFixture = {
+  ...analysisFixture,
+  author: {
+    id: 'author-1',
+    slug: 'first-author',
+    name: 'First Author',
+    bio: 'First author biography',
+  },
+} satisfies AnalysisDetail & Pick<AnalysisRow, 'authorId'>;
+
+const createSlugContext = (slug: string) => ({ params: Promise.resolve({ slug }) });
+
+async function withTestNextPhase<T>(operation: () => Promise<T>): Promise<T> {
+  const callerNextPhase = process.env.NEXT_PHASE;
+  delete process.env.NEXT_PHASE;
+
+  try {
+    return await operation();
+  } finally {
+    if (callerNextPhase === undefined) {
+      delete process.env.NEXT_PHASE;
+    } else {
+      process.env.NEXT_PHASE = callerNextPhase;
+    }
+  }
+}
+
+describe('Analyses API', () => {
+  let analysesRoute: AnalysesRoute;
+  let analysesSlugRoute: AnalysesSlugRoute;
+  let getAnalysesMock: jest.MockedFunction<AnalysesModule['getAnalyses']>;
+  let getAnalysisBySlugMock: jest.MockedFunction<AnalysesModule['getAnalysisBySlug']>;
+
+  beforeEach(async () => {
+    jest.resetModules();
+    getAnalysesMock = jest.fn<AnalysesModule['getAnalyses']>();
+    getAnalysisBySlugMock = jest.fn<AnalysesModule['getAnalysisBySlug']>();
+    jest.doMock('@/lib/analyses', () => ({
+      getAnalyses: getAnalysesMock,
+      getAnalysisBySlug: getAnalysisBySlugMock,
+    }));
+
+    [analysesRoute, analysesSlugRoute] = await withTestNextPhase(async () => [
+      await import('@/app/api/analyses/route'),
+      await import('@/app/api/analyses/[slug]/route'),
+    ]);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('restores a caller build phase after a rejected provider assertion', async () => {
+    const nextPhaseBeforeAssertion = process.env.NEXT_PHASE;
+    process.env.NEXT_PHASE = 'phase-production-build';
+
     try {
-      const analysesRoute = require('@/app/api/analyses/route');
-      analysesGET = analysesRoute.GET;
+      await expect(
+        withTestNextPhase(async () => {
+          expect(process.env.NEXT_PHASE).toBeUndefined();
+          throw new Error('provider rejected');
+        }),
+      ).rejects.toThrow('provider rejected');
 
-      const analysesSlugRoute = require('@/app/api/analyses/[slug]/route');
-      analysesSlugGET = analysesSlugRoute.GET;
-
-      try {
-        if (AppDataSource) {
-          if (!AppDataSource.isInitialized) {
-            await AppDataSource.initialize();
-          }
-          isDatabaseAvailable = true;
-        }
-      } catch {
-        isDatabaseAvailable = false;
+      expect(process.env.NEXT_PHASE).toBe('phase-production-build');
+    } finally {
+      if (nextPhaseBeforeAssertion === undefined) {
+        delete process.env.NEXT_PHASE;
+      } else {
+        process.env.NEXT_PHASE = nextPhaseBeforeAssertion;
       }
-    } catch (e) {
-      isDatabaseAvailable = false;
     }
   });
 
   describe('GET /api/analyses', () => {
-    it('returns 200 status with analyses data structure', async () => {
-      if (!analysesGET || !isDatabaseAvailable) return;
+    it('returns the fixed analysis fixture', async () => {
+      getAnalysesMock.mockResolvedValue([analysisFixture]);
 
-      const req = new Request('http://localhost:3000/api/analyses');
-      const response = await analysesGET(req);
-      const data = await response.json();
+      const response = await withTestNextPhase(() => analysesRoute.GET());
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
-
-      if (data.length > 0) {
-        const analysis = data[0];
-        expect(analysis).toHaveProperty('id');
-        expect(analysis).toHaveProperty('title');
-        expect(analysis).toHaveProperty('slug');
-        expect(typeof analysis.id).toBe('string');
-        expect(typeof analysis.title).toBe('string');
-        expect(typeof analysis.slug).toBe('string');
-        expect(analysis).toHaveProperty('authorId');
-      }
+      expect(await response.json()).toEqual([expect.objectContaining(analysisFixture)]);
     });
 
-    it('handles database unavailability gracefully', async () => {
-      if (!analysesGET || !isDatabaseAvailable) return;
+    it('returns the exact internal-server-error response when the query fails', async () => {
+      getAnalysesMock.mockRejectedValue(new Error('database unavailable'));
 
-      const req = new Request('http://localhost:3000/api/analyses');
-      const response = await analysesGET(req);
+      const response = await withTestNextPhase(() => analysesRoute.GET());
 
-      expect([200, 500]).toContain(response.status);
-
-      const data = await response.json();
-      if (response.status === 500) {
-        expect(data).toHaveProperty('error');
-      } else {
-        expect(Array.isArray(data)).toBe(true);
-      }
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: 'Internal server error' });
     });
   });
 
   describe('GET /api/analyses/[slug]', () => {
-    it('returns detailed analysis for valid slug', async () => {
-      if (!analysesSlugGET || !isDatabaseAvailable) return;
+    it('returns the fixed detail fixture for an existing slug', async () => {
+      getAnalysisBySlugMock.mockResolvedValue(analysisDetailFixture);
 
-      // First get list of analyses to find a valid slug
-      const listReq = new Request('http://localhost:3000/api/analyses');
-      const listResponse = await analysesGET(listReq);
-      const analyses = await listResponse.json();
+      const response = await withTestNextPhase(() => analysesSlugRoute.GET(
+        new Request('http://localhost:3000/api/analyses/first-analysis'),
+        createSlugContext('first-analysis'),
+      ));
 
-      if (analyses.length > 0) {
-        const firstAnalysis = analyses[0];
-        const detailReq = new Request(`http://localhost:3000/api/analyses/${firstAnalysis.slug}`);
-        const detailResponse = await analysesSlugGET(detailReq, createSlugContext(firstAnalysis.slug));
-        const detailData = await detailResponse.json();
-
-        expect(detailResponse.status).toBe(200);
-        expect(detailData).toHaveProperty('id');
-        expect(detailData).toHaveProperty('title');
-        expect(detailData).toHaveProperty('slug');
-        expect(detailData).toHaveProperty('contentMdx');
-        if (detailData.author) {
-          expect(detailData.author).toHaveProperty('name');
-        }
-      }
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(analysisDetailFixture);
     });
 
-    it('returns 404 for non-existent analysis slug', async () => {
-      if (!analysesSlugGET || !isDatabaseAvailable) return;
+    it('returns the exact not-found response for an unknown slug', async () => {
+      getAnalysisBySlugMock.mockResolvedValue(null);
 
-      const req = new Request('http://localhost:3000/api/analyses/non-existent-slug');
-      const response = await analysesSlugGET(req, createSlugContext('non-existent-slug'));
+      const response = await withTestNextPhase(() => analysesSlugRoute.GET(
+        new Request('http://localhost:3000/api/analyses/missing-analysis'),
+        createSlugContext('missing-analysis'),
+      ));
 
       expect(response.status).toBe(404);
-
-      const data = await response.json();
-      expect(data).toHaveProperty('error');
-      expect(data.error).toContain('not found');
+      expect(await response.json()).toEqual({ error: 'Analysis not found' });
     });
 
-    it('handles database errors gracefully', async () => {
-      if (!analysesSlugGET || !isDatabaseAvailable) return;
+    it('returns the exact internal-server-error response when the detail query fails', async () => {
+      getAnalysisBySlugMock.mockRejectedValue(new Error('database unavailable'));
 
-      const req = new Request('http://localhost:3000/api/analyses/test-slug');
-      const response = await analysesSlugGET(req, createSlugContext('test-slug'));
+      const response = await withTestNextPhase(() => analysesSlugRoute.GET(
+        new Request('http://localhost:3000/api/analyses/first-analysis'),
+        createSlugContext('first-analysis'),
+      ));
 
-      expect([200, 404, 500]).toContain(response.status);
-
-      const data = await response.json();
-      if (response.status === 500) {
-        expect(data).toHaveProperty('error');
-      }
-    });
-  });
-
-  describe('Data validation', () => {
-    it('validates analysis data structure from API', async () => {
-      if (!analysesGET || !isDatabaseAvailable) return;
-
-      const req = new Request('http://localhost:3000/api/analyses');
-      const response = await analysesGET(req);
-      const data = await response.json();
-
-      data.forEach((analysis: any) => {
-        // Required fields
-        expect(analysis).toHaveProperty('id');
-        expect(analysis).toHaveProperty('title');
-        expect(analysis).toHaveProperty('slug');
-
-        // Type validation
-        expect(typeof analysis.id).toBe('string');
-        expect(typeof analysis.title).toBe('string');
-        expect(typeof analysis.slug).toBe('string');
-
-        // Optional fields
-        if (analysis.description) {
-          expect(typeof analysis.description).toBe('string');
-        }
-        if (analysis.date) {
-          expect(typeof analysis.date).toBe('string');
-        }
-        if (analysis.authorId) {
-          expect(typeof analysis.authorId).toBe('string');
-        }
-      });
-    });
-
-    it('validates detailed analysis with author relationship', async () => {
-      if (!analysesSlugGET || !isDatabaseAvailable) return;
-
-      const listReq = new Request('http://localhost:3000/api/analyses');
-      const listResponse = await analysesGET(listReq);
-      const analyses = await listResponse.json();
-
-      if (analyses.length > 0) {
-        const firstAnalysis = analyses[0];
-        const detailReq = new Request(`http://localhost:3000/api/analyses/${firstAnalysis.slug}`);
-        const detailResponse = await analysesSlugGET(detailReq, createSlugContext(firstAnalysis.slug));
-        const detailData = await detailResponse.json();
-
-        expect(detailData).toHaveProperty('id');
-        expect(detailData).toHaveProperty('title');
-        expect(detailData).toHaveProperty('slug');
-        expect(detailData).toHaveProperty('contentMdx');
-
-        if (detailData.author) {
-          expect(detailData.author).toHaveProperty('name');
-        }
-      }
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: 'Internal server error' });
     });
   });
 });

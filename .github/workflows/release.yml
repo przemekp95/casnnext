@@ -10,7 +10,40 @@ permissions:
   packages: write
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install --yes ripgrep
+
+      - name: Install immutable quality dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Enforce lifecycle-safe preflight
+        run: bash scripts/ci/first-party-quality-policy.sh .
+
+      - name: Build runtime policy target
+        run: npm run build:runtime
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Enforce quality debt policy
+        run: npm run quality:policy
+
   release:
+    needs: [quality]
     runs-on: ubuntu-latest
 
     steps:

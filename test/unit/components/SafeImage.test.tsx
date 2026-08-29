@@ -1,25 +1,20 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-
 import { render, screen } from '@testing-library/react';
+import SafeImage, { type SafeImageProps } from '@/components/SafeImage';
 
-let SafeImage: any;
-let hasComp = false;
-try {
-  SafeImage = require('@/components/SafeImage').default;
-  hasComp = !!SafeImage;
-} catch (e) {}
+describe('SafeImage', () => {
+  it('renders the supplied source, accessible alternative text, and literal dimensions through Next Image', () => {
+    render(<SafeImage src="/images/example.png" alt="Example" width={80} height={60} />);
 
-(hasComp ? describe : describe.skip)('SafeImage', () => {
-  it('renderuje img element z podanymi props', () => {
-    render(<SafeImage src="/test.jpg" alt="Test image" />);
-
-    const img = screen.getByAltText('Test image');
-    expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute('src', '/test.jpg');
-    expect(img.tagName).toBe('IMG');
+    const image = screen.getByRole('img', { name: 'Example' });
+    expect(image).toHaveAttribute('src', '/images/example.png');
+    expect(image).toHaveAttribute('alt', 'Example');
+    expect(image).toHaveAttribute('width', '80');
+    expect(image).toHaveAttribute('height', '60');
+    expect(image).toHaveAttribute('data-next-image', 'true');
+    expect(image).toHaveAttribute('data-next-image-unoptimized', 'true');
   });
 
-  it('przekazuje wszystkie props do img elementu', () => {
+  it('forwards standard image attributes', () => {
     render(
       <SafeImage
         src="/test.jpg"
@@ -28,37 +23,79 @@ try {
         width={100}
         height={50}
         data-testid="custom-image"
-      />
+      />,
     );
 
-    const img = screen.getByAltText('Test');
-    expect(img).toHaveClass('custom-class');
-    expect(img).toHaveAttribute('width', '100');
-    expect(img).toHaveAttribute('height', '50');
-    expect(img).toHaveAttribute('data-testid', 'custom-image');
+    const image = screen.getByRole('img', { name: 'Test' });
+    expect(image).toHaveClass('custom-class');
+    expect(image).toHaveAttribute('width', '100');
+    expect(image).toHaveAttribute('height', '50');
+    expect(image).toHaveAttribute('data-testid', 'custom-image');
   });
 
-  it('używa domyślnego alt text gdy nie podany', () => {
-    render(<SafeImage src="/test.jpg" />);
+  it('defaults alternative text to empty at the invalid runtime boundary', () => {
+    const props = {
+      src: '/test.jpg',
+      width: 80,
+      height: 60,
+    } as unknown as SafeImageProps;
 
-    const img = screen.getByAltText('');
-    expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute('src', '/test.jpg');
+    render(<SafeImage {...props} />);
+
+    expect(screen.getByAltText('')).toHaveAttribute('src', '/test.jpg');
   });
 
-  it('konwertuje src na string', () => {
-    render(<SafeImage src={123 as any} alt="Test" />);
+  it('normalizes an invalid source boundary to a string', () => {
+    render(<SafeImage src={123 as unknown as string} alt="Test" width={80} height={60} />);
 
-    const img = screen.getByAltText('Test');
-    expect(img).toHaveAttribute('src', '123');
+    expect(screen.getByRole('img', { name: 'Test' })).toHaveAttribute('src', '123');
   });
 
-  it('renderuje się jako standardowy img element', () => {
-    render(<SafeImage src="/test.jpg" alt="Test" />);
+  it('rejects unpaired dimensions unless fill is selected', () => {
+    const props = {
+      src: '/test.jpg',
+      alt: 'Unpaired dimensions',
+      width: 80,
+    } as SafeImageProps;
 
-    const img = screen.getByAltText('Test');
-    expect(img.tagName).toBe('IMG');
-    expect(img).toHaveAttribute('src');
-    expect(img).toHaveAttribute('alt');
+    expect(() => render(<SafeImage {...props} />)).toThrow(
+      'NextImageMock requires paired valid width and height unless fill is true',
+    );
+  });
+
+  it('allows fill images without dimensions', () => {
+    render(<SafeImage src="/test.jpg" alt="Fill image" fill />);
+
+    expect(screen.getByRole('img', { name: 'Fill image' })).toHaveAttribute(
+      'data-next-image-unoptimized',
+      'true',
+    );
+  });
+
+  it('allows Next-compatible zero dimensions and full-size styles for fill images', () => {
+    render(
+      <SafeImage
+        src="/test.jpg"
+        alt="Filled zero dimensions"
+        fill
+        width={0}
+        height={0}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      />,
+    );
+
+    const image = screen.getByRole('img', { name: 'Filled zero dimensions' });
+    expect(image).toHaveAttribute('width', '0');
+    expect(image).toHaveAttribute('height', '0');
+    expect(image).toHaveStyle({ width: '100%', height: '100%', objectFit: 'cover' });
+  });
+
+  it('rejects dimensions and dimension styles for fill images', () => {
+    expect(() => render(<SafeImage src="/test.jpg" alt="Filled dimensions" fill width={80} height={60} />)).toThrow(
+      'NextImageMock does not allow width or height when fill is true',
+    );
+    expect(() =>
+      render(<SafeImage src="/test.jpg" alt="Filled style" fill style={{ width: '50%', objectFit: 'cover' }} />),
+    ).toThrow('NextImageMock does not allow style.width or style.height when fill is true');
   });
 });

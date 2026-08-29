@@ -206,7 +206,7 @@ mysql_is_ready() {
     return 2
   fi
   docker exec "$MYSQL_CONTAINER_NAME" sh -c \
-    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqladmin ping --host=127.0.0.1 --user=root --silent' \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqladmin ping --protocol=TCP --host=127.0.0.1 --port=3306 --user=root --silent' \
     >/dev/null 2>&1
 }
 
@@ -550,6 +550,8 @@ fi
 
 echo "Applying repository migrations to the disposable database..."
 if ! NODE_ENV=production \
+  RUN_DB_MIGRATIONS=1 \
+  DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS \
   DATABASE_URL="mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@127.0.0.1:${mysql_host_port}/${MYSQL_DATABASE}" \
   npm run migration:run >"$migration_log" 2>&1; then
   echo "Repository migration failed; last 200 migration log lines:" >&2

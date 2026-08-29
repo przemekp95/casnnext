@@ -37,14 +37,17 @@ copy a production deployment `.env` into the repository.
 
 ```bash
 npm ci
-npm run migration:run
+RUN_DB_MIGRATIONS=1 \
+  DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS \
+  npm run migration:run
 npm run dev
 ```
 
 The development server listens on `http://localhost:3000` by default.
-`npm run migration:run` is an explicit TypeORM action: the initial migration
-can recreate and seed `Author` and `Analysis`, so use only an approved local or
-isolated database.
+`npm run migration:run` is an explicit, fail-closed TypeORM action. It requires
+both confirmation variables, and it refuses existing content tables without a
+recorded `InitialSetup1736424470000`. The initial migration can recreate and
+seed `Author` and `Analysis`, so use only an approved local or isolated database.
 
 ## Runtime safety
 
@@ -52,10 +55,11 @@ isolated database.
   `{ "status": "alive" }`.
 - `GET /api/health` is database-backed readiness. It returns `200` only after
   `SELECT 1` succeeds and otherwise returns `503` without exposing errors.
-- Application startup does not automatically run migrations unless both
-  `RUN_DB_MIGRATIONS=1` and
-  `DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS` are present. Neither variable is
-  injected by the supplied production Compose files.
+- Application startup never runs migrations. Migrations require the explicit
+  command and both confirmations shown above; neither variable is injected by
+  the supplied production Compose files.
+- Production startup requires configured, reachable MySQL and exits non-zero
+  before listening if initialization or `SELECT 1` fails.
 - `POST /api/articles` is disabled (`405`) and both methods of `/api/db-init`
   are disabled (`404`). Editorial writes go through Directus.
 
@@ -124,6 +128,9 @@ then publishes app and Nginx images for qualifying pushes. It does not build a
 CASN Directus image. `.github/workflows/deploy.yml` is manual
 (`workflow_dispatch`) and requires immutable image digests plus a matching
 40-hex `app_revision`; it validates those inputs before an SSH deployment path.
+The SSH path requires public health verification and restores the previous
+exact revision, image digests, and environment when candidate health fails. It
+does not automatically roll back database or Directus state.
 A GitHub Release is not deployment evidence. See
 [docs/docker-ghcr.md](docs/docker-ghcr.md) and
 [docs/deployment-reconciliation.md](docs/deployment-reconciliation.md).

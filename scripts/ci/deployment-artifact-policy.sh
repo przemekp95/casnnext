@@ -4,6 +4,9 @@ set -euo pipefail
 readonly DEPLOY_WORKFLOW='.github/workflows/deploy.yml'
 readonly ARTIFACT_ENV_WRITER='scripts/deploy/write-artifact-env.sh'
 readonly REGISTRY_LOGIN='scripts/deploy/login-registry.sh'
+readonly REMOTE_DEPLOY='scripts/deploy/remote-deploy.sh'
+readonly REMOTE_DEPLOY_TEST='scripts/ci/remote-deploy-rollback-test.sh'
+readonly DEPLOYMENT_MUTATION_CHECK='scripts/ci/assert-no-deployment-db-mutation.sh'
 readonly HEALTH_VERIFIER='scripts/deploy/verify-health.sh'
 readonly ACTIONLINT_IMAGE='rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9'
 readonly APP_IMAGE_FIXTURE='ghcr.io/example/casn@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -15,6 +18,28 @@ cleanup() {
   rm -rf "$policy_tmp_dir"
 }
 trap cleanup EXIT
+
+ssh_deploy_block="$policy_tmp_dir/ssh-deploy-block.yml"
+awk '
+  /- name: Deploy via SSH/ { in_deploy=1 }
+  /- name: Reject unimplemented Portainer-only deployment/ { in_deploy=0 }
+  in_deploy { print }
+' "$DEPLOY_WORKFLOW" >"$ssh_deploy_block"
+
+health_check_block="$policy_tmp_dir/health-check-block.yml"
+awk '
+  /- name: Health check/ { in_health=1 }
+  /- name: Notify deployment status/ { in_health=0 }
+  in_health { print }
+' "$DEPLOY_WORKFLOW" >"$health_check_block"
+
+forbidden_fixture="$policy_tmp_dir/forbidden-remote-deploy.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'npm run migration:run' >"$forbidden_fixture"
+if "$DEPLOYMENT_MUTATION_CHECK" "$forbidden_fixture" >/dev/null 2>&1; then
+  echo 'Deployment mutation checker accepted a forbidden migration command.' >&2
+  exit 1
+fi
+"$DEPLOYMENT_MUTATION_CHECK" "$REMOTE_DEPLOY" "$ssh_deploy_block"
 
 assert_single_assignment() {
   local key="$1"
@@ -42,6 +67,11 @@ if rg -n "ghcr\\.io/[^[:space:]\"']+:(main|dev|latest)([^[:alnum:]_-]|$)" "$DEPL
   exit 1
 fi
 
+if rg -n 'HEALTH_CHECK_URL' "$DEPLOY_WORKFLOW" "$REMOTE_DEPLOY"; then
+  echo 'Deployment must use the internal exact-revision health verifier without a public health URL.' >&2
+  exit 1
+fi
+
 for required_source in \
   'app_image:' \
   'nginx_image:' \
@@ -51,19 +81,32 @@ for required_source in \
   "EXPECTED_APP_REVISION: \${{ github.sha }}" \
   'GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}' \
   'GHCR_USERNAME: ${{ github.repository_owner }}' \
-  'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION' \
-  'scripts/deploy/write-artifact-env.sh .env' \
+  'envs: APP_IMAGE,NGINX_IMAGE,APP_REVISION,EXPECTED_APP_REVISION,GHCR_TOKEN,GHCR_USERNAME,DEPLOY_OPERATION,DEPLOY_PATH' \
+  'git show "$APP_REVISION:scripts/deploy/remote-deploy.sh"' \
+  'git show "$APP_REVISION:scripts/deploy/verify-health.sh"' \
+  'HEALTH_VERIFIER="$health_verifier_script" "$remote_deploy_script"' \
   'scripts/deploy/login-registry.sh' \
-  'scripts/deploy/verify-health.sh "$APP_REVISION"' \
-  "docker pull \"\$APP_IMAGE\"" \
-  "docker pull \"\$NGINX_IMAGE\"" \
-  'docker compose --env-file .env -f docker-compose.portainer.yml config --quiet' \
   'org.opencontainers.image.revision'; do
   if ! rg -Fq "$required_source" "$DEPLOY_WORKFLOW"; then
     echo "Deployment workflow is missing immutable-artifact control: $required_source" >&2
     exit 1
   fi
 done
+
+for required_health_source in \
+  "if: \${{ inputs.operation == 'deploy' && env.DEPLOY_HOST != '' }}" \
+  'envs: APP_REVISION' \
+  'scripts/deploy/verify-health.sh "$APP_REVISION"'; do
+  if ! rg -Fq "$required_health_source" "$health_check_block"; then
+    echo "Deployment workflow is missing internal health-gate control: $required_health_source" >&2
+    exit 1
+  fi
+done
+
+if ! rg -Fq '"$HEALTH_VERIFIER" "$revision"' "$REMOTE_DEPLOY"; then
+  echo 'Remote deployment must health-gate candidate and rollback releases by exact revision.' >&2
+  exit 1
+fi
 
 if [[ ! -x "$ARTIFACT_ENV_WRITER" ]]; then
   echo "$ARTIFACT_ENV_WRITER must exist and be executable" >&2
@@ -75,11 +118,12 @@ if [[ ! -x "$REGISTRY_LOGIN" ]]; then
   exit 1
 fi
 
-if [[ ! -x "$HEALTH_VERIFIER" ]]; then
-  echo "$HEALTH_VERIFIER must exist and be executable" >&2
+if [[ ! -x "$REMOTE_DEPLOY" || ! -x "$REMOTE_DEPLOY_TEST" || ! -x "$DEPLOYMENT_MUTATION_CHECK" || ! -x "$HEALTH_VERIFIER" ]]; then
+  echo 'Remote deployment, rollback test, mutation boundary checker, and health verifier must be executable.' >&2
   exit 1
 fi
 
+"$REMOTE_DEPLOY_TEST"
 fake_docker="$policy_tmp_dir/docker"
 fake_docker_args="$policy_tmp_dir/docker-args"
 fake_docker_stdin="$policy_tmp_dir/docker-stdin"

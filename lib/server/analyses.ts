@@ -3,6 +3,8 @@ import 'server-only';
 import { unstable_cache } from "next/cache";
 import { executeRscQuery } from "../db.rsc";
 import { AnalysisSchema } from "../entities";
+import type { AnalysisEntity } from "../entities/Analysis";
+import type { AuthorEntity } from "../entities/Author";
 import { AnalysisRow, AnalysisDetail } from "../../types/analysis";
 import { applyAuthorCanonicalOverrides } from "@/lib/server/author-overrides";
 import { createExcerpt, stripMarkdown } from "@/lib/searchUtils";
@@ -109,6 +111,15 @@ const mockAnalysisDetails: Record<string, AnalysisDetail> = {
 const ANALYSIS_LIST_CACHE_KEY = ["analyses:list"];
 const ANALYSIS_DETAIL_CACHE_KEY = ["analyses:detail"];
 const ANALYSIS_CACHE_TAGS = ["analyses", "articles", "authors"];
+type AnalysisAuthorProjection = Pick<AuthorEntity, "id" | "slug" | "name" | "img" | "bio">;
+type AnalysisWithAuthorProjection = Omit<AnalysisEntity, "author"> & {
+  author?: AnalysisAuthorProjection | null;
+};
+
+function errorMessage(value: unknown): string {
+  return value instanceof Error ? value.message : String(value);
+}
+
 const isProductionBuildPhase = (): boolean =>
   process.env.NEXT_PHASE === "phase-production-build";
 
@@ -174,7 +185,7 @@ async function getAnalysesUncached(): Promise<AnalysisRow[]> {
   try {
     return await executeRscQuery(async (dataSource) => {
       const analysisRepository = dataSource.getRepository(AnalysisSchema);
-      const analyses = await analysisRepository.find({
+      const analyses = (await analysisRepository.find({
         relations: {
           author: true,
         },
@@ -182,11 +193,10 @@ async function getAnalysesUncached(): Promise<AnalysisRow[]> {
           publishedAt: Not(IsNull()),
         },
         order: { publishedAt: 'DESC', id: 'DESC' },
-      });
+      })) as AnalysisWithAuthorProjection[];
 
       // Transform to UI-friendly format
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = analyses.map((analysis: any) => ({
+      const result = analyses.map((analysis) => ({
         id: String(analysis.id),
         title: String(analysis.title),
         slug: String(analysis.slug),
@@ -219,7 +229,7 @@ async function getAnalysesUncached(): Promise<AnalysisRow[]> {
       }));
     });
   } catch (error) {
-    console.warn('Database not available for getAnalyses(), using mock data:', error);
+    console.warn('Database not available for getAnalyses(), using mock data:', errorMessage(error));
     return mockAnalyses.map((analysis) => ({
       ...analysis,
       publishedAt: analysis.publishedAt ?? "",
@@ -243,7 +253,7 @@ async function getAnalysisBySlugUncached(slug: string): Promise<AnalysisDetail |
     return await executeRscQuery(async (dataSource) => {
       const analysisRepository = dataSource.getRepository(AnalysisSchema);
 
-      const analysis = await analysisRepository.findOne({
+      const analysis = (await analysisRepository.findOne({
         where: {
           slug,
           publishedAt: Not(IsNull()),
@@ -251,15 +261,14 @@ async function getAnalysisBySlugUncached(slug: string): Promise<AnalysisDetail |
         relations: {
           author: true,
         },
-      });
+      })) as AnalysisWithAuthorProjection | null;
 
       if (!analysis) {
         return null;
       }
 
       // Transform to UI-friendly format
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const author = (analysis as any).author;
+      const author = analysis.author;
       return {
         id: String(analysis.id),
         title: analysis.title,
@@ -282,7 +291,7 @@ async function getAnalysisBySlugUncached(slug: string): Promise<AnalysisDetail |
       };
     });
   } catch (error) {
-    console.warn('Database not available for getAnalysisBySlug(), using mock data:', error);
+    console.warn('Database not available for getAnalysisBySlug(), using mock data:', errorMessage(error));
     const detail = mockAnalysisDetails[slug];
     if (!detail) return null;
     return {

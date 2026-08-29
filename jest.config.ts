@@ -11,6 +11,7 @@ const config = {
     '^next/image$': '<rootDir>/test/__mocks__/nextImageMock.tsx',
     '^@/(.*)$': '<rootDir>/$1'
   },
+  moduleFileExtensions: ['ts', 'tsx', 'mts', 'cts', 'js', 'jsx', 'mjs', 'cjs', 'json', 'node'],
   testMatch: ['**/?(*.)+(test|spec).[jt]s?(x)'],
   transformIgnorePatterns: ['/node_modules/(?!(nanoid)/)'],
   modulePathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/deploy/'],

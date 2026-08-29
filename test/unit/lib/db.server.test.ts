@@ -73,7 +73,7 @@ describe('lib/db.server', () => {
     await expect(mod.query('SELECT 1')).rejects.toThrow('Database not initialized');
   });
 
-  it('parses DATABASE_URL and disables automatic migrations without both confirmations', async () => {
+  it('parses DATABASE_URL', async () => {
     process.env.DATABASE_URL = 'mysql://casn_user:casn_pass@db.internal:3308/casn_prod';
     delete process.env.DB_HOST;
     delete process.env.DB_PORT;
@@ -93,21 +93,26 @@ describe('lib/db.server', () => {
     expect(config.username).toBe('casn_user');
     expect(config.password).toBe('casn_pass');
     expect(config.database).toBe('casn_prod');
-    expect(config.migrationsRun).toBe(false);
-    expect(config.synchronize).toBe(false);
-
     await expect(mod.query('SELECT 1')).rejects.toThrow('Database not initialized');
   });
 
-  it('enables automatic migrations only with both exact confirmations', async () => {
+  it.each([
+    {},
+    { RUN_DB_MIGRATIONS: '1' },
+    { DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' },
+    { RUN_DB_MIGRATIONS: 'true', DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' },
+    { RUN_DB_MIGRATIONS: '1', DB_MIGRATION_CONFIRM: 'RUN_CASN_MIGRATIONS' },
+  ] as const)('keeps datasource synchronization and migrations disabled for %o', async (migrationEnv) => {
     process.env.DATABASE_URL = 'mysql://casn_user:casn_pass@db.internal:3308/casn_prod';
-    process.env.RUN_DB_MIGRATIONS = '1';
-    process.env.DB_MIGRATION_CONFIRM = 'RUN_CASN_MIGRATIONS';
+    delete process.env.RUN_DB_MIGRATIONS;
+    delete process.env.DB_MIGRATION_CONFIRM;
+    Object.assign(process.env, migrationEnv);
 
     const { DataSourceMock } = await loadModule();
     const [config] = DataSourceMock.mock.calls[0];
 
-    expect(config.migrationsRun).toBe(true);
+    expect(config.migrationsRun).toBe(false);
+    expect(config.synchronize).toBe(false);
   });
 
   it('executes query and always releases query runner', async () => {

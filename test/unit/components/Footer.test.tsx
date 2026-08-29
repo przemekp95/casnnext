@@ -1,17 +1,26 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+import { render, screen } from '@testing-library/react';
+import Footer from '@/components/Footer';
 
-import { render } from '@testing-library/react';
+describe('Footer', () => {
+  it('renders the organization and social destinations', () => {
+    render(<Footer />);
 
-let Footer: any;
-let hasComp = false;
-try {
-  Footer = require('@/components/Footer').default;
-  hasComp = !!Footer;
-} catch (_) {}
-
-(hasComp ? describe : describe.skip)('Footer', () => {
-  it('renderuje stopkę', () => {
-    const { container } = render(<Footer />);
-    expect(container).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Centrum Analiz Służby Niepodległej CASN logo' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'CASN na Facebooku' })).toHaveAttribute(
+      'href',
+      'https://www.facebook.com/100094527270878',
+    );
+    expect(screen.getByRole('link', { name: 'CASN na Twitterze' })).toHaveAttribute(
+      'href',
+      'https://twitter.com/fundacjasluzba',
+    );
+    expect(screen.getByRole('link', { name: 'CASN na Instagramie' })).toHaveAttribute(
+      'href',
+      'https://www.instagram.com/fundacja_sluzba_niepodleglej/',
+    );
+    expect(screen.getByRole('link', { name: 'Wesprzyj nas' })).toHaveAttribute(
+      'href',
+      'https://sluzbaniepodleglej.pl/wspomoz-nas/',
+    );
   });
 });

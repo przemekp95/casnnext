@@ -88,6 +88,7 @@ tmp/
 
 # build artifacts
 build-casn.tgz
+/dist/runtime/
 
 # local editor settings
 .vscode/settings.json
@@ -95,12 +96,6 @@ build-casn.tgz
 # local generated outputs
 /output/
 /strapi/public/uploads/
-
-# generated JavaScript files from TypeScript compilation
-lib/db.server.js
-lib/entities/*.js
-lib/migrations/*.js
-migrations/*.js
 
 # database dumps
 *.sql

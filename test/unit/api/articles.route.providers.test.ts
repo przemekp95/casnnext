@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import { GET, POST } from "@/app/api/articles/route";
+import { GET, POST, toArticleResponse } from "@/app/api/articles/route";
 import { AppDataSource, isDatabaseConfigured } from "@/lib/db.server";
 
 jest.mock("next/cache", () => ({
@@ -50,6 +50,21 @@ describe("/api/articles DB-backed read contract", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it("rejects malformed article rows at the API boundary", () => {
+    const malformed: unknown = { id: 7 };
+
+    expect(() => toArticleResponse(malformed)).toThrow("Invalid article record");
+  });
+
+  it.each([
+    ["number", 7],
+    ["text", "article"],
+    ["null", null],
+    ["undefined", undefined],
+  ])("rejects %s at the outer non-record boundary", (_kind, malformed: unknown) => {
+    expect(() => toArticleResponse(malformed)).toThrow("Invalid article record");
   });
 
   it("GET returns the DB-backed article contract", async () => {

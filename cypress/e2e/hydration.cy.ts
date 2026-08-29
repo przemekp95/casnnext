@@ -163,14 +163,13 @@ describe('Hydration Tests', () => {
     });
   });
 
-  it.skip('should render author cards with all required attributes', () => {
-    // Skip author cards test in CI - requires specific database data and UI elements
+  it('should render author cards with all required attributes', () => {
     cy.visit('/autorzy');
 
-    // If author cards exist, verify their structure
-    cy.get('.our-team-box').each(($card) => {
+    cy.get('.our-team-box').should('have.length.greaterThan', 0).each(($card) => {
       // Check for image
-      cy.wrap($card).find('img').should('have.attr', 'alt').and('have.attr', 'src');
+      cy.wrap($card).find('img').should('have.attr', 'alt');
+      cy.wrap($card).find('img').should('have.attr', 'src');
 
       // Check for name
       cy.wrap($card).find('.our-team-name h6').should('not.be.empty');
@@ -180,12 +179,10 @@ describe('Hydration Tests', () => {
     });
   });
 
-  it.skip('should render analysis cards with proper structure', () => {
-    // Skip analysis cards test in CI - requires specific database data and UI elements
+  it('should render analysis cards with proper structure', () => {
     cy.visit('/zbiory');
 
-    // Check analysis cards structure
-    cy.get('.blog-list-item').each(($card) => {
+    cy.get('.blog-list-item').should('have.length.greaterThan', 0).each(($card) => {
       // Verify CSS classes
       cy.wrap($card).should('have.class', 'bg-white').and('have.class', 'rounded');
 
@@ -196,19 +193,19 @@ describe('Hydration Tests', () => {
       cy.wrap($card).find('.cases-desc h5').should('not.be.empty');
 
       // Check for download button
-      cy.wrap($card).find('.learn-more a').should('contain', 'POBIERZ')
-        .and('have.attr', 'href')
-        .and('have.attr', 'target', '_blank')
-        .and('have.attr', 'rel', 'noopener noreferrer');
+      cy.wrap($card).find('.learn-more a').should('contain', 'POBIERZ');
+      cy.wrap($card).find('.learn-more a').should('have.attr', 'href').and('match', /\.pdf$/);
+      cy.wrap($card).find('.learn-more a').should('have.attr', 'target', '_blank');
+      cy.wrap($card).find('.learn-more a').should('have.attr', 'rel', 'noopener noreferrer');
     });
   });
 
-  it.skip('should load data from APIs without errors', () => {
-    // Skip API tests in CI - database state may vary and cause inconsistent results
+  it('should load data from APIs without errors', () => {
     // Test authors API
     cy.request('/api/authors').then((response) => {
       expect(response.status).to.equal(200);
       expect(Array.isArray(response.body)).to.equal(true);
+      expect(response.body).to.have.length.greaterThan(0);
 
       if (response.body.length > 0) {
         const author = response.body[0];
@@ -223,13 +220,13 @@ describe('Hydration Tests', () => {
     cy.request('/api/articles').then((response) => {
       expect(response.status).to.equal(200);
       expect(Array.isArray(response.body)).to.equal(true);
+      expect(response.body).to.have.length.greaterThan(0);
 
       if (response.body.length > 0) {
         const article = response.body[0];
         expect(article).to.have.property('id');
         expect(article).to.have.property('title');
         expect(article).to.have.property('slug');
-        expect(article).to.have.property('content');
         expect(article).to.have.property('authorId');
       }
     });
@@ -326,28 +323,16 @@ describe('Hydration Tests', () => {
     });
   });
 
-  it.skip('should navigate between pages without hydration issues', () => {
-    // Skip navigation test in CI - navigation content may vary based on application state
-    // Start on homepage
+  it('should navigate between pages without hydration issues', () => {
     cy.visit('/');
 
-    // Try to navigate - check if navigation elements exist
-    cy.get('body').then(($body) => {
-      // Check if we can find any navigation links
-      if ($body.find('a[href*="/autorzy"]').length > 0) {
-        cy.get('a[href*="/autorzy"]').first().click();
-        cy.url().should('include', '/autorzy');
-      }
+    cy.get('nav[aria-label="Menu główne"] a[href="/autorzy"]').click();
+    cy.location('pathname').should('eq', '/autorzy');
 
-      if ($body.find('a[href*="/zbiory"]').length > 0) {
-        cy.get('a[href*="/zbiory"]').first().click();
-        cy.url().should('include', '/zbiory');
-      }
+    cy.get('nav[aria-label="Menu główne"] a[href="/zbiory"]').click();
+    cy.location('pathname').should('eq', '/zbiory');
 
-      if ($body.find('a[href="/"]').length > 0) {
-        cy.get('a[href="/"]').first().click();
-        cy.url().should('not.include', '/autorzy').and('not.include', '/zbiory');
-      }
-    });
+    cy.get('nav[aria-label="Menu główne"] a[href="/"]').click();
+    cy.location('pathname').should('eq', '/');
   });
 });

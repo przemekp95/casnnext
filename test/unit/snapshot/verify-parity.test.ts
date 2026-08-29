@@ -236,9 +236,8 @@ describe("candidate parity verifier", () => {
         expect(run.result.status).not.toBe(0);
         const output = `${run.result.stdout}${run.result.stderr}`;
         expect(output).not.toContain(sentinel);
-        if (statSync(run.report, { throwIfNoEntry: false })) {
-          expect(readFileSync(run.report, "utf8")).not.toContain(sentinel);
-        }
+        const report = statSync(run.report, { throwIfNoEntry: false }) ? readFileSync(run.report, "utf8") : "";
+        expect(report).not.toContain(sentinel);
       } finally {
         run.cleanup();
       }

@@ -34,28 +34,47 @@ required inputs are:
 Before its deployment path, the workflow reruns application and Directus smoke
 checks, rejects invalid immutable artifact inputs, pulls the supplied app and
 Nginx digests, and checks their OCI revision labels. With `DEPLOY_HOST`, it
-uses SSH to check out the supplied revision, writes the artifact references to
-`.env` using `scripts/deploy/write-artifact-env.sh`, validates
-`docker-compose.portainer.yml`, and starts it with `docker compose ... up -d
---remove-orphans`.
+uses SSH to fetch the supplied revision and securely execute that revision's
+`scripts/deploy/remote-deploy.sh`. The script preserves the previous exact
+revision, digest references, and `.env`, deploys with Compose readiness checks,
+and runs the exact revision's internal health verifier against `/api/health`
+inside the app container.
+
+If candidate readiness or the internal exact-revision gate fails, the same
+remote process restores the previous `.env` atomically, checks out the previous
+full revision, pulls its exact app and Nginx digests, and proves the restored
+revision's internal health again.
+The workflow still fails even after a successful restore, so the candidate is
+never reported as deployed. This is artifact/configuration rollback only: it
+does not reverse MySQL migrations or Directus metadata changes. A failed
+rollback emits a critical error and requires the separately approved recovery
+procedure in `deployment-reconciliation.md`.
+
+`npm run deploy:policy` mechanically rejects application migration commands,
+migration gate variables, and Directus schema/bootstrap mutation in both the
+remote deployment implementation and the workflow's SSH deployment block.
+Database or Directus recovery must therefore use the separately approved,
+backup-backed reconciliation procedure; it cannot be smuggled into artifact
+rollback.
 
 Without `DEPLOY_HOST`, a set `PORTAINER_URL` deliberately fails because a
 Portainer-only path cannot inject validated immutable artifacts. With neither,
-the workflow only prints a manual-deployment notification. After a successful
-SSH deployment, a separate retrying health gate executes the database-backed
-`/api/health` probe over loopback inside the deployed app container. The gate
-accepts only JSON reporting `status=ready`, `database=connected`, and a
-`revision` exactly equal to the dispatched `app_revision`; transport success
-alone is insufficient.
+the workflow only prints a manual-deployment notification. The rollback-capable
+remote deployment gates both the candidate and any restored release by probing
+the database-backed `/api/health` endpoint over loopback inside the app
+container. It accepts only JSON reporting `status=ready`,
+`database=connected`, and a `revision` exactly equal to the release being
+started; transport success alone is insufficient.
 
-Public runtime acceptance remains a separate check against
-`https://casn.pl/api/health`. The original secret was diagnosed without
-printing it and matched that exact canonical URL. Both GitHub-hosted runner and
-deployment-host requests received HTTP 403 from a Cloudflare Managed Challenge;
-JSON `Accept` and a browser-like user agent did not change the response. The
-internal revision gate therefore determines workflow success, while an
-independent public probe records edge/runtime evidence. Successful SSH, the
-internal health gate, and public runtime acceptance are three distinct claims.
+After the remote deployment returns successfully, the workflow runs the same
+internal exact-revision gate again as a separate, intentionally redundant item
+of evidence. Public runtime acceptance remains independent and must probe
+`https://casn.pl/api/health` separately. A Cloudflare Managed Challenge can
+answer that edge request with HTTP 403 even when the container is healthy, so
+the public endpoint is unsuitable as the workflow-success gate. Successful SSH,
+the candidate/rollback internal gate, the later workflow internal gate, and
+public runtime acceptance remain distinct claims. This checked-in contract does
+not establish that production was accessed or deployed.
 
 ## Runtime contract
 
@@ -73,12 +92,15 @@ local/rehearsal topology at `3001:8080`.
 - `/cms/` proxies to Directus, `/cms/assets/` is new Directus media, and the
   historical `/cms/uploads/` path is read-only legacy-volume access.
 
-The application does not automatically migrate unless both
+Application startup never runs migrations. `npm run migration:run` is the only
+supported migration path and refuses to run unless both
 `RUN_DB_MIGRATIONS=1` and
-`DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS` are present. The supplied Compose
-files deliberately do not inject either value. `npm run migration:run` remains
-an explicit migration command and must be used only in an approved isolated
-rehearsal or separately approved change.
+`DB_MIGRATION_CONFIRM=RUN_CASN_MIGRATIONS` are present. It also refuses an
+existing content schema without the recorded initial migration. The supplied
+Compose files deliberately inject neither variable. Use the command only in an
+approved isolated rehearsal or separately approved change. A non-zero result
+stops the command, but MySQL DDL can commit implicitly and is not guaranteed to
+roll back atomically.
 
 ## Required secrets and artifact variables
 

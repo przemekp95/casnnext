@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import matter from "gray-matter";
 import type { Metadata } from "next";
 import { cache } from "react";
@@ -18,6 +17,11 @@ export const dynamicParams = true;
 const SITE_URL = "https://casn.pl";
 const SITE_NAME = "Centrum Analiz Służby Niepodległej";
 const DEFAULT_OG_IMAGE = "/images/home2.webp";
+type PageProps = { params: Promise<{ slug: string }> };
+
+function errorMessage(value: unknown): string {
+  return value instanceof Error ? value.message : String(value);
+}
 
 export async function generateStaticParams() {
   try {
@@ -27,7 +31,7 @@ export async function generateStaticParams() {
     }));
   } catch (error) {
     // W przypadku błędu DB, zwróć pustą tablicę (fallback do SSR)
-    console.warn('generateStaticParams failed:', error);
+    console.warn('generateStaticParams failed:', errorMessage(error));
     return [];
   }
 }
@@ -242,7 +246,7 @@ function isControlledNotFound(error: unknown): boolean {
 }
 
 // Generate metadata for each analysis article
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
     const { slug } = await params;
     const article = await getAnalysisMetadataData(slug);
@@ -298,7 +302,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       },
     };
   } catch (error) {
-    console.warn("Error generating metadata for analysis:", error);
+    console.warn("Error generating metadata for analysis:", errorMessage(error));
     return {
       title: "Centrum Analiz Służby Niepodległej",
       description: "Analizy polityki i społeczeństwa",
@@ -307,7 +311,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 // ——— Główna strona ————————————————————————————————————————————————
-export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+export default async function Page({ params }: PageProps) {
   try {
     const { slug } = await params;
     if (!slug) return notFound();
@@ -424,10 +428,10 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
         </ArticleLayout>
       </>
     );
-  } catch (e: any) {
-    if (!isControlledNotFound(e)) {
-      console.warn("FATAL error in analysis page:", e?.stack || e);
+  } catch (error) {
+    if (!isControlledNotFound(error)) {
+      console.warn("FATAL error in analysis page:", errorMessage(error));
     }
-    throw e;
+    throw error;
   }
 }

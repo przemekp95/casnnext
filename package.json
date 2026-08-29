@@ -7,14 +7,22 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "npm run build:lib && next build",
-    "build:lib": "tsc lib/db.server.ts --outDir . --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
+    "build": "npm run build:runtime && next build",
+    "build:runtime": "tsc -p tsconfig.runtime.json",
     "prebuild": "bash scripts/check-posts.sh",
-    "postbuild": "node scripts/prepare-tmp.js",
-    "start": "node server.js",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --ignore-pattern 'lib/' --ignore-pattern 'migrations/'",
-    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix --ignore-pattern 'lib/' --ignore-pattern 'migrations/'",
+    "postbuild": "node scripts/prepare-tmp.mjs",
+    "start": "node server.cjs",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs --fix --max-warnings 0",
+    "quality:policy": "bash scripts/ci/quality-debt-policy.sh",
+    "first-party-quality:policy": "bash scripts/ci/first-party-quality-policy.sh .",
+    "runtime:policy": "bash scripts/ci/runtime-source-policy.sh . all",
+    "runtime:policy:test": "bash scripts/ci/runtime-source-policy-test.sh",
     "type-check": "tsc --noEmit -p tsconfig.ci.json",
+    "disposable-lifecycle:type-check": "tsc -p tsconfig.disposable-lifecycle.json",
+    "disposable-lifecycle:test:unit": "jest --runInBand test/unit/ci/disposable-lifecycle",
+    "disposable-lifecycle:test:process": "jest --runInBand --runTestsByPath test/integration/ci/disposable-lifecycle.test.ts",
+    "disposable-lifecycle:test:fast": "npm run disposable-lifecycle:type-check && npm run disposable-lifecycle:test:unit && npm run disposable-lifecycle:test:process && bash scripts/ci/with-disposable-app-regression-test.sh all-fast",
     "test": "jest",
     "test:ci": "jest --runInBand",
     "test:unit": "jest",
@@ -32,9 +40,10 @@
     "snapshot:test": "jest --runInBand test/unit/snapshot test/integration/snapshot",
     "snapshot:smoke": "bash scripts/ci/snapshot-roundtrip.sh",
     "db:seed": "echo 'Seeding handled by migrations - data included in InitialSetup migration'",
-    "migration:run": "tsx node_modules/.bin/typeorm migration:run -d lib/db.datasource.ts",
+    "migration:run": "tsx scripts/run-migrations.ts",
     "migration:create": "tsx node_modules/.bin/typeorm migration:create",
-    "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.datasource.ts"
+    "migration:revert": "tsx node_modules/.bin/typeorm migration:revert -d lib/db.datasource.ts",
+    "first-party-quality:policy:test": "bash scripts/ci/first-party-quality-policy-test.sh"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.0",
@@ -75,7 +84,8 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.20.4",
     "typescript": "^5.6.0",
-    "wait-on": "^9.0.4"
+    "wait-on": "^9.0.4",
+    "yaml": "2.9.0"
   },
   "overrides": {
     "axios": "^1.13.5",

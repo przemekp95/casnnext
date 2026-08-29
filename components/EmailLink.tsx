@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 
 type Props = {
   email: string;
@@ -9,20 +9,24 @@ type Props = {
   iconClass?: string;
 };
 
+const subscribeToMountState = () => () => {};
+const getClientMountSnapshot = () => true;
+const getServerMountSnapshot = () => false;
+
 export function EmailLink({
   email,
   ariaLabel,
   className = '',
   iconClass = 'mdi mdi-email mr-1 text-custom',
 }: Props) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    subscribeToMountState,
+    getClientMountSnapshot,
+    getServerMountSnapshot,
+  );
 
   // Don't render anything on the server to prevent Cloudflare obfuscation
-  if (!isMounted) {
+  if (!mounted) {
     return null;
   }
 
