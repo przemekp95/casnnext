@@ -7,6 +7,8 @@ readonly REGISTRY_LOGIN='scripts/deploy/login-registry.sh'
 readonly REMOTE_DEPLOY='scripts/deploy/remote-deploy.sh'
 readonly REMOTE_DEPLOY_TEST='scripts/ci/remote-deploy-rollback-test.sh'
 readonly DEPLOYMENT_MUTATION_CHECK='scripts/ci/assert-no-deployment-db-mutation.sh'
+readonly DEPLOY_MIGRATION_POLICY='scripts/ci/deploy-workflow-migration-policy.mjs'
+readonly DEPLOY_MIGRATION_POLICY_TEST='scripts/ci/deploy-workflow-migration-policy.test.mjs'
 readonly HEALTH_VERIFIER='scripts/deploy/verify-health.sh'
 readonly ACTIONLINT_IMAGE='rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9'
 readonly APP_IMAGE_FIXTURE='ghcr.io/example/casn@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -102,6 +104,9 @@ for required_health_source in \
     exit 1
   fi
 done
+
+node "$DEPLOY_MIGRATION_POLICY_TEST"
+node "$DEPLOY_MIGRATION_POLICY" "$DEPLOY_WORKFLOW"
 
 if ! rg -Fq '"$HEALTH_VERIFIER" "$revision"' "$REMOTE_DEPLOY"; then
   echo 'Remote deployment must health-gate candidate and rollback releases by exact revision.' >&2

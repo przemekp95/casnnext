@@ -261,6 +261,8 @@ jobs:
         run: npm run migration:run
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          RUN_DB_MIGRATIONS: "1"
+          DB_MIGRATION_CONFIRM: RUN_CASN_MIGRATIONS
 
       - name: Run Directus smoke tests
         run: npm run directus:smoke
