@@ -190,6 +190,7 @@ jobs:
         run: npm run test:integration:live
         env:
           DATABASE_URL: mysql://root:rootpassword@localhost:3306/casn_test
+          LIVE_BASE_URL: http://127.0.0.1:3000
           RUN_LIVE_TESTS: "1"
 
       - name: Run E2E tests
