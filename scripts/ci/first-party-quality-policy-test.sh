@@ -94,7 +94,23 @@ reset_fixture() {
     '        run: "npm run lint"' \
     '      - name: Policy' \
     "        run: 'npm run quality:policy'" >"$test_root/repo/.github/workflows/docker.yml"
+  printf '%s\n' \
+    '  build-and-push:' \
+    '    needs: [quality]' \
+    '    runs-on: ubuntu-latest' \
+    '    permissions: { contents: read, packages: write }' \
+    '    steps:' \
+    '      - name: Publish image' \
+    '        uses: docker/build-push-action@v5' \
+    '        with: { push: true }' >>"$test_root/repo/.github/workflows/docker.yml"
   cp "$test_root/repo/.github/workflows/docker.yml" "$test_root/repo/.github/workflows/deploy.yml"
+  printf '%s\n' \
+    '  deploy:' \
+    '    needs: [quality]' \
+    '    runs-on: ubuntu-latest' \
+    '    steps:' \
+    '      - name: Deploy image' \
+    '        uses: appleboy/ssh-action@v1.0.3' >>"$test_root/repo/.github/workflows/deploy.yml"
   git -C "$test_root/repo" add .
 }
 
@@ -116,6 +132,26 @@ fs.writeFileSync(packageFile, `${JSON.stringify(packageJson)}\n`);
 NODE
 git -C "$test_root/repo" add .
 expect_rejected 'npm-execution-contract'
+
+reset_fixture
+sed -i '/  build-and-push:/,/    steps:/ {/    needs: \[quality\]/d;}' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
+sed -i '/  deploy:/a\    if: always()' "$test_root/repo/.github/workflows/deploy.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
+printf '%s\n' \
+  '  release-image:' \
+  '    runs-on: ubuntu-latest' \
+  '    permissions: { packages: write }' \
+  '    steps:' \
+  '      - run: echo publish' >>"$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
 
 reset_fixture
 sed -i '/- name: Lint/i\      - name: Mutate package scripts\n        run: npm pkg set scripts.lint=true' "$test_root/repo/.github/workflows/docker.yml"

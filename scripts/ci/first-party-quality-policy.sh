@@ -210,6 +210,47 @@ NODE
   fi
 }
 
+check_publish_deploy_dependencies() {
+  local workflow="$1"
+
+  if ! node - "$root" "$root/$workflow" <<'NODE'
+const fs = require('fs');
+const { createRequire } = require('module');
+const path = require('path');
+
+const [rootArgument, workflowFile] = process.argv.slice(2);
+const root = path.resolve(rootArgument);
+const requireFromRoot = createRequire(path.join(root, 'package.json'));
+const YAML = requireFromRoot('yaml');
+const workflow = YAML.parse(fs.readFileSync(workflowFile, 'utf8'));
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const publishingAction = /^(?:docker\/build-push-action|appleboy\/ssh-action)@/;
+const publishingName = /(?:deploy|publish|push)/i;
+
+if (!isPlainObject(workflow) || !isPlainObject(workflow.jobs)) process.exit(1);
+
+for (const [jobId, job] of Object.entries(workflow.jobs)) {
+  if (!isPlainObject(job)) process.exit(1);
+  const steps = Array.isArray(job.steps) ? job.steps : [];
+  const publishesOrDeploys = publishingName.test(jobId)
+    || (typeof job.name === 'string' && publishingName.test(job.name))
+    || job.permissions?.packages === 'write'
+    || Object.hasOwn(job, 'environment')
+    || steps.some((step) => isPlainObject(step)
+      && typeof step.uses === 'string' && publishingAction.test(step.uses));
+  if (!publishesOrDeploys) continue;
+
+  const needs = typeof job.needs === 'string' ? [job.needs] : job.needs;
+  if (!Array.isArray(needs) || !needs.includes('quality') || Object.hasOwn(job, 'if')) {
+    process.exit(1);
+  }
+}
+NODE
+  then
+    fail 'workflow-quality-dependency'
+  fi
+}
+
 check_workflow() {
   local workflow="$1"
   local document_kind="$2"
@@ -347,6 +388,8 @@ check_eslint_config
 check_package_scripts
 check_workflow '.github/workflows/quality-checks/action.yml' composite
 check_workflow '.github/workflows/docker.yml' workflow
+check_publish_deploy_dependencies '.github/workflows/docker.yml'
 check_workflow '.github/workflows/deploy.yml' workflow
+check_publish_deploy_dependencies '.github/workflows/deploy.yml'
 
 echo 'First-party quality policy passed.'
