@@ -229,11 +229,52 @@ const requireFromRoot = createRequire(path.join(root, 'package.json'));
 const YAML = requireFromRoot('yaml');
 const workflow = YAML.parse(fs.readFileSync(workflowFile, 'utf8'));
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-const publishingAction = /^(?:docker\/build-push-action|appleboy\/ssh-action)@/;
-const publishingName = /(?:deploy|publish|push)/i;
+const hasExactKeys = (value, keys) => isPlainObject(value)
+  && Object.keys(value).sort().join(',') === [...keys].sort().join(',');
+const publishingAction = /^(?:docker\/build-push-action|appleboy\/ssh-action|softprops\/action-gh-release|actions\/(?:create-release|upload-release-asset))@/;
+const publishingCommand = /\b(?:docker\s+(?:push|buildx\b[^\n]*--push)|npm\s+publish|gh\s+release\b)/i;
+const publishingName = /(?:deploy|publish|push|release)/i;
+const allowedInheritedEnv = new Set([
+  'APP_IMAGE_NAME',
+  'CODECOV_TOKEN',
+  'COVERAGE_EXCELLENT_LINES',
+  'COVERAGE_MIN_LINES',
+  'NGINX_IMAGE_NAME',
+  'REGISTRY',
+]);
+const hasOnlyAllowedInheritedEnv = (env) => env === undefined
+  || (isPlainObject(env) && Object.keys(env).every((name) => allowedInheritedEnv.has(name)));
+const hasReadOnlyContentsPermission = (permissions) => hasExactKeys(permissions, ['contents'])
+  && permissions.contents === 'read';
+const hasStepName = (step) => typeof step.name === 'string' && step.name.trim() !== '';
+const isExactCheckoutStep = (step) => hasExactKeys(step, ['name', 'uses']) && hasStepName(step)
+  && step.uses === 'actions/checkout@v4';
+const isExactSetupNodeStep = (step) => hasExactKeys(step, ['name', 'uses', 'with']) && hasStepName(step)
+  && step.uses === 'actions/setup-node@v4' && hasExactKeys(step.with, ['cache', 'node-version'])
+  && step.with.cache === 'npm' && step.with['node-version'] === '22';
+const isExactRunStep = (step, command) => hasExactKeys(step, ['name', 'run']) && hasStepName(step)
+  && step.run === command;
+const isExactWorkflowGateJob = (job) => isPlainObject(job)
+  && Object.keys(job).every((key) => ['env', 'permissions', 'runs-on', 'steps'].includes(key))
+  && job['runs-on'] === 'ubuntu-latest' && hasReadOnlyContentsPermission(job.permissions)
+  && hasOnlyAllowedInheritedEnv(job.env) && Array.isArray(job.steps) && job.steps.length === 5
+  && isExactCheckoutStep(job.steps[0]) && isExactSetupNodeStep(job.steps[1])
+  && isExactRunStep(job.steps[2], 'npm ci --ignore-scripts')
+  && isExactRunStep(job.steps[3], 'npm run lint')
+  && isExactRunStep(job.steps[4], 'npm run quality:policy');
+const bypassesFailedDependency = (condition) => {
+  if (condition === undefined) return false;
+  if (typeof condition !== 'string') return true;
+  const expression = condition.trim().replace(/^\$\{\{\s*/, '').replace(/\s*\}\}$/, '').trim();
+  if (/needs\s*\.\s*quality\s*\.\s*result/i.test(expression)) return true;
+  const statusChecks = expression.match(/\b(?:always|cancelled|failure|success)\s*\(\s*\)/gi) ?? [];
+  if (statusChecks.length === 0) return false;
+  return expression.toLowerCase() !== 'success()';
+};
 
-if (!isPlainObject(workflow) || !isPlainObject(workflow.jobs)) process.exit(1);
+if (!isPlainObject(workflow) || !isPlainObject(workflow.jobs)) process.exit(0);
 
+const protectedJobs = [];
 for (const [jobId, job] of Object.entries(workflow.jobs)) {
   if (!isPlainObject(job)) process.exit(1);
   const steps = Array.isArray(job.steps) ? job.steps : [];
@@ -242,14 +283,17 @@ for (const [jobId, job] of Object.entries(workflow.jobs)) {
     || job.permissions?.packages === 'write'
     || Object.hasOwn(job, 'environment')
     || steps.some((step) => isPlainObject(step)
-      && typeof step.uses === 'string' && publishingAction.test(step.uses));
+      && ((typeof step.uses === 'string' && publishingAction.test(step.uses))
+        || (typeof step.run === 'string' && publishingCommand.test(step.run))));
   if (!publishesOrDeploys) continue;
+  protectedJobs.push(job);
 
   const needs = typeof job.needs === 'string' ? [job.needs] : job.needs;
-  if (!Array.isArray(needs) || !needs.includes('quality') || Object.hasOwn(job, 'if')) {
+  if (!Array.isArray(needs) || !needs.includes('quality') || bypassesFailedDependency(job.if)) {
     process.exit(1);
   }
 }
+if (protectedJobs.length > 0 && !isExactWorkflowGateJob(workflow.jobs.quality)) process.exit(1);
 NODE
   then
     fail 'workflow-quality-dependency'
@@ -433,8 +477,13 @@ check_package_scripts
 check_workflow '.github/workflows/quality-checks/action.yml' composite
 check_workflow '.github/workflows/docker.yml' workflow
 check_docker_triggers
-check_publish_deploy_dependencies '.github/workflows/docker.yml'
 check_workflow '.github/workflows/deploy.yml' workflow
-check_publish_deploy_dependencies '.github/workflows/deploy.yml'
+
+while IFS= read -r -d '' workflow; do
+  relative_workflow="${workflow#./}"
+  workflow_name="${relative_workflow#.github/workflows/}"
+  [[ "$workflow_name" == */* ]] && continue
+  check_publish_deploy_dependencies "$relative_workflow"
+done < <(git -C "$root" ls-files -z -- '.github/workflows/*.yml')
 
 echo 'First-party quality policy passed.'

@@ -22,7 +22,31 @@ permissions:
   actions: read
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install immutable quality dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Enforce quality debt policy
+        run: npm run quality:policy
+
   release:
+    needs: [quality]
     runs-on: ubuntu-latest
 
     steps:
