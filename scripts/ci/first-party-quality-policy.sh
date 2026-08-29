@@ -170,7 +170,17 @@ const allowedLifecycleHooks = new Map([
   ['prebuild', 'bash scripts/check-posts.sh'],
   ['postbuild', 'node scripts/prepare-tmp.mjs'],
 ]);
+const requiredPreflightScripts = new Map([
+  ['build:runtime', 'tsc -p tsconfig.runtime.json'],
+  ['quality:policy', 'bash scripts/ci/quality-debt-policy.sh'],
+  ['runtime:policy:test', 'bash scripts/ci/runtime-source-policy-test.sh'],
+  ['runtime:policy', 'bash scripts/ci/runtime-source-policy.sh . all'],
+]);
 const unprefixedLifecycleHooks = new Set(['dependencies', 'install', 'publish', 'version']);
+
+for (const [name, command] of requiredPreflightScripts) {
+  if (scripts[name] !== command) process.exit(1);
+}
 
 for (const [name, command] of Object.entries(scripts)) {
   if (!/^(?:pre|post)/.test(name) && !unprefixedLifecycleHooks.has(name)) continue;
@@ -257,13 +267,14 @@ const isExactRipgrepStep = (step) => isExactRunStep(
 const isExactWorkflowGateJob = (job) => isPlainObject(job)
   && Object.keys(job).every((key) => ['env', 'permissions', 'runs-on', 'steps'].includes(key))
   && job['runs-on'] === 'ubuntu-latest' && hasReadOnlyContentsPermission(job.permissions)
-  && hasOnlyAllowedInheritedEnv(job.env) && Array.isArray(job.steps) && job.steps.length === 7
+  && hasOnlyAllowedInheritedEnv(job.env) && Array.isArray(job.steps) && job.steps.length === 8
   && isExactCheckoutStep(job.steps[0]) && isExactSetupNodeStep(job.steps[1])
   && isExactRipgrepStep(job.steps[2])
   && isExactRunStep(job.steps[3], 'npm ci --ignore-scripts')
   && isExactRunStep(job.steps[4], 'bash scripts/ci/first-party-quality-policy.sh .')
-  && isExactRunStep(job.steps[5], 'npm run lint')
-  && isExactRunStep(job.steps[6], 'npm run quality:policy');
+  && isExactRunStep(job.steps[5], 'npm run build:runtime')
+  && isExactRunStep(job.steps[6], 'npm run lint')
+  && isExactRunStep(job.steps[7], 'npm run quality:policy');
 const bypassesFailedDependency = (condition) => {
   if (condition === undefined) return false;
   if (typeof condition !== 'string') return true;
@@ -391,7 +402,7 @@ const isExactRipgrepStep = (step) => isExactRunStep(
 const isExactWorkflowGateJob = (job) => {
   if (!isPlainObject(job) || !Object.keys(job).every((key) => ['env', 'permissions', 'runs-on', 'steps'].includes(key))
     || job['runs-on'] !== 'ubuntu-latest' || !hasReadOnlyContentsPermission(job.permissions)
-    || !hasOnlyAllowedInheritedEnv(job.env) || !Array.isArray(job.steps) || job.steps.length !== 7) {
+    || !hasOnlyAllowedInheritedEnv(job.env) || !Array.isArray(job.steps) || job.steps.length !== 8) {
     return false;
   }
   return isExactCheckoutStep(job.steps[0])
@@ -399,8 +410,9 @@ const isExactWorkflowGateJob = (job) => {
     && isExactRipgrepStep(job.steps[2])
     && isExactRunStep(job.steps[3], 'npm ci --ignore-scripts')
     && isExactRunStep(job.steps[4], 'bash scripts/ci/first-party-quality-policy.sh .')
-    && isExactRunStep(job.steps[5], 'npm run lint')
-    && isExactRunStep(job.steps[6], 'npm run quality:policy');
+    && isExactRunStep(job.steps[5], 'npm run build:runtime')
+    && isExactRunStep(job.steps[6], 'npm run lint')
+    && isExactRunStep(job.steps[7], 'npm run quality:policy');
 };
 const isExactCompositeGateStep = (step) => hasExactKeys(step, ['name', 'run', 'shell'])
   && hasStepName(step) && step.shell === 'bash';
@@ -463,8 +475,8 @@ if (adjacent && documentKind === 'composite') {
     || !isExactCompositeGateStep(lintCommands[0].group.steps[0]);
 }
 if (adjacent && documentKind === 'workflow') {
-  invalid ||= lintCommands[0].stepIndex !== 5 || lintCommands[0].commandIndex !== 0
-    || policyCommands[0].stepIndex !== 6 || policyCommands[0].commandIndex !== 0
+  invalid ||= lintCommands[0].stepIndex !== 6 || lintCommands[0].commandIndex !== 0
+    || policyCommands[0].stepIndex !== 7 || policyCommands[0].commandIndex !== 0
     || !isExactWorkflowGateJob(lintCommands[0].group.job);
 }
 process.exit(invalid || !adjacent ? 1 : 0);

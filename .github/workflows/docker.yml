@@ -39,6 +39,9 @@ jobs:
       - name: Enforce lifecycle-safe preflight
         run: bash scripts/ci/first-party-quality-policy.sh .
 
+      - name: Build runtime policy target
+        run: npm run build:runtime
+
       - name: Lint code
         run: npm run lint
 

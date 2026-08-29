@@ -27,7 +27,7 @@ reset_fixture() {
   ln -s "$source_root/node_modules" "$test_root/repo/node_modules"
   git -C "$test_root/repo" init -q
   printf '%s\n' 'strict-allow-scripts=true' >"$test_root/repo/.npmrc"
-  printf '%s\n' '{"scripts":{"prebuild":"bash scripts/check-posts.sh","postbuild":"node scripts/prepare-tmp.mjs","lint":"eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0","first-party-quality:policy":"bash scripts/ci/first-party-quality-policy.sh ."}}' >"$test_root/repo/package.json"
+  printf '%s\n' '{"scripts":{"prebuild":"bash scripts/check-posts.sh","postbuild":"node scripts/prepare-tmp.mjs","build:runtime":"tsc -p tsconfig.runtime.json","quality:policy":"bash scripts/ci/quality-debt-policy.sh","runtime:policy:test":"bash scripts/ci/runtime-source-policy-test.sh","runtime:policy":"bash scripts/ci/runtime-source-policy.sh . all","lint":"eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mts,.cts --max-warnings 0","first-party-quality:policy":"bash scripts/ci/first-party-quality-policy.sh ."}}' >"$test_root/repo/package.json"
   printf '%s\n' \
     'import { defineConfig } from "eslint/config";' \
     'import nextCoreWebVitals from "eslint-config-next/core-web-vitals";' \
@@ -94,6 +94,8 @@ reset_fixture() {
     '        run: npm ci --ignore-scripts' \
     '      - name: Enforce lifecycle-safe preflight' \
     '        run: bash scripts/ci/first-party-quality-policy.sh .' \
+    '      - name: Build runtime policy target' \
+    '        run: npm run build:runtime' \
     '      - name: Lint' \
     '        run: "npm run lint"' \
     '      - name: Policy' \
@@ -134,6 +136,11 @@ expect_rejected 'workflow-must-run-quality'
 
 reset_fixture
 sed -i 's#bash scripts/ci/first-party-quality-policy.sh \.#npm run first-party-quality:policy#' "$test_root/repo/.github/workflows/docker.yml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-must-run-quality'
+
+reset_fixture
+sed -i '/- name: Build runtime policy target/,+1d' "$test_root/repo/.github/workflows/docker.yml"
 git -C "$test_root/repo" add .
 expect_rejected 'workflow-must-run-quality'
 
@@ -223,6 +230,17 @@ const fs = require('fs');
 const packageFile = process.argv[2];
 const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
 packageJson.scripts.prebuild = 'true';
+fs.writeFileSync(packageFile, `${JSON.stringify(packageJson)}\n`);
+NODE
+git -C "$test_root/repo" add .
+expect_rejected 'npm-execution-contract'
+
+reset_fixture
+node - "$test_root/repo/package.json" <<'NODE'
+const fs = require('fs');
+const packageFile = process.argv[2];
+const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+packageJson.scripts['build:runtime'] = 'npm pkg set scripts.lint=true scripts.quality:policy=true';
 fs.writeFileSync(packageFile, `${JSON.stringify(packageJson)}\n`);
 NODE
 git -C "$test_root/repo" add .
