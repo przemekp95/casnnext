@@ -487,6 +487,6 @@ while IFS= read -r -d '' workflow; do
   workflow_name="${relative_workflow#.github/workflows/}"
   [[ "$workflow_name" == */* ]] && continue
   check_publish_deploy_dependencies "$relative_workflow"
-done < <(git -C "$root" ls-files -z -- '.github/workflows/*.yml')
+done < <(git -C "$root" ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml')
 
 echo 'First-party quality policy passed.'

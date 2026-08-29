@@ -134,6 +134,17 @@ git -C "$test_root/repo" add .
 expect_rejected 'workflow-quality-dependency'
 
 reset_fixture
+printf '%s\n' \
+  'on: { push: { tags: ["v*"] } }' \
+  'jobs:' \
+  '  release:' \
+  '    runs-on: ubuntu-latest' \
+  '    steps:' \
+  '      - uses: softprops/action-gh-release@v2' >"$test_root/repo/.github/workflows/future-release.yaml"
+git -C "$test_root/repo" add .
+expect_rejected 'workflow-quality-dependency'
+
+reset_fixture
 printf '%s\n' 'script-shell=./test/fake/wrapper' >>"$test_root/repo/.npmrc"
 git -C "$test_root/repo" add .
 expect_rejected 'npm-execution-contract'
