@@ -52,7 +52,7 @@
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "typeorm": "0.3.31",
-    "zod": "^4.3.6"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@exodus/bytes": "^1.14.1",
